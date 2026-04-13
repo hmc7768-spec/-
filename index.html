@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HR 시스템 기획 데모</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="addon.css">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222635;
+    --border: #2e3248;
+    --accent: #4f8ef7;
+    --accent2: #7c5cfc;
+    --accent3: #38d9a9;
+    --text: #e8eaf0;
+    --text2: #9095b0;
+    --text3: #5a6080;
+    --highlight: rgba(79,142,247,0.18);
+    --highlight-border: rgba(79,142,247,0.7);
+    --tag-bg: rgba(79,142,247,0.12);
+    --warning: #f5a623;
+    --success: #38d9a9;
+    --danger: #ff6b6b;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* TOP NAV */
+  .top-nav {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    height: 52px;
+    flex-shrink: 0;
+    z-index: 100;
+  }
+  .nav-logo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 500;
+    letter-spacing: 1px;
+    margin-right: 32px;
+  }
+  .nav-logo span { color: var(--text2); }
+  .nav-tabs {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+  }
+  .nav-tab {
+    padding: 6px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text2);
+    transition: all .2s;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .nav-tab:hover { color: var(--text); background: var(--surface2); }
+  .nav-tab.active {
+    color: var(--accent);
+    background: var(--tag-bg);
+    border-color: var(--border);
+  }
+  .nav-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 20px;
+    margin-left: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .badge-blue { background: rgba(79,142,247,.2); color: var(--accent); }
+  .badge-purple { background: rgba(124,92,252,.2); color: var(--accent2); }
+
+  /* MAIN LAYOUT */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* LEFT DEMO PANEL */
+  .demo-panel {
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
+    background: #f0f2f7;
+    position: relative;
+  }
+  .demo-panel::-webkit-scrollbar { width: 6px; }
+  .demo-panel::-webkit-scrollbar-track { background: transparent; }
+  .demo-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* RIGHT ANNOTATION PANEL */
+  .anno-panel {
+    width: 320px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .anno-panel::-webkit-scrollbar { width: 4px; }
+  .anno-panel::-webkit-scrollbar-track { background: transparent; }
+  .anno-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .anno-header {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 10;
+  }
+  .anno-header h3 {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text2);
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .anno-list { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+
+  .anno-item {
+    padding: 11px 13px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    cursor: pointer;
+    transition: all .2s;
+    position: relative;
+  }
+  .anno-item:hover, .anno-item.hovered {
+    border-color: var(--highlight-border);
+    background: var(--highlight);
+  }
+  .anno-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 500;
+    margin-bottom: 4px;
+    opacity: .7;
+  }
+  .anno-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+  .anno-desc {
+    font-size: 11.5px;
+    color: var(--text2);
+    line-height: 1.6;
+  }
+  .anno-tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-top: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 500;
+  }
+  .tag-input { background: rgba(56,217,169,.12); color: var(--success); }
+  .tag-view { background: rgba(79,142,247,.12); color: var(--accent); }
+  .tag-nav { background: rgba(245,166,35,.12); color: var(--warning); }
+  .tag-action { background: rgba(255,107,107,.12); color: var(--danger); }
+  .tag-search { background: rgba(124,92,252,.12); color: var(--accent2); }
+
+  /* SECTION DIVIDER IN ANNO */
+  .anno-section {
+    padding: 8px 12px 4px;
+    font-size: 10px;
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  /* HIGHLIGHT OVERLAY */
+  .highlight-overlay {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 6px;
+    border: 2px solid var(--highlight-border);
+    background: var(--highlight);
+    transition: all .25s cubic-bezier(.4,0,.2,1);
+    z-index: 50;
+    opacity: 0;
+    box-shadow: 0 0 20px rgba(79,142,247,.25);
+  }
+  .highlight-overlay.visible { opacity: 1; }
+
+  /* =============== SYSTEM 1: HR SYSTEM =============== */
+  .hr-system {
+    display: none;
+    flex-direction: column;
+    min-height: 100%;
+    background: #f0f2f7;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .hr-system.active { display: flex; }
+
+  .hr-topbar {
+    background: #1e3a5f;
+    color: white;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    height: 52px;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+  .hr-logo {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hr-logo-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #4f8ef7, #7c5cfc);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .hr-top-menu {
+    display: flex;
+    gap: 2px;
+    flex: 1;
+  }
+  .hr-top-item {
+    padding: 6px 14px;
+    font-size: 12px;
+    color: rgba(255,255,255,.7);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .hr-top-item:hover, .hr-top-item.active {
+    background: rgba(255,255,255,.12);
+    color: white;
+  }
+  .hr-top-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: rgba(255,255,255,.8);
+  }
+  .hr-avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg,#38d9a9,#4f8ef7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: white;
+  }
+
+  .hr-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  .hr-sidebar {
+    width: 200px;
+    background: #ffffff;
+    border-right: 1px solid #dde1ec;
+    flex-shrink: 0;
+    padding: 12px 0;
+    overflow-y: auto;
+  }
+  .hr-sidebar-section {
+    padding: 6px 14px 2px;
+    font-size: 10px;
+    color: #9095b0;
+    font-weight: 600;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+  }
+  .hr-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 16px;
+    font-size: 12.5px;
+    color: #4a5170;
+    cursor: pointer;
+    transition: all .15s;
+    border-left: 3px solid transparent;
+  }
+  .hr-sidebar-item:hover { background: #f5f7ff; color: #1e3a5f; }
+  .hr-sidebar-item.active {
+    background: #eef2ff;
+    color: #1e3a5f;
+    font-weight: 600;
+    border-left-color: #4f8ef7;
+  }
+  .hr-sidebar-icon { font-size: 14px; width: 16px; text-align: center; }
+
+  .hr-content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .hr-page-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .hr-page-title h2 { font-size: 18px; color: #1e3a5f; font-weight: 700; }
+  .hr-page-title p { font-size: 12px; color: #9095b0; margin-top: 2px; }
+  .hr-btn {
+    padding: 7px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all .15s;
+  }
+  .btn-primary { background: #1e3a5f; color: white; }
+  .btn-primary:hover { background: #2a4f80; }
+  .btn-outline { background: transparent; border: 1px solid #dde1ec; color: #4a5170; }
+  .btn-outline:hover { background: #f5f7ff; }
+
+  /* Search / Filter Bar */
+  .hr-search-bar {
+    background: white;
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .hr-search-input {
+    flex: 1;
+    border: 1px solid #dde1ec;
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: #2a3050;
+    outline: none;
+  }
+  .hr-search-input:focus { border-color: #4f8ef7; }
+  .hr-filter-select {
+    border: 1px solid #dde1ec;
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 12px;
+    color: #4a5170;
+    background: white;
+    cursor: pointer;
+    outline: none;
+  }
+
+  /* Stats row */
+  .hr-stats {
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: 12px;
+  }
+  .hr-stat-card {
+    background: white;
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .hr-stat-label { font-size: 11px; color: #9095b0; font-weight: 500; }
+  .hr-stat-value { font-size: 24px; font-weight: 700; color: #1e3a5f; margin-top: 4px; }
+  .hr-stat-sub { font-size: 11px; color: #38d9a9; margin-top: 2px; }
+
+  /* Employee Table */
+  .hr-table-wrap {
+    background: white;
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .hr-table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid #eef0f8;
+  }
+  .hr-table-header h3 { font-size: 13px; font-weight: 700; color: #1e3a5f; }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    background: #f8f9fd;
+    font-size: 11px;
+    font-weight: 600;
+    color: #7a80a0;
+    padding: 9px 12px;
+    text-align: left;
+    letter-spacing: .4px;
+    border-bottom: 1px solid #eef0f8;
+  }
+  td {
+    padding: 9px 12px;
+    font-size: 12px;
+    color: #2a3050;
+    border-bottom: 1px solid #f5f7ff;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafbff; }
+  .emp-name { font-weight: 600; color: #1e3a5f; }
+  .status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .status-active { background: #e8faf5; color: #20a07a; }
+  .status-leave { background: #fff4e0; color: #d4870a; }
+
+  /* Org Chart */
+  .org-chart-wrap {
+    background: white;
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    padding: 20px;
+    display: none;
+  }
+  .org-chart-wrap.active { display: block; }
+  .org-node {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 14px;
+    background: #eef2ff;
+    border: 1.5px solid #b5c0e8;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #1e3a5f;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .org-node:hover { background: #dde5ff; border-color: #4f8ef7; }
+  .org-node.root { background: #1e3a5f; color: white; border-color: #1e3a5f; }
+  .org-title { font-size: 10px; font-weight: 400; color: #7a80a0; margin-top: 2px; }
+  .org-node.root .org-title { color: rgba(255,255,255,.6); }
+  .org-row { display: flex; gap: 16px; align-items: flex-start; justify-content: center; margin-top: 20px; }
+  .org-group { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .org-line-v { width: 1px; height: 16px; background: #b5c0e8; margin: 0 auto; }
+  .org-line-h-wrap { display: flex; justify-content: center; width: 100%; }
+
+  /* HR Card */
+  .hr-card-grid {
+    display: none;
+    grid-template-columns: 280px 1fr;
+    gap: 16px;
+  }
+  .hr-card-grid.active { display: grid; }
+  .hr-card-profile {
+    background: white;
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .hr-card-profile-top {
+    background: linear-gradient(135deg, #1e3a5f, #2a5490);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .hr-profile-avatar {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg,#38d9a9,#4f8ef7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 700; color: white;
+    border: 3px solid rgba(255,255,255,.3);
+  }
+  .hr-card-name { font-size: 16px; font-weight: 700; color: white; }
+  .hr-card-pos { font-size: 11px; color: rgba(255,255,255,.65); }
+  .hr-card-info { padding: 14px 16px; }
+  .hr-info-row {
+    display: flex;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f2f7;
+    gap: 10px;
+  }
+  .hr-info-row:last-child { border-bottom: none; }
+  .hr-info-label { font-size: 11px; color: #9095b0; font-weight: 500; width: 60px; flex-shrink: 0; }
+  .hr-info-val { font-size: 12px; color: #2a3050; font-weight: 500; }
+
+  .hr-card-right { display: flex; flex-direction: column; gap: 12px; }
+  .hr-card-section {
+    background: white;
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .hr-card-section h4 { font-size: 12px; font-weight: 700; color: #1e3a5f; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #eef0f8; }
+  .hr-timeline { display: flex; flex-direction: column; gap: 10px; }
+  .hr-timeline-item { display: flex; gap: 12px; font-size: 12px; }
+  .hr-timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: #4f8ef7; margin-top: 3px; flex-shrink: 0; }
+  .hr-timeline-date { color: #9095b0; font-size: 11px; width: 80px; flex-shrink: 0; }
+  .hr-timeline-text { color: #2a3050; }
+
+  /* =============== SYSTEM 2: EVALUATION SYSTEM =============== */
+  .eval-system {
+    display: none;
+    flex-direction: column;
+    min-height: 100%;
+    background: #f5f4ff;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .eval-system.active { display: flex; }
+
+  .eval-topbar {
+    background: #2d1b69;
+    color: white;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    height: 52px;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+  .eval-logo {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .eval-logo-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #7c5cfc, #a855f7);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .eval-top-menu {
+    display: flex;
+    gap: 2px;
+    flex: 1;
+  }
+  .eval-top-item {
+    padding: 6px 14px;
+    font-size: 12px;
+    color: rgba(255,255,255,.7);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .eval-top-item:hover, .eval-top-item.active {
+    background: rgba(255,255,255,.12);
+    color: white;
+  }
+
+  .eval-body { display: flex; flex: 1; overflow: hidden; }
+  .eval-sidebar {
+    width: 200px;
+    background: white;
+    border-right: 1px solid #e0daf7;
+    flex-shrink: 0;
+    padding: 12px 0;
+    overflow-y: auto;
+  }
+  .eval-sidebar-section {
+    padding: 6px 14px 2px;
+    font-size: 10px;
+    color: #9095b0;
+    font-weight: 600;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+  }
+  .eval-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 16px;
+    font-size: 12.5px;
+    color: #5a4f80;
+    cursor: pointer;
+    transition: all .15s;
+    border-left: 3px solid transparent;
+  }
+  .eval-sidebar-item:hover { background: #f5f3ff; color: #2d1b69; }
+  .eval-sidebar-item.active {
+    background: #ede9ff;
+    color: #2d1b69;
+    font-weight: 600;
+    border-left-color: #7c5cfc;
+  }
+
+  .eval-content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .eval-page-title h2 { font-size: 18px; color: #2d1b69; font-weight: 700; }
+  .eval-page-title p { font-size: 12px; color: #9095b0; margin-top: 2px; }
+
+  .eval-tabs {
+    display: flex;
+    gap: 4px;
+    background: white;
+    border: 1px solid #e0daf7;
+    border-radius: 8px;
+    padding: 4px;
+    align-self: flex-start;
+  }
+  .eval-tab-btn {
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #7a70a0;
+    transition: all .15s;
+    white-space: nowrap;
+    border: none;
+    background: transparent;
+  }
+  .eval-tab-btn:hover { color: #2d1b69; background: #f0ebff; }
+  .eval-tab-btn.active { background: #2d1b69; color: white; }
+
+  .eval-stats {
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: 12px;
+  }
+  .eval-stat-card {
+    background: white;
+    border: 1px solid #e0daf7;
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .eval-stat-label { font-size: 11px; color: #9095b0; font-weight: 500; }
+  .eval-stat-value { font-size: 24px; font-weight: 700; color: #2d1b69; margin-top: 4px; }
+  .eval-stat-sub { font-size: 11px; color: #7c5cfc; margin-top: 2px; }
+
+  .eval-progress-section {
+    background: white;
+    border: 1px solid #e0daf7;
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .eval-progress-section h4 { font-size: 13px; font-weight: 700; color: #2d1b69; margin-bottom: 14px; }
+  .eval-progress-item { margin-bottom: 14px; }
+  .eval-progress-item:last-child { margin-bottom: 0; }
+  .eval-progress-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+  .eval-progress-label { font-weight: 600; color: #2a3050; }
+  .eval-progress-pct { font-weight: 700; color: #7c5cfc; }
+  .eval-progress-bar-bg {
+    height: 6px;
+    background: #f0ebff;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .eval-progress-bar {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #7c5cfc, #a855f7);
+    transition: width .6s ease;
+  }
+
+  /* Evaluation Form */
+  .eval-form-wrap {
+    background: white;
+    border: 1px solid #e0daf7;
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .eval-form-wrap h4 { font-size: 13px; font-weight: 700; color: #2d1b69; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #ede9ff; }
+
+  .eval-criteria-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f5f3ff;
+    gap: 12px;
+  }
+  .eval-criteria-row:last-child { border-bottom: none; }
+  .eval-criteria-name { font-size: 12.5px; font-weight: 500; color: #2a3050; flex: 1; }
+  .eval-criteria-weight { font-size: 11px; color: #9095b0; width: 40px; text-align: right; }
+  .eval-stars {
+    display: flex;
+    gap: 3px;
+  }
+  .eval-star {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #ede9ff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all .15s;
+    font-weight: 700;
+    color: #9090b0;
+  }
+  .eval-star:hover, .eval-star.active { background: #7c5cfc; color: white; }
+
+  /* 360 peer eval grid */
+  .eval-peer-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .eval-peer-card {
+    border: 1.5px solid #e0daf7;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #faf9ff;
+    transition: all .15s;
+  }
+  .eval-peer-card:hover { border-color: #7c5cfc; background: #f5f0ff; }
+  .eval-peer-name { font-size: 12.5px; font-weight: 600; color: #2d1b69; }
+  .eval-peer-dept { font-size: 11px; color: #9095b0; }
+  .eval-peer-status {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-weight: 600;
+    align-self: flex-start;
+  }
+  .peer-done { background: #e8faf5; color: #20a07a; }
+  .peer-pending { background: #fff4e0; color: #d4870a; }
+  .peer-wait { background: #f0ebff; color: #7c5cfc; }
+
+  /* Tooltip for highlights */
+  .highlight-label {
+    position: absolute;
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    top: -22px;
+    left: 0;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .highlight-overlay.visible .highlight-label { opacity: 1; }
+
+  /* Page system toggle */
+  .demo-inner {
+    position: relative;
+    min-height: 100%;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP NAVIGATION -->
+<div class="top-nav">
+  <div class="nav-logo">SYS<span>/</span>PLAN</div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="switchSystem(1)" id="tab1">
+      🗂 인사시스템 <span class="nav-badge badge-blue">HR</span>
+    </div>
+    <div class="nav-tab" onclick="switchSystem(2)" id="tab2">
+      📊 인사평가시스템 <span class="nav-badge badge-purple">EVAL</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- LEFT: DEMO PANEL -->
+  <div class="demo-panel" id="demoPanel">
+    <div class="demo-inner" id="demoInner">
+      <div class="highlight-overlay" id="highlightOverlay">
+        <div class="highlight-label" id="highlightLabel"></div>
+      </div>
+
+      <!-- ======= SYSTEM 1: HR ======= -->
+      <div class="hr-system active" id="hrSystem">
+        <!-- Topbar -->
+        <div class="hr-topbar" data-region="topbar">
+          <div class="hr-logo">
+            <div class="hr-logo-icon">👥</div>
+            통합인사시스템
+          </div>
+          <div class="hr-top-menu" data-region="gnb">
+            <div class="hr-top-item active">사원정보관리</div>
+            <div class="hr-top-item">인사기록카드</div>
+            <div class="hr-top-item">조직도</div>
+            <div class="hr-top-item">발령·이동</div>
+            <div class="hr-top-item">보고서</div>
+          </div>
+          <div class="hr-top-user">
+            <div class="hr-avatar">관</div>
+            관리자
+          </div>
+        </div>
+
+        <div class="hr-body">
+          <!-- Sidebar -->
+          <div class="hr-sidebar" data-region="sidebar">
+            <div class="hr-sidebar-section">사원관리</div>
+            <div class="hr-sidebar-item active">
+              <span class="hr-sidebar-icon">📋</span> 사원명부
+            </div>
+            <div class="hr-sidebar-item">
+              <span class="hr-sidebar-icon">🪪</span> 인사기록카드
+            </div>
+            <div class="hr-sidebar-item">
+              <span class="hr-sidebar-icon">🏢</span> 조직도
+            </div>
+            <div class="hr-sidebar-section">인사처리</div>
+            <div class="hr-sidebar-item">
+              <span class="hr-sidebar-icon">📝</span> 발령입력
+            </div>
+            <div class="hr-sidebar-item">
+              <span class="hr-sidebar-icon">🔄</span> 부서이동
+            </div>
+            <div class="hr-sidebar-item">
+              <span class="hr-sidebar-icon">📅</span> 재직증명
+            </div>
+            <div class="hr-sidebar-section">통계/보고</div>
+            <div class="hr-sidebar-item">
+              <span class="hr-sidebar-icon">📊</span> 인원현황
+            </div>
+            <div class="hr-sidebar-item">
+              <span class="hr-sidebar-icon">📈</span> 통계분석
+            </div>
+          </div>
+
+          <!-- Main Content -->
+          <div class="hr-content">
+            <!-- Page Title -->
+            <div class="hr-page-title" data-region="pagetitle">
+              <div>
+                <h2>사원명부</h2>
+                <p>전체 사원 정보를 조회하고 관리합니다</p>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="hr-btn btn-outline">📥 Excel 내보내기</button>
+                <button class="hr-btn btn-primary">➕ 신규 등록</button>
+              </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="hr-search-bar" data-region="searchbar">
+              <input class="hr-search-input" placeholder="🔍  사원번호, 성명, 부서 검색..." style="flex:2">
+              <select class="hr-filter-select">
+                <option>전체 부서</option>
+                <option>경영지원팀</option>
+                <option>개발팀</option>
+                <option>영업팀</option>
+              </select>
+              <select class="hr-filter-select">
+                <option>전체 직급</option>
+                <option>사원</option>
+                <option>대리</option>
+                <option>과장</option>
+                <option>차장</option>
+              </select>
+              <select class="hr-filter-select">
+                <option>재직상태</option>
+                <option>재직</option>
+                <option>휴직</option>
+              </select>
+              <button class="hr-btn btn-primary" style="padding:7px 14px">검색</button>
+            </div>
+
+            <!-- Stats -->
+            <div class="hr-stats" data-region="stats">
+              <div class="hr-stat-card">
+                <div class="hr-stat-label">전체 사원</div>
+                <div class="hr-stat-value">247</div>
+                <div class="hr-stat-sub">▲ 3명 (이번 달)</div>
+              </div>
+              <div class="hr-stat-card">
+                <div class="hr-stat-label">재직 중</div>
+                <div class="hr-stat-value">231</div>
+                <div class="hr-stat-sub" style="color:#4f8ef7">정규직 198 · 계약직 33</div>
+              </div>
+              <div class="hr-stat-card">
+                <div class="hr-stat-label">휴직 중</div>
+                <div class="hr-stat-value">16</div>
+                <div class="hr-stat-sub" style="color:#f5a623">육아·병가 포함</div>
+              </div>
+              <div class="hr-stat-card">
+                <div class="hr-stat-label">신규 입사</div>
+                <div class="hr-stat-value">5</div>
+                <div class="hr-stat-sub" style="color:#7c5cfc">이번 분기</div>
+              </div>
+            </div>
+
+            <!-- Employee Table -->
+            <div class="hr-table-wrap" data-region="emptable">
+              <div class="hr-table-header">
+                <h3>사원 목록</h3>
+                <div style="font-size:11px;color:#9095b0">총 247명 · 1-10 표시</div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th><input type="checkbox"></th>
+                    <th>사원번호</th>
+                    <th>성명</th>
+                    <th>부서</th>
+                    <th>직급</th>
+                    <th>입사일</th>
+                    <th>재직상태</th>
+                    <th>관리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><input type="checkbox"></td>
+                    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">EMP-0024</td>
+                    <td><span class="emp-name">김지원</span></td>
+                    <td>개발팀</td>
+                    <td>대리</td>
+                    <td>2021.03.02</td>
+                    <td><span class="status-badge status-active">재직</span></td>
+                    <td><a href="#" style="font-size:11px;color:#4f8ef7;text-decoration:none">상세보기</a></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox"></td>
+                    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">EMP-0031</td>
+                    <td><span class="emp-name">이승훈</span></td>
+                    <td>영업팀</td>
+                    <td>과장</td>
+                    <td>2018.07.15</td>
+                    <td><span class="status-badge status-active">재직</span></td>
+                    <td><a href="#" style="font-size:11px;color:#4f8ef7;text-decoration:none">상세보기</a></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox"></td>
+                    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">EMP-0045</td>
+                    <td><span class="emp-name">박민서</span></td>
+                    <td>경영지원팀</td>
+                    <td>사원</td>
+                    <td>2023.01.09</td>
+                    <td><span class="status-badge status-leave">휴직</span></td>
+                    <td><a href="#" style="font-size:11px;color:#4f8ef7;text-decoration:none">상세보기</a></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox"></td>
+                    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">EMP-0012</td>
+                    <td><span class="emp-name">최현우</span></td>
+                    <td>개발팀</td>
+                    <td>차장</td>
+                    <td>2015.04.20</td>
+                    <td><span class="status-badge status-active">재직</span></td>
+                    <td><a href="#" style="font-size:11px;color:#4f8ef7;text-decoration:none">상세보기</a></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox"></td>
+                    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">EMP-0067</td>
+                    <td><span class="emp-name">정다은</span></td>
+                    <td>마케팅팀</td>
+                    <td>사원</td>
+                    <td>2024.02.26</td>
+                    <td><span class="status-badge status-active">재직</span></td>
+                    <td><a href="#" style="font-size:11px;color:#4f8ef7;text-decoration:none">상세보기</a></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Org Chart -->
+            <div class="org-chart-wrap" id="orgChartWrap" data-region="orgchart">
+              <h3 style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:16px">조직도</h3>
+              <div style="text-align:center">
+                <div class="org-node root">
+                  <div>㈜예시기업</div>
+                  <div class="org-title">대표이사</div>
+                </div>
+                <div style="width:1px;height:16px;background:#b5c0e8;margin:0 auto"></div>
+                <div class="org-row">
+                  <div class="org-group">
+                    <div class="org-node"><div>경영지원팀</div><div class="org-title">12명</div></div>
+                  </div>
+                  <div class="org-group">
+                    <div class="org-node"><div>개발팀</div><div class="org-title">45명</div></div>
+                  </div>
+                  <div class="org-group">
+                    <div class="org-node"><div>영업팀</div><div class="org-title">38명</div></div>
+                  </div>
+                  <div class="org-group">
+                    <div class="org-node"><div>마케팅팀</div><div class="org-title">22명</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- HR Record Card -->
+            <div class="hr-card-grid" id="hrCardGrid" data-region="hrcard">
+              <div class="hr-card-profile">
+                <div class="hr-card-profile-top">
+                  <div class="hr-profile-avatar">김</div>
+                  <div class="hr-card-name">김지원</div>
+                  <div class="hr-card-pos">개발팀 · 대리</div>
+                </div>
+                <div class="hr-card-info">
+                  <div class="hr-info-row"><div class="hr-info-label">사원번호</div><div class="hr-info-val">EMP-0024</div></div>
+                  <div class="hr-info-row"><div class="hr-info-label">생년월일</div><div class="hr-info-val">1992.05.14</div></div>
+                  <div class="hr-info-row"><div class="hr-info-label">입사일</div><div class="hr-info-val">2021.03.02</div></div>
+                  <div class="hr-info-row"><div class="hr-info-label">연락처</div><div class="hr-info-val">010-****-4521</div></div>
+                  <div class="hr-info-row"><div class="hr-info-label">최종학력</div><div class="hr-info-val">○○대 컴퓨터공학</div></div>
+                  <div class="hr-info-row"><div class="hr-info-label">재직상태</div><div class="hr-info-val"><span class="status-badge status-active">재직</span></div></div>
+                </div>
+              </div>
+              <div class="hr-card-right">
+                <div class="hr-card-section">
+                  <h4>📋 발령이력</h4>
+                  <div class="hr-timeline">
+                    <div class="hr-timeline-item"><div class="hr-timeline-dot"></div><div class="hr-timeline-date">2024.01.01</div><div class="hr-timeline-text">개발팀 대리 승진</div></div>
+                    <div class="hr-timeline-item"><div class="hr-timeline-dot" style="background:#7c5cfc"></div><div class="hr-timeline-date">2022.07.01</div><div class="hr-timeline-text">개발2팀 → 개발팀 이동</div></div>
+                    <div class="hr-timeline-item"><div class="hr-timeline-dot" style="background:#38d9a9"></div><div class="hr-timeline-date">2021.03.02</div><div class="hr-timeline-text">입사 (개발2팀 사원)</div></div>
+                  </div>
+                </div>
+                <div class="hr-card-section">
+                  <h4>🎓 자격/교육이력</h4>
+                  <div class="hr-timeline">
+                    <div class="hr-timeline-item"><div class="hr-timeline-dot" style="background:#f5a623"></div><div class="hr-timeline-date">2023.08</div><div class="hr-timeline-text">정보처리기사 취득</div></div>
+                    <div class="hr-timeline-item"><div class="hr-timeline-dot" style="background:#f5a623"></div><div class="hr-timeline-date">2022.03</div><div class="hr-timeline-text">직무교육 이수 (40h)</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- end hr-content -->
+        </div><!-- end hr-body -->
+      </div><!-- end hr-system -->
+
+      <!-- ======= SYSTEM 2: EVALUATION ======= -->
+      <div class="eval-system" id="evalSystem">
+        <div class="eval-topbar" data-region="eval-topbar">
+          <div class="eval-logo">
+            <div class="eval-logo-icon">📊</div>
+            인사평가시스템
+          </div>
+          <div class="eval-top-menu" data-region="eval-gnb">
+            <div class="eval-top-item active">평가현황</div>
+            <div class="eval-top-item">인사평가</div>
+            <div class="eval-top-item">상향평가</div>
+            <div class="eval-top-item">다면평가(360°)</div>
+            <div class="eval-top-item">결과분석</div>
+          </div>
+          <div class="hr-top-user">
+            <div class="hr-avatar" style="background:linear-gradient(135deg,#7c5cfc,#a855f7)">관</div>
+            관리자
+          </div>
+        </div>
+
+        <div class="eval-body">
+          <div class="eval-sidebar" data-region="eval-sidebar">
+            <div class="eval-sidebar-section">평가관리</div>
+            <div class="eval-sidebar-item active">📊 평가현황대시보드</div>
+            <div class="eval-sidebar-item">📝 인사평가 입력</div>
+            <div class="eval-sidebar-item">⬆️ 상향평가 입력</div>
+            <div class="eval-sidebar-item">🔄 다면평가 관리</div>
+            <div class="eval-sidebar-section">설정</div>
+            <div class="eval-sidebar-item">⚙️ 평가항목 설정</div>
+            <div class="eval-sidebar-item">👥 평가자 배정</div>
+            <div class="eval-sidebar-item">📅 평가기간 설정</div>
+            <div class="eval-sidebar-section">결과</div>
+            <div class="eval-sidebar-item">📈 결과 집계</div>
+            <div class="eval-sidebar-item">📄 평가보고서</div>
+          </div>
+
+          <div class="eval-content">
+            <div class="eval-page-title" data-region="eval-pagetitle">
+              <div>
+                <h2>2024년 하반기 인사평가</h2>
+                <p>평가기간: 2024.12.01 ~ 2024.12.31 · 연동: 인사시스템 사원정보</p>
+              </div>
+            </div>
+
+            <!-- Eval type tabs -->
+            <div class="eval-tabs" data-region="eval-tabs">
+              <button class="eval-tab-btn active">📋 인사평가</button>
+              <button class="eval-tab-btn">⬆️ 상향평가</button>
+              <button class="eval-tab-btn">🔄 다면평가 (360°)</button>
+            </div>
+
+            <!-- Stats -->
+            <div class="eval-stats" data-region="eval-stats">
+              <div class="eval-stat-card">
+                <div class="eval-stat-label">평가 대상</div>
+                <div class="eval-stat-value">231</div>
+                <div class="eval-stat-sub">인사시스템 재직자 연동</div>
+              </div>
+              <div class="eval-stat-card">
+                <div class="eval-stat-label">평가 완료</div>
+                <div class="eval-stat-value">187</div>
+                <div class="eval-stat-sub">완료율 80.9%</div>
+              </div>
+              <div class="eval-stat-card">
+                <div class="eval-stat-label">평가 진행중</div>
+                <div class="eval-stat-value">31</div>
+                <div class="eval-stat-sub" style="color:#f5a623">마감 D-12</div>
+              </div>
+              <div class="eval-stat-card">
+                <div class="eval-stat-label">미착수</div>
+                <div class="eval-stat-value">13</div>
+                <div class="eval-stat-sub" style="color:#ff6b6b">알림 발송 필요</div>
+              </div>
+            </div>
+
+            <!-- Progress -->
+            <div class="eval-progress-section" data-region="eval-progress">
+              <h4>평가 유형별 진행 현황</h4>
+              <div class="eval-progress-item">
+                <div class="eval-progress-header">
+                  <span class="eval-progress-label">📋 인사평가 (상위자 → 하위자)</span>
+                  <span class="eval-progress-pct">85%</span>
+                </div>
+                <div class="eval-progress-bar-bg"><div class="eval-progress-bar" style="width:85%"></div></div>
+              </div>
+              <div class="eval-progress-item">
+                <div class="eval-progress-header">
+                  <span class="eval-progress-label">⬆️ 상향평가 (하위자 → 상위자)</span>
+                  <span class="eval-progress-pct" style="color:#38d9a9">72%</span>
+                </div>
+                <div class="eval-progress-bar-bg"><div class="eval-progress-bar" style="width:72%;background:linear-gradient(90deg,#38d9a9,#4f8ef7)"></div></div>
+              </div>
+              <div class="eval-progress-item">
+                <div class="eval-progress-header">
+                  <span class="eval-progress-label">🔄 다면평가 (360° 상호평가)</span>
+                  <span class="eval-progress-pct" style="color:#f5a623">61%</span>
+                </div>
+                <div class="eval-progress-bar-bg"><div class="eval-progress-bar" style="width:61%;background:linear-gradient(90deg,#f5a623,#ff6b6b)"></div></div>
+              </div>
+            </div>
+
+            <!-- Eval Form -->
+            <div class="eval-form-wrap" data-region="eval-form">
+              <h4>📝 인사평가 입력 — 김지원 대리 (개발팀)</h4>
+              <div class="eval-criteria-row">
+                <div class="eval-criteria-name">업무성과 및 목표달성</div>
+                <div class="eval-criteria-weight">30%</div>
+                <div class="eval-stars">
+                  <div class="eval-star active">S</div>
+                  <div class="eval-star active">A</div>
+                  <div class="eval-star active">B</div>
+                  <div class="eval-star">C</div>
+                  <div class="eval-star">D</div>
+                </div>
+              </div>
+              <div class="eval-criteria-row">
+                <div class="eval-criteria-name">직무역량 및 전문성</div>
+                <div class="eval-criteria-weight">25%</div>
+                <div class="eval-stars">
+                  <div class="eval-star active">S</div>
+                  <div class="eval-star active">A</div>
+                  <div class="eval-star">B</div>
+                  <div class="eval-star">C</div>
+                  <div class="eval-star">D</div>
+                </div>
+              </div>
+              <div class="eval-criteria-row">
+                <div class="eval-criteria-name">조직기여도 및 협업</div>
+                <div class="eval-criteria-weight">20%</div>
+                <div class="eval-stars">
+                  <div class="eval-star active">S</div>
+                  <div class="eval-star active">A</div>
+                  <div class="eval-star active">B</div>
+                  <div class="eval-star active">C</div>
+                  <div class="eval-star">D</div>
+                </div>
+              </div>
+              <div class="eval-criteria-row">
+                <div class="eval-criteria-name">리더십 및 성장가능성</div>
+                <div class="eval-criteria-weight">15%</div>
+                <div class="eval-stars">
+                  <div class="eval-star active">S</div>
+                  <div class="eval-star active">A</div>
+                  <div class="eval-star">B</div>
+                  <div class="eval-star">C</div>
+                  <div class="eval-star">D</div>
+                </div>
+              </div>
+              <div class="eval-criteria-row">
+                <div class="eval-criteria-name">근태 및 기본소양</div>
+                <div class="eval-criteria-weight">10%</div>
+                <div class="eval-stars">
+                  <div class="eval-star active">S</div>
+                  <div class="eval-star active">A</div>
+                  <div class="eval-star active">B</div>
+                  <div class="eval-star active">C</div>
+                  <div class="eval-star active">D</div>
+                </div>
+              </div>
+              <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+                <button class="hr-btn btn-outline" style="font-size:12px">임시저장</button>
+                <button class="hr-btn btn-primary" style="background:#7c5cfc;font-size:12px">평가 제출</button>
+              </div>
+            </div>
+
+            <!-- 360 Peer Eval -->
+            <div class="eval-form-wrap" data-region="eval-360" style="display:none" id="eval360Wrap">
+              <h4>🔄 다면평가 (360°) — 평가자 현황</h4>
+              <div class="eval-peer-grid">
+                <div class="eval-peer-card">
+                  <div class="eval-peer-name">최현우 차장</div>
+                  <div class="eval-peer-dept">개발팀 · 상위평가자</div>
+                  <span class="eval-peer-status peer-done">완료</span>
+                </div>
+                <div class="eval-peer-card">
+                  <div class="eval-peer-name">이승훈 과장</div>
+                  <div class="eval-peer-dept">영업팀 · 동료평가자</div>
+                  <span class="eval-peer-status peer-pending">진행중</span>
+                </div>
+                <div class="eval-peer-card">
+                  <div class="eval-peer-name">정다은 사원</div>
+                  <div class="eval-peer-dept">마케팅팀 · 동료평가자</div>
+                  <span class="eval-peer-status peer-wait">미착수</span>
+                </div>
+                <div class="eval-peer-card">
+                  <div class="eval-peer-name">박민서 사원</div>
+                  <div class="eval-peer-dept">경영지원팀 · 하위평가자</div>
+                  <span class="eval-peer-status peer-done">완료</span>
+                </div>
+                <div class="eval-peer-card">
+                  <div class="eval-peer-name">황준혁 대리</div>
+                  <div class="eval-peer-dept">개발팀 · 동료평가자</div>
+                  <span class="eval-peer-status peer-pending">진행중</span>
+                </div>
+                <div class="eval-peer-card">
+                  <div class="eval-peer-name">손유진 대리</div>
+                  <div class="eval-peer-dept">개발팀 · 동료평가자</div>
+                  <span class="eval-peer-status peer-wait">미착수</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div><!-- end eval-system -->
+
+    </div>
+  </div><!-- end demo-panel -->
+
+  <!-- RIGHT: ANNOTATION PANEL -->
+  <div class="anno-panel">
+    <div class="anno-header">
+      <h3>📌 기획 주석</h3>
+    </div>
+    <div class="anno-list" id="annoList">
+      <!-- dynamically rendered -->
+    </div>
+  </div>
+
+</div><!-- end main -->
+
+<script>
+// ========== ANNOTATION DATA ==========
+const annotations = {
+  1: [
+    {
+      num: "01", region: "topbar", title: "상단 GNB (글로벌 네비게이션)",
+      desc: "로고, 1단계 메뉴, 로그인 사용자 정보 표시. 메뉴 클릭 시 2단계 사이드바 구성 변경.",
+      tag: "nav", tagLabel: "네비게이션"
+    },
+    {
+      num: "02", region: "gnb", title: "1단계 주요 메뉴",
+      desc: "사원정보관리 / 인사기록카드 / 조직도 / 발령·이동 / 보고서. 클릭 시 좌측 사이드바 및 콘텐츠 영역 전환.",
+      tag: "nav", tagLabel: "네비게이션"
+    },
+    {
+      num: "03", region: "sidebar", title: "좌측 2단계 사이드바",
+      desc: "선택된 1단계 메뉴에 따라 세부 기능 목록 표시. 현재 선택 항목 하이라이트(파란 좌측 라인).",
+      tag: "nav", tagLabel: "네비게이션"
+    },
+    {
+      num: "04", region: "searchbar", title: "통합 검색 & 필터",
+      desc: "사원번호/성명/부서 통합 키워드 검색. 부서·직급·재직상태 드롭다운 필터 조합 가능. 검색 버튼 클릭 시 하단 테이블 실시간 반영.",
+      tag: "search", tagLabel: "검색/필터"
+    },
+    {
+      num: "05", region: "stats", title: "인원 현황 요약 카드",
+      desc: "전체·재직·휴직·신규입사 수치를 집계하여 표시. 인사시스템 DB와 실시간 동기화. 수치 클릭 시 해당 조건으로 필터링.",
+      tag: "view", tagLabel: "조회"
+    },
+    {
+      num: "06", region: "emptable", title: "사원명부 테이블",
+      desc: "전체 사원 목록. 페이지네이션, 체크박스 일괄선택, Excel 내보내기 지원. '상세보기' 클릭 시 인사기록카드 화면으로 이동.",
+      tag: "view", tagLabel: "조회"
+    },
+    {
+      num: "07", region: "pagetitle", title: "신규 사원 등록 버튼",
+      desc: "사원 입사 시 기본정보(이름, 부서, 직급, 입사일 등) 키인. 저장 시 사원명부·조직도·평가시스템에 자동 반영.",
+      tag: "input", tagLabel: "입력/등록"
+    },
+    {
+      num: "08", region: "orgchart", title: "조직도 (동적 생성)",
+      desc: "사원 배정 정보 기반으로 자동 렌더링. 부서 노드 클릭 시 해당 부서 사원 목록 펼침. 발령 처리 시 실시간 업데이트.",
+      tag: "view", tagLabel: "조회"
+    },
+    {
+      num: "09", region: "hrcard", title: "인사기록카드",
+      desc: "개인 상세 프로필 + 발령이력 타임라인 + 자격/교육 이력 통합 조회. 각 항목은 직접 수정 가능(권한자 한정).",
+      tag: "view", tagLabel: "조회/수정"
+    },
+  ],
+  2: [
+    {
+      num: "01", region: "eval-topbar", title: "평가시스템 상단 바",
+      desc: "인사시스템과 동일 브랜드 체계 유지. 우측 사용자 정보는 인사시스템 계정 SSO 연동.",
+      tag: "nav", tagLabel: "네비게이션"
+    },
+    {
+      num: "02", region: "eval-gnb", title: "평가 주요 메뉴",
+      desc: "평가현황 / 인사평가 / 상향평가 / 다면평가(360°) / 결과분석. 각 탭은 독립적 평가 흐름으로 이동.",
+      tag: "nav", tagLabel: "네비게이션"
+    },
+    {
+      num: "03", region: "eval-sidebar", title: "평가 세부 기능 사이드바",
+      desc: "평가 입력, 평가자 배정, 기간 설정, 결과 집계 등 관리 기능 접근. 관리자/평가자/피평가자 권한에 따라 메뉴 노출 차등.",
+      tag: "nav", tagLabel: "네비게이션"
+    },
+    {
+      num: "04", region: "eval-tabs", title: "3가지 평가 유형 탭",
+      desc: "① 인사평가(상위→하위) ② 상향평가(하위→상위) ③ 다면평가(360° 상호). 탭 전환 시 해당 유형 입력폼/현황으로 전환.",
+      tag: "nav", tagLabel: "유형 전환"
+    },
+    {
+      num: "05", region: "eval-stats", title: "평가 진행 현황 요약",
+      desc: "인사시스템 재직자 수 연동 → 평가 대상 자동 산정. 완료/진행중/미착수 건수 실시간 집계. 미착수자 알림 발송 기능 연계.",
+      tag: "view", tagLabel: "조회"
+    },
+    {
+      num: "06", region: "eval-progress", title: "유형별 진행률 바",
+      desc: "인사평가·상향평가·다면평가 각각의 완료율 시각화. 제출 건수 / 대상 인원 기반 자동 계산.",
+      tag: "view", tagLabel: "조회"
+    },
+    {
+      num: "07", region: "eval-form", title: "인사평가 입력 폼",
+      desc: "평가항목(업무성과/역량/협업/리더십/근태)별 S-A-B-C-D 등급 선택. 가중치 자동 합산. 임시저장/최종제출 구분 처리.",
+      tag: "input", tagLabel: "입력/등록"
+    },
+    {
+      num: "08", region: "eval-pagetitle", title: "인사시스템 사원정보 연동",
+      desc: "평가 대상자는 인사시스템의 재직 사원 정보(이름·부서·직급)를 실시간으로 가져와 사용. 별도 중복 입력 불필요.",
+      tag: "input", tagLabel: "시스템 연동"
+    },
+    {
+      num: "09", region: "eval-360", title: "다면평가(360°) 평가자 구성",
+      desc: "상위자·동료·하위자 다방향 평가자 배정. 각 평가자의 완료/진행/미착수 상태 추적. 익명성 보장을 위한 결과 집계 후 공개 처리.",
+      tag: "action", tagLabel: "다면평가"
+    },
+  ]
+};
+
+let currentSystem = 1;
+
+function switchSystem(n) {
+  currentSystem = n;
+  document.getElementById('tab1').classList.toggle('active', n===1);
+  document.getElementById('tab2').classList.toggle('active', n===2);
+  document.getElementById('hrSystem').classList.toggle('active', n===1);
+  document.getElementById('evalSystem').classList.toggle('active', n===2);
+  renderAnnotations();
+  clearHighlight();
+  // Show/hide optional sections
+  if(n===1) {
+    document.getElementById('orgChartWrap').style.display = 'block';
+    document.getElementById('hrCardGrid').style.display = 'grid';
+  }
+  if(n===2) {
+    document.getElementById('eval360Wrap').style.display = 'block';
+  }
+}
+
+const tagMap = {
+  nav: 'tag-nav',
+  view: 'tag-view',
+  input: 'tag-input',
+  action: 'tag-action',
+  search: 'tag-search'
+};
+
+function renderAnnotations() {
+  const list = document.getElementById('annoList');
+  const items = annotations[currentSystem];
+  list.innerHTML = '';
+  items.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'anno-item';
+    div.dataset.region = item.region;
+    div.innerHTML = `
+      <div class="anno-num">${item.num}</div>
+      <div class="anno-title">${item.title}</div>
+      <div class="anno-desc">${item.desc}</div>
+      <span class="anno-tag ${tagMap[item.tag]}">${item.tagLabel}</span>
+    `;
+    div.addEventListener('mouseenter', () => highlightRegion(item.region, item.title, div));
+    div.addEventListener('mouseleave', () => { clearHighlight(); div.classList.remove('hovered'); });
+    list.appendChild(div);
+  });
+}
+
+function getRegionEl(region) {
+  const system = currentSystem === 1 ? document.getElementById('hrSystem') : document.getElementById('evalSystem');
+  return system.querySelector(`[data-region="${region}"]`);
+}
+
+function highlightRegion(region, label, annoDiv) {
+  annoDiv.classList.add('hovered');
+  const el = getRegionEl(region);
+  if (!el) return;
+  const overlay = document.getElementById('highlightOverlay');
+  const labelEl = document.getElementById('highlightLabel');
+  const inner = document.getElementById('demoInner');
+  const panel = document.getElementById('demoPanel');
+
+  const elRect = el.getBoundingClientRect();
+  const innerRect = inner.getBoundingClientRect();
+  const scrollTop = panel.scrollTop;
+
+  const top = elRect.top - innerRect.top + scrollTop - 3;
+  const left = elRect.left - innerRect.left - 3;
+  const width = elRect.width + 6;
+  const height = elRect.height + 6;
+
+  overlay.style.top = top + 'px';
+  overlay.style.left = left + 'px';
+  overlay.style.width = width + 'px';
+  overlay.style.height = height + 'px';
+  overlay.classList.add('visible');
+  labelEl.textContent = label;
+
+  // Scroll region into view
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function clearHighlight() {
+  document.getElementById('highlightOverlay').classList.remove('visible');
+  document.querySelectorAll('.anno-item').forEach(a => a.classList.remove('hovered'));
+}
+
+// Init
+renderAnnotations();
+switchSystem(1);
+</script>
+<script src="addon.js"></script>
+</body>
+</html>

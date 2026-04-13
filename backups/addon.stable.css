@@ -1,0 +1,348 @@
+.codex-hidden {
+  display: none !important;
+}
+
+.codex-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 17, 23, 0.5);
+  z-index: 300;
+}
+
+.codex-modal-backdrop.open {
+  display: flex;
+}
+
+.codex-modal {
+  width: min(920px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
+  padding: 22px;
+}
+
+.codex-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.codex-modal-head h3 {
+  font-size: 18px;
+  color: #1e3a5f;
+}
+
+.codex-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.codex-form-grid label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: #6f7e93;
+}
+
+.codex-form-grid label span {
+  font-weight: 600;
+}
+
+.codex-form-grid input,
+.codex-form-grid select,
+.codex-form-grid textarea {
+  border: 1px solid #dde1ec;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.codex-form-grid .span-2 {
+  grid-column: span 2;
+}
+
+.codex-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.codex-panel {
+  background: #fff;
+  border: 1px solid #dde1ec;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.codex-grid-2 {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 16px;
+}
+
+.codex-grid-2-tight {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 16px;
+}
+
+.codex-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.codex-note-box {
+  padding: 12px;
+  border: 1px solid #e7edf5;
+  border-radius: 8px;
+  background: #f8fafc;
+  font-size: 12px;
+  color: #5f6b83;
+  line-height: 1.7;
+}
+
+.codex-note-box strong {
+  display: block;
+  color: #1e3a5f;
+  margin-bottom: 6px;
+}
+
+.codex-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.codex-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #f3f7fb;
+  border: 1px solid #dde7f2;
+  color: #496079;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.codex-tree {
+  display: grid;
+  gap: 10px;
+}
+
+.codex-tree-section {
+  border: 1px solid #e1e8f2;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fbfcfe;
+}
+
+.codex-tree-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e3a5f;
+  margin-bottom: 8px;
+}
+
+.codex-tree-branch {
+  margin-left: 14px;
+  padding-left: 12px;
+  border-left: 2px solid #d7e3f6;
+  display: grid;
+  gap: 8px;
+}
+
+.codex-tree-node {
+  font-size: 12px;
+  color: #4f6078;
+  line-height: 1.6;
+}
+
+.codex-tree-node strong {
+  color: #1e3a5f;
+}
+
+.codex-secondary-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.codex-sidebar-extra {
+  cursor: pointer;
+}
+
+.codex-record-shell {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 16px;
+}
+
+.codex-record-summary {
+  display: grid;
+  gap: 12px;
+}
+
+.codex-record-card {
+  background: #fff;
+  border: 1px solid #dde1ec;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.codex-record-head {
+  background: linear-gradient(135deg, #1e3a5f, #2a5490);
+  padding: 22px 20px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.codex-record-subtitle {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.72);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.codex-record-block {
+  padding: 14px 16px;
+  border-top: 1px solid #eef2f7;
+}
+
+.codex-record-block:first-child {
+  border-top: none;
+}
+
+.codex-record-block h5 {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e3a5f;
+  margin-bottom: 10px;
+}
+
+.codex-record-list {
+  display: grid;
+  gap: 8px;
+}
+
+.codex-record-item {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f3f8;
+}
+
+.codex-record-item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.codex-record-item .label {
+  font-size: 11px;
+  color: #8a94a7;
+  font-weight: 600;
+}
+
+.codex-record-item .value {
+  font-size: 12px;
+  color: #2a3050;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.codex-record-detail {
+  display: grid;
+  gap: 12px;
+}
+
+.codex-record-section {
+  background: #fff;
+  border: 1px solid #dde1ec;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.codex-record-section h4 {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e3a5f;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eef0f8;
+}
+
+.codex-record-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.codex-record-grid .full {
+  grid-column: 1 / -1;
+}
+
+.codex-record-field {
+  padding: 10px 12px;
+  border: 1px solid #edf1f7;
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.codex-record-field .label {
+  display: block;
+  font-size: 11px;
+  color: #8a94a7;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.codex-record-field .value {
+  display: block;
+  font-size: 12px;
+  color: #2a3050;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.codex-record-note {
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e7edf5;
+  font-size: 12px;
+  color: #55657d;
+  line-height: 1.8;
+}
+
+.anno-item.codex-muted {
+  opacity: 0.45;
+}
+
+@media (max-width: 900px) {
+  .codex-form-grid,
+  .codex-grid-2,
+  .codex-grid-2-tight {
+    grid-template-columns: 1fr;
+  }
+
+  .codex-form-grid .span-2 {
+    grid-column: span 1;
+  }
+
+  .codex-record-shell,
+  .codex-record-grid {
+    grid-template-columns: 1fr;
+  }
+}

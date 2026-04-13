@@ -1,0 +1,4859 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HR ?쒖뒪??湲고쉷 ?곕え</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222635;
+    --border: #2e3248;
+    --accent: #4f8ef7;
+    --accent2: #7c5cfc;
+    --accent3: #38d9a9;
+    --text: #e8eaf0;
+    --text2: #9095b0;
+    --text3: #5a6080;
+    --highlight: rgba(79,142,247,0.18);
+    --highlight-border: rgba(79,142,247,0.7);
+    --tag-bg: rgba(79,142,247,0.12);
+    --warning: #f5a623;
+    --success: #38d9a9;
+    --danger: #ff6b6b;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* TOP NAV */
+  .top-nav {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    height: 52px;
+    flex-shrink: 0;
+    z-index: 100;
+  }
+  .nav-logo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 500;
+    letter-spacing: 1px;
+    margin-right: 32px;
+  }
+  .nav-logo span { color: var(--text2); }
+  .nav-tabs {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+  }
+  .nav-tab {
+    padding: 6px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text2);
+    transition: all .2s;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .nav-tab:hover { color: var(--text); background: var(--surface2); }
+  .nav-tab.active {
+    color: var(--accent);
+    background: var(--tag-bg);
+    border-color: var(--border);
+  }
+  .nav-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 20px;
+    margin-left: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .badge-blue { background: rgba(79,142,247,.2); color: var(--accent); }
+  .badge-purple { background: rgba(124,92,252,.2); color: var(--accent2); }
+
+  /* MAIN LAYOUT */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* LEFT DEMO PANEL */
+  .demo-panel {
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
+    background: #f0f2f7;
+    position: relative;
+  }
+  .demo-panel::-webkit-scrollbar { width: 6px; }
+  .demo-panel::-webkit-scrollbar-track { background: transparent; }
+  .demo-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* RIGHT ANNOTATION PANEL */
+  .anno-panel {
+    width: 320px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .anno-panel::-webkit-scrollbar { width: 4px; }
+  .anno-panel::-webkit-scrollbar-track { background: transparent; }
+  .anno-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .anno-header {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 10;
+  }
+  .anno-header h3 {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text2);
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .anno-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .anno-toggle {
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text2);
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .anno-toggle.active {
+    color: var(--accent);
+    border-color: var(--highlight-border);
+    background: var(--highlight);
+  }
+  .anno-list { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+
+  .anno-item {
+    padding: 11px 13px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    cursor: pointer;
+    transition: all .2s;
+    position: relative;
+  }
+  .anno-item:hover, .anno-item.hovered {
+    border-color: var(--highlight-border);
+    background: var(--highlight);
+  }
+  .anno-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 500;
+    margin-bottom: 4px;
+    opacity: .7;
+  }
+  .anno-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+  .anno-desc {
+    font-size: 11.5px;
+    color: var(--text2);
+    line-height: 1.6;
+  }
+  .anno-meta {
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .anno-meta-row {
+    font-size: 11px;
+    line-height: 1.55;
+    color: var(--text2);
+  }
+  .anno-meta-row strong {
+    color: var(--text);
+    display: inline-block;
+    min-width: 58px;
+  }
+  .anno-tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-top: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 500;
+  }
+  .tag-input { background: rgba(56,217,169,.12); color: var(--success); }
+  .tag-view { background: rgba(79,142,247,.12); color: var(--accent); }
+  .tag-nav { background: rgba(245,166,35,.12); color: var(--warning); }
+  .tag-action { background: rgba(255,107,107,.12); color: var(--danger); }
+  .tag-search { background: rgba(124,92,252,.12); color: var(--accent2); }
+
+  /* SECTION DIVIDER IN ANNO */
+  .anno-section {
+    padding: 8px 12px 4px;
+    font-size: 10px;
+    color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  /* HIGHLIGHT OVERLAY */
+  .highlight-overlay {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 6px;
+    border: 2px solid var(--highlight-border);
+    background: var(--highlight);
+    transition: all .25s cubic-bezier(.4,0,.2,1);
+    z-index: 50;
+    opacity: 0;
+    box-shadow: 0 0 20px rgba(79,142,247,.25);
+  }
+  .highlight-overlay.visible { opacity: 1; }
+  .region-marker {
+    position: absolute;
+    z-index: 55;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px 4px 4px;
+    border-radius: 999px;
+    background: rgba(15, 17, 23, .82);
+    color: white;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    box-shadow: 0 8px 18px rgba(15,17,23,.22);
+    pointer-events: none;
+  }
+  .region-marker.visible { display: inline-flex; }
+  .region-marker-num {
+    min-width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: #4f8ef7;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(79,142,247,.28);
+  }
+  .region-marker-tip {
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #eef3ff;
+    white-space: nowrap;
+    line-height: 1;
+  }
+
+  /* =============== SYSTEM 1: HR SYSTEM =============== */
+  .hr-system {
+    display: none;
+    flex-direction: column;
+    min-height: 100%;
+    background: #f0f2f7;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .hr-system.active { display: flex; }
+
+  .hr-topbar {
+    background: #1e3a5f;
+    color: white;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    height: 52px;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+  .hr-logo {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hr-logo-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #4f8ef7, #7c5cfc);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .hr-top-menu {
+    display: flex;
+    gap: 2px;
+    flex: 1;
+  }
+  .hr-top-item {
+    padding: 6px 14px;
+    font-size: 12px;
+    color: rgba(255,255,255,.7);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .hr-top-item:hover, .hr-top-item.active {
+    background: rgba(255,255,255,.12);
+    color: white;
+  }
+  .hr-top-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: rgba(255,255,255,.8);
+  }
+  .hr-avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg,#38d9a9,#4f8ef7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: white;
+  }
+
+  .hr-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  .hr-sidebar {
+    width: 200px;
+    background: #ffffff;
+    border-right: 1px solid #dde1ec;
+    flex-shrink: 0;
+    padding: 12px 0;
+    overflow-y: auto;
+  }
+  .hr-sidebar-section {
+    padding: 6px 14px 2px;
+    font-size: 10px;
+    color: #9095b0;
+    font-weight: 600;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+  }
+  .hr-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 16px;
+    font-size: 12.5px;
+    color: #4a5170;
+    cursor: pointer;
+    transition: all .15s;
+    border-left: 3px solid transparent;
+  }
+  .hr-sidebar-item:hover { background: #f5f7ff; color: #1e3a5f; }
+  .hr-sidebar-item.active {
+    background: #eef2ff;
+    color: #1e3a5f;
+    font-weight: 600;
+    border-left-color: #4f8ef7;
+  }
+  .is-hidden { display: none !important; }
+  .hr-sidebar-icon { font-size: 14px; width: 16px; text-align: center; }
+
+  .hr-content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .hr-page-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .hr-page-title h2 { font-size: 18px; color: #1e3a5f; font-weight: 700; }
+  .hr-page-title p { font-size: 12px; color: #9095b0; margin-top: 2px; }
+  .hr-btn {
+    padding: 7px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all .15s;
+  }
+  .btn-primary { background: #1e3a5f; color: white; }
+  .btn-primary:hover { background: #2a4f80; }
+  .btn-outline { background: transparent; border: 1px solid #dde1ec; color: #4a5170; }
+  .btn-outline:hover { background: #f5f7ff; }
+
+  /* Search / Filter Bar */
+  .hr-search-bar {
+    background: white;
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .hr-search-input {
+    flex: 1;
+    border: 1px solid #dde1ec;
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: #2a3050;
+    outline: none;
+  }
+  .hr-search-input:focus { border-color: #4f8ef7; }
+  .hr-filter-select {
+    border: 1px solid #dde1ec;
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 12px;
+    color: #4a5170;
+    background: white;
+    cursor: pointer;
+    outline: none;
+  }
+
+  /* Stats row */
+  .hr-stats {
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: 12px;
+  }
+  .hr-stat-card {
+    background: white;
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .hr-stat-label { font-size: 11px; color: #9095b0; font-weight: 500; }
+  .hr-stat-value { font-size: 24px; font-weight: 700; color: #1e3a5f; margin-top: 4px; }
+  .hr-stat-sub { font-size: 11px; color: #38d9a9; margin-top: 2px; }
+
+  /* Employee Table */
+  .hr-table-wrap {
+    background: white;
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .code-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 0.9fr;
+    gap: 16px;
+  }
+  .code-tab-bar {
+    display: none;
+  }
+  .code-tab-btn {
+    border: 1px solid #dde1ec;
+    background: white;
+    color: #4a5170;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .code-tab-btn.active {
+    background: #1e3a5f;
+    color: white;
+    border-color: #1e3a5f;
+  }
+  .level-tab-layout {
+    display: none;
+  }
+  .code-tab-view {
+    display: none;
+  }
+  .code-tab-view.active {
+    display: block;
+  }
+  .code-main-stack,
+  .code-side-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .code-entry-actions {
+    display: grid;
+    gap: 12px;
+  }
+  .code-entry-btn,
+  .code-subview-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid #dde4f4;
+    border-radius: 10px;
+    background: #fafcff;
+    color: #23395f;
+    cursor: pointer;
+    text-align: left;
+    transition: all .18s ease;
+  }
+  .code-entry-btn:hover,
+  .code-subview-btn:hover {
+    border-color: #b7c8ee;
+    background: #f2f7ff;
+  }
+  .code-entry-btn strong,
+  .code-subview-btn strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .code-entry-btn span,
+  .code-subview-btn span {
+    font-size: 11px;
+    color: #7380a0;
+    line-height: 1.6;
+  }
+  .code-subview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .code-subview-title h3 {
+    font-size: 18px;
+    color: #1f3356;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .code-subview-title p {
+    font-size: 12px;
+    color: #76829f;
+  }
+  .level-manage-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);
+    gap: 16px;
+  }
+  .code-card {
+    background: white;
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .code-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid #eef0f8;
+  }
+  .code-card-head h3 { font-size: 13px; font-weight: 700; color: #1e3a5f; }
+  .code-hint { font-size: 11px; color: #9095b0; }
+  .code-table td, .code-table th { font-size: 11.5px; }
+  .code-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+    background: #eef2ff;
+    color: #4f5fd7;
+  }
+  .code-table tr.is-selected td {
+    background: #eef3ff;
+  }
+  .code-form {
+    padding: 16px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .code-form .record-field.full {
+    grid-column: 1 / -1;
+  }
+  .code-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 0 16px 16px;
+  }
+  .preview-chart {
+    padding: 16px;
+  }
+  .preview-chart .org-row {
+    display: block;
+    margin-top: 20px;
+  }
+  .level-guide {
+    padding: 16px;
+    display: grid;
+    gap: 8px;
+  }
+  .level-guide-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid #eef0f8;
+    border-radius: 8px;
+    background: #fafbff;
+    font-size: 12px;
+    color: #2a3050;
+  }
+  .level-guide-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 54px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #3756a5;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .history-list {
+    padding: 16px;
+    display: grid;
+    gap: 10px;
+  }
+  .history-item {
+    border: 1px solid #eef0f8;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fafbff;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: #4a5170;
+  }
+  .hr-table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid #eef0f8;
+  }
+  .hr-table-header h3 { font-size: 13px; font-weight: 700; color: #1e3a5f; }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    background: #f8f9fd;
+    font-size: 11px;
+    font-weight: 600;
+    color: #7a80a0;
+    padding: 9px 12px;
+    text-align: left;
+    letter-spacing: .4px;
+    border-bottom: 1px solid #eef0f8;
+  }
+  td {
+    padding: 9px 12px;
+    font-size: 12px;
+    color: #2a3050;
+    border-bottom: 1px solid #f5f7ff;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafbff; }
+  .emp-name { font-weight: 600; color: #1e3a5f; }
+  .status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .status-active { background: #e8faf5; color: #20a07a; }
+  .status-leave { background: #fff4e0; color: #d4870a; }
+
+  /* Org Chart */
+  .org-chart-wrap {
+    background: white;
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .org-browser-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+    border-bottom: 1px solid #e9edf6;
+    background: #f8faff;
+  }
+  .org-browser-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .org-browser-title h3 {
+    font-size: 22px;
+    color: #1e2f52;
+    font-weight: 700;
+  }
+  .org-browser-title span {
+    font-size: 12px;
+    color: #8a93ad;
+  }
+  .org-browser-tools {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .org-search-input {
+    width: 300px;
+    border: 1px solid #dbe2f0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    outline: none;
+    background: white;
+  }
+  .org-toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #56627f;
+  }
+  .org-browser-body {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    height: 72vh;
+    min-height: 620px;
+  }
+  .org-nav-pane {
+    border-right: 1px solid #e9edf6;
+    background: #fcfdff;
+    overflow-y: auto;
+    padding: 12px 10px 18px 12px;
+  }
+  .org-detail-pane {
+    overflow-y: auto;
+    padding: 22px 20px 28px;
+    background: white;
+  }
+  .org-nav-tree,
+  .org-nav-tree ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .org-nav-tree ul {
+    padding-left: 18px;
+  }
+  .org-nav-item {
+    margin: 2px 0;
+  }
+  .org-nav-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    background: transparent;
+    padding: 7px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    color: #2f3f62;
+    font-size: 13px;
+  }
+  .org-nav-btn:hover {
+    background: #f1f5fd;
+  }
+  .org-nav-btn.active {
+    background: #edf4ff;
+    color: #2a62c7;
+    font-weight: 700;
+  }
+  .org-nav-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1.5px solid #aeb9d1;
+    flex-shrink: 0;
+  }
+  .org-nav-btn.active .org-nav-dot {
+    border-color: #2a62c7;
+    background: #2a62c7;
+  }
+  .org-detail-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .org-detail-header h4 {
+    font-size: 30px;
+    color: #1e2f52;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .org-detail-path {
+    font-size: 14px;
+    color: #56709b;
+    line-height: 1.5;
+  }
+  .org-detail-path strong {
+    color: #2a62c7;
+    margin-left: 6px;
+  }
+  .org-section {
+    padding: 18px 0 22px;
+    border-top: 1px solid #eef2fa;
+  }
+  .org-section:first-of-type {
+    border-top: none;
+    padding-top: 8px;
+  }
+  .org-section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #24395f;
+    margin-bottom: 4px;
+  }
+  .org-section-path {
+    font-size: 13px;
+    color: #6780a6;
+    margin-bottom: 16px;
+  }
+  .org-member-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 104px));
+    gap: 14px;
+    justify-content: start;
+  }
+  .org-member-card {
+    text-align: center;
+  }
+  .org-member-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    margin: 0 auto 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, #7ba7ff, #4f8ef7);
+    box-shadow: 0 8px 18px rgba(79, 142, 247, 0.18);
+  }
+  .org-member-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #24395f;
+    margin-bottom: 4px;
+  }
+  .org-member-role {
+    font-size: 12px;
+    color: #6d7891;
+  }
+  .org-empty {
+    padding: 24px 0;
+    color: #8b94ad;
+    font-size: 13px;
+  }
+  .org-node {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%);
+    border: 1.5px solid #d6deef;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1e3a5f;
+    cursor: pointer;
+    transition: all .18s ease;
+    box-shadow: 0 10px 24px rgba(30, 58, 95, 0.06);
+  }
+  .org-node:hover { transform: translateY(-1px); border-color: #4f8ef7; box-shadow: 0 14px 28px rgba(79, 142, 247, 0.16); }
+  .org-node.root { background: linear-gradient(135deg, #173252, #2a5b93); color: white; border-color: #173252; box-shadow: 0 16px 32px rgba(23, 50, 82, 0.22); }
+  .org-title { font-size: 10px; font-weight: 500; color: #7a80a0; margin-top: 4px; }
+  .org-node.root .org-title { color: rgba(255,255,255,.6); }
+  .org-row { display: flex; gap: 16px; align-items: flex-start; justify-content: center; margin-top: 20px; }
+  .org-group { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .org-line-v { width: 1px; height: 16px; background: #b5c0e8; margin: 0 auto; }
+  .org-line-h-wrap { display: flex; justify-content: center; width: 100%; }
+  .org-chart-tree,
+  .org-chart-tree ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .org-chart-tree {
+    display: flex;
+    justify-content: center;
+    margin-top: 18px;
+  }
+  .org-chart-tree ul {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    position: relative;
+    padding-top: 22px;
+  }
+  .org-chart-tree li {
+    position: relative;
+    padding: 0 8px;
+    text-align: center;
+  }
+  .org-chart-tree li::before,
+  .org-chart-tree li::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 50%;
+    height: 16px;
+    border-top: 1.5px solid #c7d3f2;
+  }
+  .org-chart-tree li::before {
+    right: 50%;
+    border-right: 1.5px solid #c7d3f2;
+  }
+  .org-chart-tree li::after {
+    left: 50%;
+    border-left: 1.5px solid #c7d3f2;
+  }
+  .org-chart-tree li:only-child::before,
+  .org-chart-tree li:only-child::after {
+    display: none;
+  }
+  .org-chart-tree li:first-child::before,
+  .org-chart-tree li:last-child::after {
+    border: none;
+  }
+  .org-chart-tree li:only-child > ul {
+    padding-top: 14px;
+  }
+  .org-chart-tree li > ul::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 0;
+    height: 22px;
+    border-left: 1.5px solid #c7d3f2;
+    transform: translateX(-50%);
+  }
+  .org-card-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 96px;
+  }
+  .org-node-info {
+    font-size: 10px;
+    color: #7a80a0;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #f3f6fd;
+  }
+  .org-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  .org-tree-branch {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 14px;
+    border: 1px solid #e6ebf7;
+    border-radius: 12px;
+    background: #fbfcff;
+  }
+  .org-branch-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+  .org-toggle-btn {
+    border: 1px solid #d8e0f2;
+    background: white;
+    color: #3756a5;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .org-children.is-collapsed {
+    display: none;
+  }
+  .org-tree-line {
+    width: 2px;
+    height: 14px;
+    background: linear-gradient(180deg, #b5c0e8, #d8def0);
+    margin-left: 16px;
+  }
+  .org-node.level-1 { background: #edf3ff; border-color: #9eb7ef; }
+  .org-node.level-2 { background: #f6f8ff; border-color: #c7d3f2; }
+  .org-node.level-3 { background: #fafbff; border-color: #d7e0f5; }
+  .org-node.level-4 { background: #ffffff; border-color: #e2e8f5; }
+  .org-node.is-selected {
+    border-color: #2a62c7;
+    box-shadow: 0 14px 28px rgba(42, 98, 199, 0.16);
+  }
+  .org-node.is-selected .org-title {
+    color: #2a62c7;
+    font-weight: 700;
+  }
+  @media (max-width: 980px) {
+    .org-browser-body {
+      grid-template-columns: 1fr;
+      height: auto;
+    }
+    .org-nav-pane {
+      max-height: 260px;
+      border-right: none;
+      border-bottom: 1px solid #e9edf6;
+    }
+    .org-search-input {
+      width: 220px;
+    }
+  }
+
+  /* HR Card */
+  .hr-card-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .hr-card-profile {
+    background: white;
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    overflow: hidden;
+    position: sticky;
+    top: 16px;
+  }
+  .hr-card-profile-top {
+    background: linear-gradient(135deg, #1e3a5f, #2a5490);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .hr-profile-avatar {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg,#38d9a9,#4f8ef7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 700; color: white;
+    border: 3px solid rgba(255,255,255,.3);
+  }
+  .hr-card-name { font-size: 16px; font-weight: 700; color: white; }
+  .hr-card-pos { font-size: 11px; color: rgba(255,255,255,.65); }
+  .hr-card-info { padding: 14px 16px; }
+  .record-profile-body {
+    padding: 14px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .record-profile-grid {
+    display: grid;
+    gap: 8px;
+  }
+  .hr-info-row {
+    display: flex;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f2f7;
+    gap: 10px;
+  }
+  .hr-info-row:last-child { border-bottom: none; }
+  .hr-info-label { font-size: 11px; color: #9095b0; font-weight: 500; width: 60px; flex-shrink: 0; }
+  .hr-info-val { font-size: 12px; color: #2a3050; font-weight: 500; }
+
+  .hr-card-right { display: flex; flex-direction: column; gap: 12px; }
+  .hr-card-section {
+    background: white;
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .hr-card-section h4 { font-size: 12px; font-weight: 700; color: #1e3a5f; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #eef0f8; }
+  .hr-timeline { display: flex; flex-direction: column; gap: 10px; }
+  .hr-timeline-item { display: flex; gap: 12px; font-size: 12px; }
+  .hr-timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: #4f8ef7; margin-top: 3px; flex-shrink: 0; }
+  .hr-timeline-date { color: #9095b0; font-size: 11px; width: 80px; flex-shrink: 0; }
+  .hr-timeline-text { color: #2a3050; }
+  .hr-card-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .hr-summary-box {
+    background: #f8f9fd;
+    border: 1px solid #eef0f8;
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .hr-summary-label { font-size: 10px; color: #9095b0; margin-bottom: 4px; }
+  .hr-summary-value { font-size: 14px; font-weight: 700; color: #1e3a5f; }
+  .record-note {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #f8f9fd;
+    border: 1px solid #eef0f8;
+    font-size: 12px;
+    color: #4a5170;
+    line-height: 1.6;
+  }
+  .record-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 12px;
+  }
+  .record-group-title {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid #eef0f8;
+    font-size: 11px;
+    font-weight: 700;
+    color: #1e3a5f;
+    letter-spacing: .2px;
+  }
+  .record-group-title:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+  .record-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .record-field.full { grid-column: 1 / -1; }
+  .record-field label {
+    font-size: 11px;
+    color: #9095b0;
+    font-weight: 600;
+  }
+  .record-field input,
+  .record-field select,
+  .record-field textarea {
+    width: 100%;
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 12px;
+    color: #2a3050;
+    font-family: 'Noto Sans KR', sans-serif;
+    background: white;
+    outline: none;
+  }
+  .record-field textarea {
+    min-height: 88px;
+    resize: vertical;
+  }
+  .record-field input:focus,
+  .record-field select:focus,
+  .record-field textarea:focus {
+    border-color: #4f8ef7;
+  }
+  .field-hidden {
+    display: none;
+  }
+  .record-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .record-summary-select {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e3a5f;
+    outline: none;
+  }
+  .record-inline-note {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .record-meta-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .record-meta-card {
+    padding: 10px 12px;
+    border: 1px solid #eef0f8;
+    border-radius: 8px;
+    background: #f8f9fd;
+  }
+  .record-meta-card strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    color: #1e3a5f;
+  }
+  .record-meta-card span {
+    display: block;
+    font-size: 12px;
+    color: #4a5170;
+    line-height: 1.55;
+  }
+  @media (max-width: 1200px) {
+    .hr-card-grid {
+      grid-template-columns: 1fr;
+    }
+    .hr-card-profile {
+      position: static;
+    }
+  }
+  @media (max-width: 860px) {
+    .record-form-grid,
+    .record-inline-note,
+    .hr-card-summary {
+      grid-template-columns: 1fr;
+    }
+  }
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 17, 23, .62);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    padding: 24px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal-card {
+    width: min(760px, 100%);
+    background: white;
+    border-radius: 14px;
+    border: 1px solid #dde1ec;
+    box-shadow: 0 24px 60px rgba(15, 17, 23, .25);
+    overflow: hidden;
+  }
+  .modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #eef0f8;
+  }
+  .modal-head h3 { font-size: 16px; color: #1e3a5f; }
+  .modal-close {
+    background: transparent;
+    border: none;
+    font-size: 22px;
+    color: #7a80a0;
+    cursor: pointer;
+  }
+  .modal-body {
+    padding: 20px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px 16px;
+  }
+  .modal-field { display: flex; flex-direction: column; gap: 6px; }
+  .modal-field.full { grid-column: 1 / -1; }
+  .modal-field label { font-size: 12px; font-weight: 600; color: #4a5170; }
+  .modal-field input,
+  .modal-field select,
+  .modal-field textarea {
+    border: 1px solid #dde1ec;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: #2a3050;
+    background: white;
+    outline: none;
+  }
+  .modal-field textarea { min-height: 86px; resize: vertical; }
+  .modal-field input:focus,
+  .modal-field select:focus,
+  .modal-field textarea:focus { border-color: #4f8ef7; }
+  .modal-field.field-hidden {
+    display: none;
+  }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 0 20px 20px;
+  }
+
+  /* =============== SYSTEM 2: EVALUATION SYSTEM =============== */
+  .eval-system {
+    display: none;
+    flex-direction: column;
+    min-height: 100%;
+    background: #f5f4ff;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .eval-system.active { display: flex; }
+
+  .eval-topbar {
+    background: #2d1b69;
+    color: white;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    height: 52px;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+  .eval-logo {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .eval-logo-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #7c5cfc, #a855f7);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .eval-top-menu {
+    display: flex;
+    gap: 2px;
+    flex: 1;
+  }
+  .eval-top-item {
+    padding: 6px 14px;
+    font-size: 12px;
+    color: rgba(255,255,255,.7);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .eval-top-item:hover, .eval-top-item.active {
+    background: rgba(255,255,255,.12);
+    color: white;
+  }
+
+  .eval-body { display: flex; flex: 1; overflow: hidden; }
+  .eval-sidebar {
+    width: 200px;
+    background: white;
+    border-right: 1px solid #e0daf7;
+    flex-shrink: 0;
+    padding: 12px 0;
+    overflow-y: auto;
+  }
+  .eval-sidebar-section {
+    padding: 6px 14px 2px;
+    font-size: 10px;
+    color: #9095b0;
+    font-weight: 600;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+  }
+  .eval-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 16px;
+    font-size: 12.5px;
+    color: #5a4f80;
+    cursor: pointer;
+    transition: all .15s;
+    border-left: 3px solid transparent;
+  }
+  .eval-sidebar-item:hover { background: #f5f3ff; color: #2d1b69; }
+  .eval-sidebar-item.active {
+    background: #ede9ff;
+    color: #2d1b69;
+    font-weight: 600;
+    border-left-color: #7c5cfc;
+  }
+
+  .eval-content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .eval-page-title h2 { font-size: 18px; color: #2d1b69; font-weight: 700; }
+  .eval-page-title p { font-size: 12px; color: #9095b0; margin-top: 2px; }
+
+  .eval-tabs {
+    display: flex;
+    gap: 4px;
+    background: white;
+    border: 1px solid #e0daf7;
+    border-radius: 8px;
+    padding: 4px;
+    align-self: flex-start;
+  }
+  .eval-tab-btn {
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #7a70a0;
+    transition: all .15s;
+    white-space: nowrap;
+    border: none;
+    background: transparent;
+  }
+  .eval-tab-btn:hover { color: #2d1b69; background: #f0ebff; }
+  .eval-tab-btn.active { background: #2d1b69; color: white; }
+
+  .eval-stats {
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: 12px;
+  }
+  .eval-stat-card {
+    background: white;
+    border: 1px solid #e0daf7;
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .eval-stat-label { font-size: 11px; color: #9095b0; font-weight: 500; }
+  .eval-stat-value { font-size: 24px; font-weight: 700; color: #2d1b69; margin-top: 4px; }
+  .eval-stat-sub { font-size: 11px; color: #7c5cfc; margin-top: 2px; }
+
+  .eval-progress-section {
+    background: white;
+    border: 1px solid #e0daf7;
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .eval-progress-section h4 { font-size: 13px; font-weight: 700; color: #2d1b69; margin-bottom: 14px; }
+  .eval-progress-item { margin-bottom: 14px; }
+  .eval-progress-item:last-child { margin-bottom: 0; }
+  .eval-progress-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+  .eval-progress-label { font-weight: 600; color: #2a3050; }
+  .eval-progress-pct { font-weight: 700; color: #7c5cfc; }
+  .eval-progress-bar-bg {
+    height: 6px;
+    background: #f0ebff;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .eval-progress-bar {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #7c5cfc, #a855f7);
+    transition: width .6s ease;
+  }
+
+  /* Evaluation Form */
+  .eval-form-wrap {
+    background: white;
+    border: 1px solid #e0daf7;
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .eval-form-wrap h4 { font-size: 13px; font-weight: 700; color: #2d1b69; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #ede9ff; }
+
+  .eval-criteria-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f5f3ff;
+    gap: 12px;
+  }
+  .eval-criteria-row:last-child { border-bottom: none; }
+  .eval-criteria-name { font-size: 12.5px; font-weight: 500; color: #2a3050; flex: 1; }
+  .eval-criteria-weight { font-size: 11px; color: #9095b0; width: 40px; text-align: right; }
+  .eval-stars {
+    display: flex;
+    gap: 3px;
+  }
+  .eval-star {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #ede9ff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all .15s;
+    font-weight: 700;
+    color: #9090b0;
+  }
+  .eval-star:hover, .eval-star.active { background: #7c5cfc; color: white; }
+
+  /* 360 peer eval grid */
+  .eval-peer-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .eval-peer-card {
+    border: 1.5px solid #e0daf7;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #faf9ff;
+    transition: all .15s;
+  }
+  .eval-peer-card:hover { border-color: #7c5cfc; background: #f5f0ff; }
+  .eval-peer-name { font-size: 12.5px; font-weight: 600; color: #2d1b69; }
+  .eval-peer-dept { font-size: 11px; color: #9095b0; }
+  .eval-peer-status {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-weight: 600;
+    align-self: flex-start;
+  }
+  .peer-done { background: #e8faf5; color: #20a07a; }
+  .peer-pending { background: #fff4e0; color: #d4870a; }
+  .peer-wait { background: #f0ebff; color: #7c5cfc; }
+
+  /* Tooltip for highlights */
+  .highlight-label {
+    position: absolute;
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    top: -22px;
+    left: 0;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .highlight-overlay.visible .highlight-label { opacity: 1; }
+
+  /* Page system toggle */
+  .demo-inner {
+    position: relative;
+    min-height: 100%;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP NAVIGATION -->
+<div class="top-nav">
+  <div class="nav-logo">SYS<span>/</span>PLAN</div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="switchSystem(1)" id="tab1">
+      ?뾺 ?몄궗?쒖뒪??<span class="nav-badge badge-blue">HR</span>
+    </div>
+    <div class="nav-tab" onclick="switchSystem(2)" id="tab2">
+      ?뱤 ?몄궗?됯??쒖뒪??<span class="nav-badge badge-purple">EVAL</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- LEFT: DEMO PANEL -->
+  <div class="demo-panel" id="demoPanel">
+    <div class="demo-inner" id="demoInner">
+      <div class="highlight-overlay" id="highlightOverlay">
+        <div class="highlight-label" id="highlightLabel"></div>
+      </div>
+
+      <!-- ======= SYSTEM 1: HR ======= -->
+      <div class="hr-system active" id="hrSystem">
+        <!-- Topbar -->
+        <div class="hr-topbar" data-region="topbar">
+          <div class="hr-logo">
+            <div class="hr-logo-icon">?뫁</div>
+            ?듯빀?몄궗?쒖뒪??          </div>
+          <div class="hr-top-menu" data-region="gnb">
+            <div class="hr-top-item active" data-hr-view-trigger="directory">?ъ썝?뺣낫愿由?</div>
+            <div class="hr-top-item" data-hr-view-trigger="record">?몄궗湲곕줉移대뱶</div>
+            <div class="hr-top-item" data-hr-view-trigger="orgchart">議곗쭅??</div>
+            <div class="hr-top-item">諛쒕졊쨌?대룞</div>
+            <div class="hr-top-item">蹂닿퀬??</div>
+          </div>
+          <div class="hr-top-user">
+            <div class="hr-avatar">愿</div>
+            愿由ъ옄
+          </div>
+        </div>
+
+        <div class="hr-body">
+          <!-- Sidebar -->
+          <div class="hr-sidebar" data-region="sidebar">
+            <div class="hr-sidebar-section">?ъ썝愿由?</div>
+            <div class="hr-sidebar-item active" data-hr-view-trigger="directory">
+              <span class="hr-sidebar-icon">?뱥</span> ?ъ썝紐낅?
+            </div>
+            <div class="hr-sidebar-item" data-hr-view-trigger="record">
+              <span class="hr-sidebar-icon">?お</span> ?몄궗湲곕줉移대뱶
+            </div>
+            <div class="hr-sidebar-item" data-hr-view-trigger="orgchart">
+              <span class="hr-sidebar-icon">?룫</span> 議곗쭅??            </div>
+            <div class="hr-sidebar-item" data-hr-view-trigger="codes">
+              <span class="hr-sidebar-icon">?뾻截?</span> 肄붾뱶愿由?            </div>
+            <div class="hr-sidebar-section">?몄궗泥섎━</div>
+            <div class="hr-sidebar-item" data-hr-view-trigger="assignment">
+              <span class="hr-sidebar-icon">?뱷</span> 諛쒕졊?낅젰
+            </div>
+            <div class="hr-sidebar-item">
+              <span class="hr-sidebar-icon">?봽</span> 遺?쒖씠??            </div>
+            <div class="hr-sidebar-item">
+              <span class="hr-sidebar-icon">?뱟</span> ?ъ쭅利앸챸
+            </div>
+            <div class="hr-sidebar-section">?듦퀎/蹂닿퀬</div>
+            <div class="hr-sidebar-item">
+              <span class="hr-sidebar-icon">?뱤</span> ?몄썝?꾪솴
+            </div>
+            <div class="hr-sidebar-item">
+              <span class="hr-sidebar-icon">?뱢</span> ?듦퀎遺꾩꽍
+            </div>
+          </div>
+
+          <!-- Main Content -->
+          <div class="hr-content">
+            <!-- Page Title -->
+            <div class="hr-page-title" data-region="pagetitle">
+              <div>
+                <h2 id="hrPageTitleText">?ъ썝紐낅?</h2>
+                <p id="hrPageTitleDesc">?꾩껜 ?ъ썝 ?뺣낫瑜?議고쉶?섍퀬 愿由ы빀?덈떎</p>
+              </div>
+              <div style="display:flex;gap:8px" id="hrPageActions">
+                <button class="hr-btn btn-outline" id="pageSecondaryAction" type="button">?뱿 Excel ?대낫?닿린</button>
+                <button class="hr-btn btn-primary" id="pagePrimaryAction" type="button">???좉퇋 ?깅줉</button>
+              </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="hr-search-bar" data-region="searchbar" data-hr-view="directory">
+              <input class="hr-search-input" placeholder="?뵇  ?ъ썝踰덊샇, ?깅챸, 遺??寃??.." style="flex:2">
+              <select class="hr-filter-select">
+                <option>?꾩껜 遺??</option>
+                <option>寃쎌쁺吏?먰?</option>
+                <option>媛쒕컻?</option>
+                <option>?곸뾽?</option>
+              </select>
+              <select class="hr-filter-select">
+                <option>?꾩껜 吏곴툒</option>
+                <option>?ъ썝</option>
+                <option>?由?</option>
+                <option>怨쇱옣</option>
+                <option>李⑥옣</option>
+              </select>
+              <select class="hr-filter-select">
+                <option>?ъ쭅?곹깭</option>
+                <option>?ъ쭅</option>
+                <option>?댁쭅</option>
+              </select>
+              <button class="hr-btn btn-primary" style="padding:7px 14px">寃??</button>
+            </div>
+
+            <!-- Stats -->
+            <div class="hr-stats" data-region="stats" data-hr-view="directory">
+              <div class="hr-stat-card">
+                <div class="hr-stat-label">?꾩껜 ?ъ썝</div>
+                <div class="hr-stat-value" id="hrStatTotal">0</div>
+                <div class="hr-stat-sub" id="hrStatTotalSub">湲곗? ?곗씠??吏묎퀎</div>
+              </div>
+              <div class="hr-stat-card">
+                <div class="hr-stat-label">?ъ쭅 以?</div>
+                <div class="hr-stat-value" id="hrStatActive">0</div>
+                <div class="hr-stat-sub" style="color:#4f8ef7" id="hrStatActiveSub">?ъ쭅 湲곗?</div>
+              </div>
+              <div class="hr-stat-card">
+                <div class="hr-stat-label">?댁쭅 以?</div>
+                <div class="hr-stat-value" id="hrStatLeave">0</div>
+                <div class="hr-stat-sub" style="color:#f5a623" id="hrStatLeaveSub">?댁쭅 湲곗?</div>
+              </div>
+              <div class="hr-stat-card">
+                <div class="hr-stat-label">?좉퇋 ?낆궗</div>
+                <div class="hr-stat-value" id="hrStatNew">0</div>
+                <div class="hr-stat-sub" style="color:#7c5cfc" id="hrStatNewSub">理쒓렐 ?낆궗 湲곗?</div>
+              </div>
+            </div>
+
+            <!-- Employee Table -->
+            <div class="hr-table-wrap" data-region="emptable" data-hr-view="directory">
+              <div class="hr-table-header">
+                <h3>?ъ썝 紐⑸줉</h3>
+                <div style="font-size:11px;color:#9095b0" id="employeeTableSummary">珥?0紐?쨌 1-0 ?쒖떆</div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th><input type="checkbox"></th>
+                    <th>?ъ썝踰덊샇</th>
+                    <th>?깅챸</th>
+                    <th>遺??</th>
+                    <th>吏곴툒</th>
+                    <th>?낆궗??</th>
+                    <th>?ъ쭅?곹깭</th>
+                    <th>愿由?</th>
+                  </tr>
+                </thead>
+                <tbody id="employeeTableBody">
+                  <tr data-employee-id="EMP-0024">
+                    <td><input type="checkbox"></td>
+                    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">EMP-0024</td>
+                    <td><span class="emp-name">源吏??</span></td>
+                    <td>媛쒕컻?</td>
+                    <td>?由?</td>
+                    <td>2021.03.02</td>
+                    <td><span class="status-badge status-active">?ъ쭅</span></td>
+                    <td><a href="#" class="employee-detail-link" data-employee-id="EMP-0024" style="font-size:11px;color:#4f8ef7;text-decoration:none">?곸꽭蹂닿린</a></td>
+                  </tr>
+                  <tr data-employee-id="EMP-0031">
+                    <td><input type="checkbox"></td>
+                    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">EMP-0031</td>
+                    <td><span class="emp-name">?댁듅??</span></td>
+                    <td>?곸뾽?</td>
+                    <td>怨쇱옣</td>
+                    <td>2018.07.15</td>
+                    <td><span class="status-badge status-active">?ъ쭅</span></td>
+                    <td><a href="#" class="employee-detail-link" data-employee-id="EMP-0031" style="font-size:11px;color:#4f8ef7;text-decoration:none">?곸꽭蹂닿린</a></td>
+                  </tr>
+                  <tr data-employee-id="EMP-0045">
+                    <td><input type="checkbox"></td>
+                    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">EMP-0045</td>
+                    <td><span class="emp-name">諛뺣???</span></td>
+                    <td>寃쎌쁺吏?먰?</td>
+                    <td>?ъ썝</td>
+                    <td>2023.01.09</td>
+                    <td><span class="status-badge status-leave">?댁쭅</span></td>
+                    <td><a href="#" class="employee-detail-link" data-employee-id="EMP-0045" style="font-size:11px;color:#4f8ef7;text-decoration:none">?곸꽭蹂닿린</a></td>
+                  </tr>
+                  <tr data-employee-id="EMP-0012">
+                    <td><input type="checkbox"></td>
+                    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">EMP-0012</td>
+                    <td><span class="emp-name">理쒗쁽??</span></td>
+                    <td>媛쒕컻?</td>
+                    <td>李⑥옣</td>
+                    <td>2015.04.20</td>
+                    <td><span class="status-badge status-active">?ъ쭅</span></td>
+                    <td><a href="#" class="employee-detail-link" data-employee-id="EMP-0012" style="font-size:11px;color:#4f8ef7;text-decoration:none">?곸꽭蹂닿린</a></td>
+                  </tr>
+                  <tr data-employee-id="EMP-0067">
+                    <td><input type="checkbox"></td>
+                    <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">EMP-0067</td>
+                    <td><span class="emp-name">?뺣떎?</span></td>
+                    <td>留덉??낇?</td>
+                    <td>?ъ썝</td>
+                    <td>2024.02.26</td>
+                    <td><span class="status-badge status-active">?ъ쭅</span></td>
+                    <td><a href="#" class="employee-detail-link" data-employee-id="EMP-0067" style="font-size:11px;color:#4f8ef7;text-decoration:none">?곸꽭蹂닿린</a></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Org Chart -->
+            <div class="org-chart-wrap is-hidden" id="orgChartWrap" data-region="orgchart" data-hr-view="orgchart">
+              <div class="org-browser-head">
+                <div class="org-browser-title">
+                  <h3>議곗쭅??</h3>
+                  <span>?ㅽ넗?뚮윭???ㅼ젣 議곗쭅 湲곗?</span>
+                </div>
+                <div class="org-browser-tools">
+                  <input class="org-search-input" id="orgMemberSearch" placeholder="?대쫫, 議곗쭅, 吏곴툒 寃??>
+                  <label class="org-toggle-wrap">
+                    <input type="checkbox" id="orgIncludeChildren" checked>
+                    ?섏쐞議곗쭅 ?ы븿
+                  </label>
+                </div>
+              </div>
+              <div class="org-browser-body">
+                <div class="org-nav-pane">
+                  <div class="org-nav-tree" id="orgNavTree"></div>
+                </div>
+                <div class="org-detail-pane">
+                  <div class="org-detail-header">
+                    <div>
+                      <h4 id="orgDetailTitle">議곗쭅紐?</h4>
+                      <div class="org-detail-path" id="orgDetailPath">?ㅽ넗?뚮윭??</div>
+                    </div>
+                    <div class="org-node root" style="padding:10px 16px">
+                      <div>?ㅽ넗?뚮윭??</div>
+                      <div class="org-title" id="orgTotalCount">珥?0紐?</div>
+                    </div>
+                  </div>
+                  <div id="orgDetailSections"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="is-hidden" data-region="codeview" data-hr-view="codes">
+              <div class="code-tab-bar">
+                <button class="code-tab-btn active" type="button" data-code-tab="overview">肄붾뱶 ?꾪솴</button>
+                <button class="code-tab-btn" type="button" data-code-tab="org-edit">議곗쭅肄붾뱶 ?섏젙</button>
+                <button class="code-tab-btn" type="button" data-code-tab="level-manage">?덈꺼愿由?</button>
+                <button class="code-tab-btn" type="button" data-code-tab="meta-edit">吏곴툒/吏곸콉 ?섏젙</button>
+              </div>
+
+              <div class="code-tab-view active" data-code-tab-view="overview">
+                <div class="code-grid">
+                  <div class="code-main-stack">
+                    <section class="code-card">
+                      <div class="code-card-head">
+                        <h3>議곗쭅 肄붾뱶 ?꾪솴</h3>
+                        <span class="code-hint">蹂몃? / ??/ ? / ?뚰듃 湲곗?肄붾뱶</span>
+                      </div>
+                      <table class="code-table">
+                        <thead>
+                          <tr>
+                            <th>援щ텇</th>
+                            <th>?덈꺼</th>
+                            <th>肄붾뱶</th>
+                            <th>肄붾뱶紐?</th>
+                            <th>?곸쐞肄붾뱶</th>
+                            <th>?곹깭</th>
+                          </tr>
+                        </thead>
+                        <tbody id="orgCodeTableBody"></tbody>
+                      </table>
+                    </section>
+                    <section class="code-card">
+                      <div class="code-card-head">
+                        <h3>肄붾뱶 蹂寃??대젰</h3>
+                        <span class="code-hint">理쒓렐 ????대젰</span>
+                      </div>
+                      <div class="history-list" id="codeHistoryList"></div>
+                    </section>
+                  </div>
+
+                  <div class="code-side-stack">
+                    <section class="code-card">
+                      <div class="code-card-head">
+                        <h3>愿由??붾㈃ ?대룞</h3>
+                        <span class="code-hint">?꾪솴 ?붾㈃?먯꽌 ?섏젙 ?붾㈃?쇰줈 ?대룞</span>
+                      </div>
+                      <div style="padding:16px" class="code-entry-actions">
+                        <button class="code-entry-btn" type="button" id="openOrgCodeEditBtn">
+                          <div>
+                            <strong>議곗쭅肄붾뱶 ?섏젙</strong>
+                            <span>議곗쭅肄붾뱶 異붽?, ?섏젙, ?곹깭 蹂寃쎄낵 蹂몃? 湲곗? 誘몃━蹂닿린瑜?蹂꾨룄 ?붾㈃?먯꽌 吏꾪뻾?⑸땲??</span>
+                          </div>
+                          <span>?닿린</span>
+                        </button>
+                        <button class="code-entry-btn" type="button" id="openLevelManageBtn">
+                          <div>
+                            <strong>?덈꺼愿由?</strong>
+                            <span>?덈꺼紐? 議곗쭅援щ텇紐? ?곸쐞?덈꺼 湲곗???蹂꾨룄 愿由??붾㈃?먯꽌 ?섏젙?⑸땲??</span>
+                          </div>
+                          <span>?닿린</span>
+                        </button>
+                        <button class="code-entry-btn" type="button" id="openMetaEditBtn">
+                          <div>
+                            <strong>吏곴툒/吏곸콉 ?섏젙</strong>
+                            <span>?몄궗?뺣낫 ?낅젰怨?諛쒕졊?낅젰?먯꽌 李몄“?섎뒗 吏곴툒, 吏곸콉 肄붾뱶瑜?蹂꾨룄 ?붾㈃?먯꽌 愿由ы빀?덈떎.</span>
+                          </div>
+                          <span>?닿린</span>
+                        </button>
+                      </div>
+                    </section>
+                    <section class="code-card">
+                      <div class="code-card-head">
+                        <h3>肄붾뱶 李몄“ ?ㅻ챸</h3>
+                        <span class="code-hint">?ъ썝?뺣낫 ?낅젰??湲곗??뺣낫 ?ъ슜</span>
+                      </div>
+                      <div style="padding:16px;font-size:12px;line-height:1.7;color:#4a5170">
+                        ?щ쾲? 媛쒖씤 ?좊땲???ㅻ줈 愿由ы븯怨? 議곗쭅泥닿퀎? 吏곴툒, 吏곸콉? 蹂꾨룄 肄붾뱶愿由??붾㈃?먯꽌 ?좎??⑸땲??
+                        ?ъ썝 ?좉퇋?깅줉怨??몄궗湲곕줉移대뱶 ?섏젙 ?쒖뿉????肄붾뱶?ㅼ쓣 李몄“?섏뿬 ?낅젰媛믪쓣 ?쒖??뷀빀?덈떎.
+                      </div>
+                    </section>
+                    <section class="code-card">
+                      <div class="code-card-head">
+                        <h3>吏곴툒 / 吏곸콉 ?꾪솴</h3>
+                        <span class="code-hint">?낅젰 湲곗?媛?誘몃━蹂닿린</span>
+                      </div>
+                      <div style="padding:16px;font-size:12px;line-height:1.8;color:#4a5170">
+                        吏곴툒 肄붾뱶 <strong id="gradeCodeCount">0</strong>嫄? 吏곸콉 肄붾뱶 <strong id="positionCodeCount">0</strong>嫄댁씠
+                        ?좉퇋?깅줉, ?몄궗湲곕줉移대뱶, 諛쒕졊?낅젰???좏깮媛믪쑝濡??ъ슜?⑸땲??
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+
+              <div class="code-tab-view" data-code-tab-view="org-edit">
+                <div class="code-subview-header">
+                  <div class="code-subview-title">
+                    <h3>議곗쭅肄붾뱶 ?섏젙</h3>
+                    <p>肄붾뱶 ?꾪솴?먯꽌 ?뺤씤??議곗쭅肄붾뱶瑜?蹂꾨룄 ?섏젙 ?붾㈃?먯꽌 愿由ы빀?덈떎.</p>
+                  </div>
+                  <button class="code-subview-btn" type="button" data-code-go="overview" style="max-width:220px">
+                    <div>
+                      <strong>肄붾뱶 ?꾪솴?쇰줈 ?뚯븘媛湲?</strong>
+                      <span>蹂寃????꾩껜 ?꾪솴怨??대젰???ㅼ떆 ?뺤씤?⑸땲??</span>
+                    </div>
+                  </button>
+                </div>
+                <div class="code-grid">
+                  <div class="code-main-stack">
+                    <section class="code-card">
+                      <div class="code-card-head">
+                        <h3>議곗쭅 肄붾뱶 ?섏젙 ????좏깮</h3>
+                        <span class="code-hint">?좏깮??肄붾뱶留??곗륫 ?쇱뿉???몄쭛</span>
+                      </div>
+                      <table class="code-table">
+                        <thead>
+                          <tr>
+                            <th>援щ텇</th>
+                            <th>?덈꺼</th>
+                            <th>肄붾뱶</th>
+                            <th>肄붾뱶紐?</th>
+                            <th>?곸쐞肄붾뱶</th>
+                            <th>?곹깭</th>
+                          </tr>
+                        </thead>
+                        <tbody id="orgCodeEditTableBody"></tbody>
+                      </table>
+                    </section>
+                  </div>
+                  <div class="code-side-stack">
+                    <section class="code-card">
+                      <div class="code-card-head">
+                        <h3>議곗쭅 肄붾뱶 異붽?/?섏젙</h3>
+                        <span class="code-hint">?좏깮??肄붾뱶 ?섏젙 ?먮뒗 ?좉퇋 肄붾뱶 異붽?</span>
+                      </div>
+                      <form id="orgCodeForm" class="code-form">
+                        <div class="record-field">
+                          <label for="orgCodeType">援щ텇</label>
+                          <select id="orgCodeType" name="type">
+                            <option>蹂몃?</option>
+                            <option>??</option>
+                            <option>?</option>
+                            <option>?뚰듃</option>
+                          </select>
+                        </div>
+                        <div class="record-field">
+                          <label for="orgCodeLevel">?덈꺼</label>
+                          <input id="orgCodeLevel" name="level" readonly>
+                        </div>
+                        <div class="record-field">
+                          <label for="orgCodeValue">肄붾뱶</label>
+                          <input id="orgCodeValue" name="code">
+                        </div>
+                        <div class="record-field">
+                          <label for="orgCodeName">肄붾뱶紐?</label>
+                          <input id="orgCodeName" name="name">
+                        </div>
+                        <div class="record-field">
+                          <label for="orgCodeParent">?곸쐞肄붾뱶</label>
+                          <select id="orgCodeParent" name="parent"></select>
+                        </div>
+                        <div class="record-field">
+                          <label for="orgCodeStatus">?곹깭</label>
+                          <select id="orgCodeStatus" name="status">
+                            <option>?ъ슜以?</option>
+                            <option>以묒?</option>
+                          </select>
+                        </div>
+                        <div class="record-field full">
+                          <label for="orgCodeGuide">?ㅻ챸</label>
+                          <input id="orgCodeGuide" value="肄붾뱶愿由ъ뿉????????좉퇋?깅줉怨??몄궗湲곕줉移대뱶??肄붾뱶 李몄“媛믪씠 ?④퍡 蹂寃쎈릺??援ъ“瑜?媛?뺥빀?덈떎." readonly>
+                        </div>
+                      </form>
+                      <div class="code-actions">
+                        <button class="hr-btn btn-outline" type="button" id="orgCodeNewBtn">?좉퇋 肄붾뱶</button>
+                        <button class="hr-btn btn-primary" type="button" id="orgCodeSaveBtn">肄붾뱶 ???</button>
+                      </div>
+                    </section>
+                    <section class="code-card">
+                      <div class="code-card-head">
+                        <h3>?덈꺼 ?뺤쓽</h3>
+                        <span class="code-hint">議곗쭅 ?꾧퀎 湲곗?</span>
+                      </div>
+                      <div class="level-guide">
+                        <div class="level-guide-item"><span>蹂몃?</span><span class="level-guide-badge">Level 1</span></div>
+                        <div class="level-guide-item"><span>??</span><span class="level-guide-badge">Level 2</span></div>
+                        <div class="level-guide-item"><span>?</span><span class="level-guide-badge">Level 3</span></div>
+                        <div class="level-guide-item"><span>?뚰듃</span><span class="level-guide-badge">Level 4</span></div>
+                      </div>
+                    </section>
+                    <section class="code-card">
+                      <div class="code-card-head">
+                        <h3>議곗쭅???ㅼ떆媛?誘몃━蹂닿린</h3>
+                        <span class="code-hint">議곗쭅肄붾뱶 ?섏젙媛?諛섏쁺</span>
+                      </div>
+                      <div class="preview-chart">
+                        <div style="text-align:center">
+                          <div class="org-node root">
+                            <div>議곗쭅肄붾뱶 Preview</div>
+                            <div class="org-title" id="codePreviewSummary">肄붾뱶 0嫄?</div>
+                          </div>
+                          <div style="width:1px;height:16px;background:#b5c0e8;margin:0 auto"></div>
+                          <div class="org-row" id="codePreviewNodes"></div>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+
+              <div class="code-tab-view" data-code-tab-view="level-manage">
+                <div class="code-subview-header">
+                  <div class="code-subview-title">
+                    <h3>레벨관리</h3>
+                    <p>본부, 실, 팀, 파트 레벨 정의와 상위레벨 기준을 별도 화면에서 수정합니다.</p>
+                  </div>
+                  <button class="code-subview-btn" type="button" data-code-go="overview" style="max-width:220px">
+                    <div>
+                      <strong>코드 현황으로 돌아가기</strong>
+                      <span>레벨 기준 변경 후 전체 현황과 연결 구조를 다시 확인합니다.</span>
+                    </div>
+                  </button>
+                </div>
+                <div class="level-manage-layout">
+                  <section class="code-card">
+                    <div class="code-card-head">
+                      <h3>레벨 기준 목록</h3>
+                      <span class="code-hint">레벨별 조직구분과 상위레벨 기준</span>
+                    </div>
+                    <table class="code-table">
+                      <thead>
+                        <tr>
+                          <th>레벨</th>
+                          <th>조직구분</th>
+                          <th>상위레벨</th>
+                          <th>설명</th>
+                        </tr>
+                      </thead>
+                      <tbody id="levelCodeTableBody"></tbody>
+                    </table>
+                  </section>
+                  <section class="code-card">
+                    <div class="code-card-head">
+                      <h3>레벨 기준 수정</h3>
+                      <span class="code-hint">레벨명과 상위레벨 기준 수정</span>
+                    </div>
+                    <form id="levelCodeForm" class="code-form">
+                      <div class="record-field">
+                        <label for="levelCodeValue">레벨</label>
+                        <input id="levelCodeValue" readonly>
+                      </div>
+                      <div class="record-field">
+                        <label for="levelCodeLabel">레벨명</label>
+                        <input id="levelCodeLabel">
+                      </div>
+                      <div class="record-field">
+                        <label for="levelCodeTypeName">조직구분명</label>
+                        <input id="levelCodeTypeName">
+                      </div>
+                      <div class="record-field">
+                        <label for="levelCodeParent">상위레벨</label>
+                        <select id="levelCodeParent">
+                          <option value="">없음</option>
+                          <option value="L1">L1</option>
+                          <option value="L2">L2</option>
+                          <option value="L3">L3</option>
+                        </select>
+                      </div>
+                      <div class="record-field full">
+                        <label for="levelCodeDescription">설명</label>
+                        <input id="levelCodeDescription">
+                      </div>
+                    </form>
+                    <div class="code-actions">
+                      <button class="hr-btn btn-primary" type="button" id="levelCodeSaveBtn">레벨 저장</button>
+                    </div>
+                  </section>
+                </div>
+              </div>
+
+              <div class="code-tab-view" data-code-tab-view="meta-edit">
+                <div class="code-subview-header">
+                  <div class="code-subview-title">
+                    <h3>吏곴툒/吏곸콉 ?섏젙</h3>
+                    <p>?몄궗?뺣낫 ?낅젰怨?諛쒕졊?낅젰?먯꽌 怨듯넻 李몄“?섎뒗 硫뷀?肄붾뱶瑜?蹂꾨룄 ?붾㈃?먯꽌 愿由ы빀?덈떎.</p>
+                  </div>
+                  <button class="code-subview-btn" type="button" data-code-go="overview" style="max-width:220px">
+                    <div>
+                      <strong>肄붾뱶 ?꾪솴?쇰줈 ?뚯븘媛湲?</strong>
+                      <span>吏곴툒, 吏곸콉 肄붾뱶 ??????꾩껜 ?꾪솴 ?붾㈃?쇰줈 ?뚯븘媛묐땲??</span>
+                    </div>
+                  </button>
+                </div>
+                <div class="code-grid">
+                  <div class="code-main-stack">
+                    <section class="code-card">
+                      <div class="code-card-head">
+                        <h3>吏곴툒 肄붾뱶 愿由?</h3>
+                        <span class="code-hint">?낆궗??吏곴툒 / ?꾩옱 吏곴툒 怨듯넻</span>
+                      </div>
+                      <table class="code-table">
+                        <thead>
+                          <tr>
+                            <th>肄붾뱶</th>
+                            <th>吏곴툒紐?</th>
+                            <th>?뺣젹</th>
+                          </tr>
+                        </thead>
+                        <tbody id="gradeCodeTableBody"></tbody>
+                      </table>
+                      <div class="code-actions">
+                        <button class="hr-btn btn-outline" type="button" id="gradeCodeNewBtn">?좉퇋 吏곴툒</button>
+                      </div>
+                      <form id="gradeCodeForm" class="code-form">
+                        <div class="record-field">
+                          <label for="gradeCodeValue">肄붾뱶</label>
+                          <input id="gradeCodeValue">
+                        </div>
+                        <div class="record-field">
+                          <label for="gradeCodeName">吏곴툒紐?</label>
+                          <input id="gradeCodeName">
+                        </div>
+                        <div class="record-field full">
+                          <label for="gradeCodeOrder">?뺣젹?쒖꽌</label>
+                          <input id="gradeCodeOrder" type="number">
+                        </div>
+                      </form>
+                      <div class="code-actions">
+                        <button class="hr-btn btn-primary" type="button" id="gradeCodeSaveBtn">吏곴툒 ???</button>
+                      </div>
+                    </section>
+                  </div>
+                  <div class="code-side-stack">
+                    <section class="code-card">
+                      <div class="code-card-head">
+                        <h3>吏곸콉 肄붾뱶 愿由?</h3>
+                        <span class="code-hint">蹂댁쭅 諛???븷 湲곕컲 肄붾뱶</span>
+                      </div>
+                      <table class="code-table">
+                        <thead>
+                          <tr>
+                            <th>肄붾뱶</th>
+                            <th>吏곸콉紐?</th>
+                            <th>鍮꾧퀬</th>
+                          </tr>
+                        </thead>
+                        <tbody id="positionCodeTableBody"></tbody>
+                      </table>
+                      <div class="code-actions">
+                        <button class="hr-btn btn-outline" type="button" id="positionCodeNewBtn">?좉퇋 吏곸콉</button>
+                      </div>
+                      <form id="positionCodeForm" class="code-form">
+                        <div class="record-field">
+                          <label for="positionCodeValue">肄붾뱶</label>
+                          <input id="positionCodeValue">
+                        </div>
+                        <div class="record-field">
+                          <label for="positionCodeName">吏곸콉紐?</label>
+                          <input id="positionCodeName">
+                        </div>
+                        <div class="record-field full">
+                          <label for="positionCodeNote">鍮꾧퀬</label>
+                          <input id="positionCodeNote">
+                        </div>
+                      </form>
+                      <div class="code-actions">
+                        <button class="hr-btn btn-primary" type="button" id="positionCodeSaveBtn">吏곸콉 ???</button>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="is-hidden" data-region="assignmentview" data-hr-view="assignment">
+              <div class="code-grid">
+                <section class="code-card">
+                  <div class="code-card-head">
+                    <h3>諛쒕졊?낅젰</h3>
+                    <span class="code-hint">?좉퇋?낆궗 諛곗튂 / 遺?쒖씠??/ ?뱀쭊 諛쒕졊</span>
+                  </div>
+                  <form class="code-form">
+                    <div class="record-field">
+                      <label>????ъ썝</label>
+                      <select id="assignmentEmployeeSelect"></select>
+                    </div>
+                    <div class="record-field">
+                      <label>諛쒕졊 ?좏삎</label>
+                      <select id="assignmentType">
+                        <option>?좉퇋?낆궗 諛곗튂</option>
+                        <option>遺?쒖씠??</option>
+                        <option>?뱀쭊</option>
+                        <option>吏곸콉遺??</option>
+                      </select>
+                    </div>
+                    <div class="record-field">
+                      <label>諛쒕졊??</label>
+                      <input id="assignmentDate" value="2026.04.13">
+                    </div>
+                    <div class="record-field">
+                      <label>?곸슜 蹂몃?</label>
+                      <select id="assignmentHeadquarters"></select>
+                    </div>
+                    <div class="record-field">
+                      <label>?곸슜 ??</label>
+                      <select id="assignmentOffice"></select>
+                    </div>
+                    <div class="record-field">
+                      <label>?곸슜 ?</label>
+                      <select id="assignmentTeam"></select>
+                    </div>
+                    <div class="record-field">
+                      <label>?곸슜 ?뚰듃</label>
+                      <select id="assignmentPart"></select>
+                    </div>
+                    <div class="record-field">
+                      <label>?곸슜 吏곴툒</label>
+                      <select id="assignmentGrade"></select>
+                    </div>
+                    <div class="record-field">
+                      <label>?곸슜 吏곸콉</label>
+                      <select id="assignmentPosition"></select>
+                    </div>
+                    <div class="record-field full">
+                      <label>諛쒕졊 ?ъ쑀</label>
+                      <input id="assignmentReason" value="議곗쭅媛쒗렪???곕Ⅸ ?몄궗諛쒕졊 諛섏쁺">
+                    </div>
+                  </form>
+                  <div class="code-actions">
+                    <button class="hr-btn btn-primary" type="button" id="assignmentApplyBtn">諛쒕졊 諛섏쁺</button>
+                  </div>
+                </section>
+
+                <div class="code-side-stack">
+                  <section class="code-card">
+                    <div class="code-card-head">
+                      <h3>諛쒕졊 諛섏쁺 誘몃━蹂닿린</h3>
+                      <span class="code-hint">?좏깮??諛쒕졊媛?湲곗?</span>
+                    </div>
+                    <div style="padding:16px;font-size:12px;line-height:1.8;color:#4a5170" id="assignmentPreview">
+                      ?좏깮???ъ썝???꾩옱 議곗쭅/吏곴툒怨?諛쒕졊 ??議곗쭅/吏곴툒??鍮꾧탳??蹂댁뿬以띾땲??
+                    </div>
+                  </section>
+                  <section class="code-card">
+                    <div class="code-card-head">
+                      <h3>?낅Т ?ㅻ챸</h3>
+                      <span class="code-hint">?몄궗湲곕줉移대뱶/議곗쭅???곕룞</span>
+                    </div>
+                    <div style="padding:16px;font-size:12px;line-height:1.7;color:#4a5170">
+                      諛쒕졊?낅젰 ??????몄궗湲곕줉移대뱶??諛쒕졊?대젰 ??꾨씪?몄뿉 ?대젰??異붽??섍퀬, 議곗쭅?꾩? ?ъ썝紐낅????꾩옱 議곗쭅/吏곴툒/吏곸콉 ?뺣낫媛 ?④퍡 媛깆떊?섎뒗 ?먮쫫??媛?뺥빀?덈떎.
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </div>
+
+            <!-- HR Record Card -->
+            <div class="hr-card-grid is-hidden" id="hrCardGrid" data-region="hrcard" data-hr-view="record">
+              <div class="hr-card-profile">
+                <div class="hr-card-profile-top">
+                  <div class="hr-profile-avatar" id="recordAvatar">源</div>
+                  <div class="hr-card-name" id="recordName">源吏??</div>
+                  <div class="hr-card-pos" id="recordPosition">媛쒕컻蹂몃? 쨌 ?由?/ ???</div>
+                </div>
+                <div class="record-profile-body">
+                  <div class="record-profile-grid">
+                    <div class="hr-info-row">
+                      <div class="hr-info-label">?ъ썝踰덊샇</div>
+                      <div class="hr-info-val">
+                        <input id="recordFormEmployeeId" name="employeeId" readonly style="border:none;padding:0;background:transparent;font-size:12px;color:#2a3050;width:auto">
+                      </div>
+                    </div>
+                    <div class="hr-info-row">
+                      <div class="hr-info-label">議곗쭅</div>
+                      <div class="hr-info-val" id="recordMetaNote">媛쒕컻蹂몃? / ?뚮옯?쇱떎 / ?쒕퉬?ㅺ컻諛쒗?</div>
+                    </div>
+                    <div class="hr-info-row">
+                      <div class="hr-info-label">洹쇱냽</div>
+                      <div class="hr-info-val"><span id="recordDepartmentTenure">0媛쒖썡</span></div>
+                    </div>
+                    <div class="hr-info-row">
+                      <div class="hr-info-label">직군</div>
+                      <div class="hr-info-val"><span id="recordJobFamilyText">-</span></div>
+                    </div>
+                    <div class="hr-info-row">
+                      <div class="hr-info-label">직원유형</div>
+                      <div class="hr-info-val"><span id="recordEmployeeTypeText">정규직</span></div>
+                    </div>
+                    <div class="hr-info-row" id="recordContractInfoRow" style="display:none">
+                      <div class="hr-info-label">계약기간</div>
+                      <div class="hr-info-val"><span id="recordContractPeriodText">-</span></div>
+                    </div>
+                  </div>
+                  <div class="hr-card-summary" style="margin-bottom:0">
+                    <div class="hr-summary-box">
+                      <div class="hr-summary-label">理쒓렐 ?됯??깃툒</div>
+                      <div class="hr-summary-value">
+                        <select id="recordFormGrade" class="record-summary-select">
+                          <option>A+</option>
+                          <option>A</option>
+                          <option>B+</option>
+                          <option>B</option>
+                          <option>C</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="hr-summary-box">
+                      <div class="hr-summary-label">?뱀쭊 ?꾨낫</div>
+                      <div class="hr-summary-value">
+                        <select id="recordFormPromotion" class="record-summary-select">
+                          <option>寃?????</option>
+                          <option>?듭떖 ?몄옱</option>
+                          <option>?쇰컲</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="hr-summary-box">
+                      <div class="hr-summary-label">?ъ쭅?곹깭</div>
+                      <div class="hr-summary-value">
+                        <select id="recordFormStatus" class="record-summary-select" name="status">
+                          <option>?ъ쭅</option>
+                          <option>?댁쭅</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="hr-card-right">
+                <div class="hr-card-section">
+                  <h4>湲곕낯 ?몄궗?뺣낫</h4>
+                  <form class="record-form-grid" id="recordEditForm">
+                    <div class="record-group-title">湲곕낯 ?뺣낫</div>
+                    <div class="record-field">
+                      <label for="recordFormName">?ъ썝紐?</label>
+                      <input id="recordFormName" name="name">
+                    </div>
+                    <div class="record-field">
+                      <label for="recordFormBirth">?앸뀈?붿씪</label>
+                      <input id="recordFormBirth" name="birth">
+                    </div>
+                    <div class="record-group-title">議곗쭅 ?뺣낫</div>
+                    <div class="record-field">
+                      <label for="recordFormHeadquarters">蹂몃?</label>
+                      <select id="recordFormHeadquarters" name="headquarters"></select>
+                    </div>
+                    <div class="record-field">
+                      <label for="recordFormOffice">??</label>
+                      <select id="recordFormOffice" name="office"></select>
+                    </div>
+                    <div class="record-field">
+                      <label for="recordFormTeam">?</label>
+                      <select id="recordFormTeam" name="team"></select>
+                    </div>
+                    <div class="record-field">
+                      <label for="recordFormPart">?뚰듃</label>
+                      <select id="recordFormPart" name="part"></select>
+                    </div>
+                    <div class="record-group-title">吏곴툒 / 吏곸콉 ?뺣낫</div>
+                    <div class="record-field">
+                      <label for="recordFormTitle">?꾩옱 吏곴툒</label>
+                      <select id="recordFormTitle" name="title"></select>
+                    </div>
+                    <div class="record-field">
+                      <label for="recordFormPosition">吏곸콉</label>
+                      <select id="recordFormPosition" name="position"></select>
+                    </div>
+                    <div class="record-field">
+                      <label for="recordFormJobFamily">직군</label>
+                      <select id="recordFormJobFamily" name="jobFamily"></select>
+                    </div>
+                    <div class="record-field">
+                      <label for="recordFormEmployeeType">직원유형</label>
+                      <select id="recordFormEmployeeType" name="employeeType">
+                        <option>정규직</option>
+                        <option>계약직</option>
+                        <option>임원</option>
+                      </select>
+                    </div>
+                    <div class="record-field">
+                      <label for="recordFormJoinTitle">?낆궗??吏곴툒</label>
+                      <select id="recordFormJoinTitle" name="joinTitle"></select>
+                    </div>
+                    <div class="record-field full field-hidden" id="recordContractPeriodField">
+                      <label for="recordFormContractPeriod">계약기간</label>
+                      <input id="recordFormContractPeriod" name="contractPeriod" placeholder="예: 2026.04.13 ~ 2027.04.12">
+                    </div>
+                    <div class="record-group-title">?낆궗 / ?곕씫 ?뺣낫</div>
+                    <div class="record-field">
+                      <label for="recordFormJoinDate">?낆궗??</label>
+                      <input id="recordFormJoinDate" name="joinDate">
+                    </div>
+                    <div class="record-field">
+                      <label for="recordFormAssignmentDate">遺?쒕같?뺤씪</label>
+                      <input id="recordFormAssignmentDate" name="assignmentDate">
+                    </div>
+                    <div class="record-field">
+                      <label for="recordFormPhone">?곕씫泥?</label>
+                      <input id="recordFormPhone" name="phone">
+                    </div>
+                    <div class="record-group-title">異붽? ?뺣낫</div>
+                    <div class="record-field full">
+                      <label for="recordFormEducation">理쒖쥌?숇젰</label>
+                      <input id="recordFormEducation" name="education">
+                    </div>
+                    <div class="record-field full">
+                      <label for="recordFormPriorCareer">?낆궗???몄젙寃쎈젰</label>
+                      <input id="recordFormPriorCareer" name="priorCareer">
+                    </div>
+                  </form>
+                </div>
+                <div class="record-inline-note">
+                  <div class="hr-card-section">
+                    <h4>諛쒕졊?대젰</h4>
+                    <div class="hr-timeline" id="recordTimeline"></div>
+                  </div>
+                  <div class="hr-card-section">
+                    <h4>?먭꺽/援먯쑁?대젰</h4>
+                    <div class="hr-timeline" id="recordEducationHistory"></div>
+                  </div>
+                </div>
+                <div class="hr-card-section">
+                  <h4>?몄궗 硫붾え</h4>
+                  <div class="record-field full">
+                    <textarea id="recordFormMemo"></textarea>
+                  </div>
+                  <div class="record-actions">
+                    <button class="hr-btn btn-outline" type="button" id="recordResetBtn">?먮낯 蹂듭썝</button>
+                    <button class="hr-btn btn-primary" type="button" id="recordSaveBtn">?섏젙?ы빆 ???</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- end hr-content -->
+        </div><!-- end hr-body -->
+      </div><!-- end hr-system -->
+
+      <!-- ======= SYSTEM 2: EVALUATION ======= -->
+      <div class="eval-system" id="evalSystem">
+        <div class="eval-topbar" data-region="eval-topbar">
+          <div class="eval-logo">
+            <div class="eval-logo-icon">?뱤</div>
+            ?몄궗?됯??쒖뒪??          </div>
+          <div class="eval-top-menu" data-region="eval-gnb">
+            <div class="eval-top-item active">?됯??꾪솴</div>
+            <div class="eval-top-item">?몄궗?됯?</div>
+            <div class="eval-top-item">?곹뼢?됯?</div>
+            <div class="eval-top-item">?ㅻ㈃?됯?(360째)</div>
+            <div class="eval-top-item">寃곌낵遺꾩꽍</div>
+          </div>
+          <div class="hr-top-user">
+            <div class="hr-avatar" style="background:linear-gradient(135deg,#7c5cfc,#a855f7)">愿</div>
+            愿由ъ옄
+          </div>
+        </div>
+
+        <div class="eval-body">
+          <div class="eval-sidebar" data-region="eval-sidebar">
+            <div class="eval-sidebar-section">?됯?愿由?</div>
+            <div class="eval-sidebar-item active">?뱤 ?됯??꾪솴??쒕낫??</div>
+            <div class="eval-sidebar-item">?뱷 ?몄궗?됯? ?낅젰</div>
+            <div class="eval-sidebar-item">燧놅툘 ?곹뼢?됯? ?낅젰</div>
+            <div class="eval-sidebar-item">?봽 ?ㅻ㈃?됯? 愿由?</div>
+            <div class="eval-sidebar-section">?ㅼ젙</div>
+            <div class="eval-sidebar-item">?숋툘 ?됯???ぉ ?ㅼ젙</div>
+            <div class="eval-sidebar-item">?뫁 ?됯???諛곗젙</div>
+            <div class="eval-sidebar-item">?뱟 ?됯?湲곌컙 ?ㅼ젙</div>
+            <div class="eval-sidebar-section">寃곌낵</div>
+            <div class="eval-sidebar-item">?뱢 寃곌낵 吏묎퀎</div>
+            <div class="eval-sidebar-item">?뱞 ?됯?蹂닿퀬??</div>
+          </div>
+
+          <div class="eval-content">
+            <div class="eval-page-title" data-region="eval-pagetitle">
+              <div>
+                <h2>2024???섎컲湲??몄궗?됯?</h2>
+                <p>?됯?湲곌컙: 2024.12.01 ~ 2024.12.31 쨌 ?곕룞: ?몄궗?쒖뒪???ъ썝?뺣낫</p>
+              </div>
+            </div>
+
+            <div class="eval-form-wrap" style="padding:14px 18px;border-left:4px solid #7c5cfc;background:#fbf8ff">
+              <h4 style="margin-bottom:8px">?뵕 ?몄궗?뺣낫 蹂寃??곌퀎 洹쒖튃</h4>
+              <div style="font-size:12px;line-height:1.7;color:#5a6080">
+                ?몄궗?쒖뒪?쒖뿉??議곗쭅肄붾뱶, 吏곴툒肄붾뱶, ?ъ쭅?곹깭媛 蹂寃쎈릺硫??됯??쒖뒪?쒖쓽 ?됯???곸옄 援ъ꽦怨??됯???諛곗젙 湲곗????④퍡 媛깆떊?섎뒗 ?먮쫫??媛?뺥빀?덈떎.
+                ?덈? ?ㅼ뼱 議곗쭅 蹂寃????ㅻ㈃?됯? 李몄뿬?????諛붾뚭퀬, ?댁쭅 ?꾪솚 ???꾩옱 李⑥닔???됯?????쒖쇅 ?щ?瑜??ы뙋?⑦븯?꾨줉 ?ㅺ퀎?????덉뒿?덈떎.
+              </div>
+            </div>
+
+            <div class="eval-form-wrap" style="padding:14px 18px">
+              <h4 style="margin-bottom:8px">?뫁 ?됯???諛곗젙 誘몃━蹂닿린</h4>
+              <div style="font-size:12px;line-height:1.7;color:#5a6080" id="evalAssignmentPreview">
+                ?몄궗?쒖뒪?쒖쓽 ?꾩옱 議곗쭅/吏곴툒 湲곗??쇰줈 ?곸쐞?? ?숇즺, ?섏쐞???됯? ??곸씠 ?먮룞 ?곗젙?섎뒗 ?곕え ?곸뿭?낅땲??
+              </div>
+            </div>
+
+            <!-- Eval type tabs -->
+            <div class="eval-tabs" data-region="eval-tabs">
+              <button class="eval-tab-btn active">?뱥 ?몄궗?됯?</button>
+              <button class="eval-tab-btn">燧놅툘 ?곹뼢?됯?</button>
+              <button class="eval-tab-btn">?봽 ?ㅻ㈃?됯? (360째)</button>
+            </div>
+
+            <!-- Stats -->
+            <div class="eval-stats" data-region="eval-stats">
+              <div class="eval-stat-card">
+                <div class="eval-stat-label">?됯? ???</div>
+                <div class="eval-stat-value" id="evalTargetCount">231</div>
+                <div class="eval-stat-sub" id="evalTargetSub">?몄궗?쒖뒪???ъ쭅???곕룞</div>
+              </div>
+              <div class="eval-stat-card">
+                <div class="eval-stat-label">?됯? ?꾨즺</div>
+                <div class="eval-stat-value" id="evalCompletedCount">187</div>
+                <div class="eval-stat-sub" id="evalCompletedRatio">?꾨즺??80.9%</div>
+              </div>
+              <div class="eval-stat-card">
+                <div class="eval-stat-label">?됯? 吏꾪뻾以?</div>
+                <div class="eval-stat-value" id="evalProgressCount">31</div>
+                <div class="eval-stat-sub" style="color:#f5a623">留덇컧 D-12</div>
+              </div>
+              <div class="eval-stat-card">
+                <div class="eval-stat-label">誘몄갑??</div>
+                <div class="eval-stat-value" id="evalPendingCount">13</div>
+                <div class="eval-stat-sub" style="color:#ff6b6b">?뚮┝ 諛쒖넚 ?꾩슂</div>
+              </div>
+            </div>
+
+            <!-- Progress -->
+            <div class="eval-progress-section" data-region="eval-progress">
+              <h4>?됯? ?좏삎蹂?吏꾪뻾 ?꾪솴</h4>
+              <div class="eval-progress-item">
+                <div class="eval-progress-header">
+                  <span class="eval-progress-label">?뱥 ?몄궗?됯? (?곸쐞?????섏쐞??</span>
+                  <span class="eval-progress-pct">85%</span>
+                </div>
+                <div class="eval-progress-bar-bg"><div class="eval-progress-bar" style="width:85%"></div></div>
+              </div>
+              <div class="eval-progress-item">
+                <div class="eval-progress-header">
+                  <span class="eval-progress-label">燧놅툘 ?곹뼢?됯? (?섏쐞?????곸쐞??</span>
+                  <span class="eval-progress-pct" style="color:#38d9a9">72%</span>
+                </div>
+                <div class="eval-progress-bar-bg"><div class="eval-progress-bar" style="width:72%;background:linear-gradient(90deg,#38d9a9,#4f8ef7)"></div></div>
+              </div>
+              <div class="eval-progress-item">
+                <div class="eval-progress-header">
+                  <span class="eval-progress-label">?봽 ?ㅻ㈃?됯? (360째 ?곹샇?됯?)</span>
+                  <span class="eval-progress-pct" style="color:#f5a623">61%</span>
+                </div>
+                <div class="eval-progress-bar-bg"><div class="eval-progress-bar" style="width:61%;background:linear-gradient(90deg,#f5a623,#ff6b6b)"></div></div>
+              </div>
+            </div>
+
+            <!-- Eval Form -->
+            <div class="eval-form-wrap" data-region="eval-form">
+              <h4>?뱷 ?몄궗?됯? ?낅젰 ??源吏???由?(媛쒕컻?)</h4>
+              <div class="eval-criteria-row">
+                <div class="eval-criteria-name">?낅Т?깃낵 諛?紐⑺몴?ъ꽦</div>
+                <div class="eval-criteria-weight">30%</div>
+                <div class="eval-stars">
+                  <div class="eval-star active">S</div>
+                  <div class="eval-star active">A</div>
+                  <div class="eval-star active">B</div>
+                  <div class="eval-star">C</div>
+                  <div class="eval-star">D</div>
+                </div>
+              </div>
+              <div class="eval-criteria-row">
+                <div class="eval-criteria-name">吏곷Т??웾 諛??꾨Ц??</div>
+                <div class="eval-criteria-weight">25%</div>
+                <div class="eval-stars">
+                  <div class="eval-star active">S</div>
+                  <div class="eval-star active">A</div>
+                  <div class="eval-star">B</div>
+                  <div class="eval-star">C</div>
+                  <div class="eval-star">D</div>
+                </div>
+              </div>
+              <div class="eval-criteria-row">
+                <div class="eval-criteria-name">議곗쭅湲곗뿬??諛??묒뾽</div>
+                <div class="eval-criteria-weight">20%</div>
+                <div class="eval-stars">
+                  <div class="eval-star active">S</div>
+                  <div class="eval-star active">A</div>
+                  <div class="eval-star active">B</div>
+                  <div class="eval-star active">C</div>
+                  <div class="eval-star">D</div>
+                </div>
+              </div>
+              <div class="eval-criteria-row">
+                <div class="eval-criteria-name">由щ뜑??諛??깆옣媛?μ꽦</div>
+                <div class="eval-criteria-weight">15%</div>
+                <div class="eval-stars">
+                  <div class="eval-star active">S</div>
+                  <div class="eval-star active">A</div>
+                  <div class="eval-star">B</div>
+                  <div class="eval-star">C</div>
+                  <div class="eval-star">D</div>
+                </div>
+              </div>
+              <div class="eval-criteria-row">
+                <div class="eval-criteria-name">洹쇳깭 諛?湲곕낯?뚯뼇</div>
+                <div class="eval-criteria-weight">10%</div>
+                <div class="eval-stars">
+                  <div class="eval-star active">S</div>
+                  <div class="eval-star active">A</div>
+                  <div class="eval-star active">B</div>
+                  <div class="eval-star active">C</div>
+                  <div class="eval-star active">D</div>
+                </div>
+              </div>
+              <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+                <button class="hr-btn btn-outline" style="font-size:12px">?꾩떆???</button>
+                <button class="hr-btn btn-primary" style="background:#7c5cfc;font-size:12px">?됯? ?쒖텧</button>
+              </div>
+            </div>
+
+            <!-- 360 Peer Eval -->
+            <div class="eval-form-wrap" data-region="eval-360" style="display:none" id="eval360Wrap">
+              <h4>?봽 ?ㅻ㈃?됯? (360째) ???됯????꾪솴</h4>
+              <div class="eval-peer-grid">
+                <div class="eval-peer-card">
+                  <div class="eval-peer-name">理쒗쁽??李⑥옣</div>
+                  <div class="eval-peer-dept">媛쒕컻? 쨌 ?곸쐞?됯???</div>
+                  <span class="eval-peer-status peer-done">?꾨즺</span>
+                </div>
+                <div class="eval-peer-card">
+                  <div class="eval-peer-name">?댁듅??怨쇱옣</div>
+                  <div class="eval-peer-dept">?곸뾽? 쨌 ?숇즺?됯???</div>
+                  <span class="eval-peer-status peer-pending">吏꾪뻾以?</span>
+                </div>
+                <div class="eval-peer-card">
+                  <div class="eval-peer-name">?뺣떎? ?ъ썝</div>
+                  <div class="eval-peer-dept">留덉??낇? 쨌 ?숇즺?됯???</div>
+                  <span class="eval-peer-status peer-wait">誘몄갑??</span>
+                </div>
+                <div class="eval-peer-card">
+                  <div class="eval-peer-name">諛뺣????ъ썝</div>
+                  <div class="eval-peer-dept">寃쎌쁺吏?먰? 쨌 ?섏쐞?됯???</div>
+                  <span class="eval-peer-status peer-done">?꾨즺</span>
+                </div>
+                <div class="eval-peer-card">
+                  <div class="eval-peer-name">?⑹????由?</div>
+                  <div class="eval-peer-dept">媛쒕컻? 쨌 ?숇즺?됯???</div>
+                  <span class="eval-peer-status peer-pending">吏꾪뻾以?</span>
+                </div>
+                <div class="eval-peer-card">
+                  <div class="eval-peer-name">?먯쑀吏??由?</div>
+                  <div class="eval-peer-dept">媛쒕컻? 쨌 ?숇즺?됯???</div>
+                  <span class="eval-peer-status peer-wait">誘몄갑??</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div><!-- end eval-system -->
+
+    </div>
+  </div><!-- end demo-panel -->
+
+  <!-- RIGHT: ANNOTATION PANEL -->
+  <div class="anno-panel">
+    <div class="anno-header">
+      <h3>?뱦 湲고쉷 二쇱꽍</h3>
+      <div class="anno-toolbar">
+        <div class="code-hint">?붾㈃ 踰덊샇 留덉빱</div>
+        <button class="anno-toggle active" id="markerToggle" type="button">ON</button>
+      </div>
+    </div>
+    <div class="anno-list" id="annoList">
+      <!-- dynamically rendered -->
+    </div>
+  </div>
+
+</div><!-- end main -->
+
+<div class="modal-backdrop" id="employeeModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>?좉퇋 ?ъ썝 ?깅줉</h3>
+      <button class="modal-close" type="button" id="closeEmployeeModal">&times;</button>
+    </div>
+    <form id="employeeForm">
+      <div class="modal-body">
+        <div class="modal-field">
+          <label for="empName">?ъ썝紐?</label>
+          <input id="empName" name="name" value="?쒖삁由? required>
+        </div>
+        <div class="modal-field">
+          <label for="empId">?ъ썝踰덊샇</label>
+          <input id="empId" name="employeeId" value="EMP-0108" required>
+        </div>
+        <div class="modal-field">
+          <label for="empHeadquarters">蹂몃?</label>
+          <select id="empHeadquarters" name="headquarters"></select>
+        </div>
+        <div class="modal-field">
+          <label for="empOffice">??</label>
+          <select id="empOffice" name="office"></select>
+        </div>
+        <div class="modal-field">
+          <label for="empTeam">?</label>
+          <select id="empTeam" name="team"></select>
+        </div>
+        <div class="modal-field">
+          <label for="empPart">?뚰듃</label>
+          <select id="empPart" name="part"></select>
+        </div>
+        <div class="modal-field">
+          <label for="empTitle">?꾩옱 吏곴툒</label>
+          <select id="empTitle" name="title"></select>
+        </div>
+        <div class="modal-field">
+          <label for="empPosition">吏곸콉</label>
+          <select id="empPosition" name="position"></select>
+        </div>
+        <div class="modal-field">
+          <label for="empJobFamily">직군</label>
+          <select id="empJobFamily" name="jobFamily"></select>
+        </div>
+        <div class="modal-field">
+          <label for="empEmployeeType">직원유형</label>
+          <select id="empEmployeeType" name="employeeType">
+            <option>정규직</option>
+            <option>계약직</option>
+            <option>임원</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label for="empJoinTitle">?낆궗??吏곴툒</label>
+          <select id="empJoinTitle" name="joinTitle"></select>
+        </div>
+        <div class="modal-field field-hidden" id="empContractPeriodField">
+          <label for="empContractPeriod">계약기간</label>
+          <input id="empContractPeriod" name="contractPeriod" placeholder="예: 2026-04-13 ~ 2027-04-12">
+        </div>
+        <div class="modal-field">
+          <label for="empJoinDate">?낆궗??</label>
+          <input id="empJoinDate" name="joinDate" type="date" value="2026-04-13" required>
+        </div>
+        <div class="modal-field">
+          <label for="empBirth">?앸뀈?붿씪</label>
+          <input id="empBirth" name="birth" type="date" value="1996-09-21">
+        </div>
+        <div class="modal-field">
+          <label for="empPhone">?곕씫泥?</label>
+          <input id="empPhone" name="phone" value="010-5512-9821">
+        </div>
+        <div class="modal-field">
+          <label for="empAssignmentDate">遺?쒕같?뺤씪</label>
+          <input id="empAssignmentDate" name="assignmentDate" type="date" value="2026-04-13">
+        </div>
+        <div class="modal-field">
+          <label for="empEducation">理쒖쥌?숇젰</label>
+          <input id="empEducation" name="education" value="?쒓뎅?멸뎅?대??숆탳 寃쎌쁺?숆낵">
+        </div>
+        <div class="modal-field">
+          <label for="empPriorCareer">?낆궗???몄젙寃쎈젰</label>
+          <input id="empPriorCareer" name="priorCareer" value="2??6媛쒖썡">
+        </div>
+        <div class="modal-field">
+          <label for="empGrade">理쒓렐 ?됯??깃툒</label>
+          <select id="empGrade" name="grade">
+            <option>A+</option>
+            <option selected>A</option>
+            <option>B+</option>
+            <option>B</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label for="empPromotion">?뱀쭊 ?곹깭</label>
+          <select id="empPromotion" name="promotion">
+            <option selected>寃?????</option>
+            <option>?듭떖 ?몄옱</option>
+            <option>?쇰컲</option>
+          </select>
+        </div>
+        <div class="modal-field full">
+          <label for="empMemo">?몄궗 硫붾え</label>
+          <textarea id="empMemo" name="memo">梨꾩슜?꾪삎 ?곗닔 ?됯??먮줈 ?좊컻?섏뿀怨? ?⑤낫??怨쇱젙?먯꽌 議곗쭅 ?곸쓳 ?띾룄媛 鍮좊Ⅸ ?몄엯?덈떎. ?ν썑 ?됯??쒖뒪???댁쁺 ?대떦 ?꾨낫濡?寃??媛?ν빀?덈떎.</textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="hr-btn btn-outline" type="button" id="cancelEmployeeModal">痍⑥냼</button>
+        <button class="hr-btn btn-primary" type="submit">?깅줉 ??湲곕줉移대뱶 蹂닿린</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ========== ANNOTATION DATA ==========
+const annotations = {
+  1: [
+    {
+      num: "01", region: "topbar", title: "?곷떒 GNB (湲濡쒕쾶 ?ㅻ퉬寃뚯씠??",
+      desc: "?몄궗?쒖뒪?쒖쓽 理쒖긽??怨듯넻 ?ㅻ퉬寃뚯씠???곸뿭?낅땲??",
+      data: "濡쒓렇???ъ슜?? 沅뚰븳, ?쒖뒪??怨듭?, 硫붾돱 ?곹깭",
+      action: "?곸쐞 ?낅Т ?꾨찓???꾪솚, ?몄뀡 湲곕컲 ?ъ슜???쒖떆",
+      dev: "?쇱슦?? 沅뚰븳 ?쒖뼱, 怨듯넻 ?덉씠?꾩썐 而댄룷?뚰듃 ?꾩슂",
+      tag: "nav", tagLabel: "?ㅻ퉬寃뚯씠??
+    },
+    {
+      num: "02", region: "gnb", title: "1?④퀎 二쇱슂 硫붾돱",
+      desc: "?낅Т 移댄뀒怨좊━ ?꾪솚??1李?硫붾돱?낅땲??",
+      data: "硫붾돱蹂??묎렐沅뚰븳, 留덉?留??좏깮 硫붾돱, 利먭꺼李얘린 ?곹깭",
+      action: "?ъ썝?뺣낫愿由? ?몄궗湲곕줉移대뱶, 議곗쭅?? 諛쒕졊/?대룞, 蹂닿퀬???꾪솚",
+      dev: "硫붾돱蹂??쇱슦?낃낵 ?묎렐沅뚰븳 遺꾧린媛 ?꾩슂?⑸땲??",
+      tag: "nav", tagLabel: "?ㅻ퉬寃뚯씠??
+    },
+    {
+      num: "03", region: "sidebar", title: "醫뚯륫 2?④퀎 ?ъ씠?쒕컮",
+      desc: "?좏깮???곸쐞 硫붾돱???곕씪 ?몃? 湲곕뒫???몄텧?섎뒗 2李?硫붾돱?낅땲??",
+      data: "?꾩옱 硫붾돱, ?섏쐞 湲곕뒫 紐⑸줉, ?좏깮 ?곹깭",
+      action: "?ъ썝紐낅?, ?몄궗湲곕줉移대뱶, 議곗쭅?? 肄붾뱶愿由????몃? 湲곕뒫 吏꾩엯",
+      dev: "?좏깮 ?곹깭 ?좎?, 沅뚰븳蹂?硫붾돱 ?몄텧 ?쒖뼱 ?꾩슂",
+      tag: "nav", tagLabel: "?ㅻ퉬寃뚯씠??
+    },
+    {
+      num: "04", region: "searchbar", title: "?듯빀 寃??& ?꾪꽣",
+      desc: "?ъ썝踰덊샇, ?ъ썝紐? 議곗쭅, 吏곴툒, ?ъ쭅?곹깭瑜?議고빀???ъ썝??李얜뒗 寃???곸뿭?낅땲??",
+      data: "?щ쾲, ?깅챸, 議곗쭅, 吏곴툒, ?ъ쭅?곹깭",
+      action: "?ㅼ쨷 議곌굔 寃?? 議곌굔 珥덇린?? 寃곌낵 ?ъ“??,
+      dev: "寃??API, 議곌굔 ??? ?ㅼ슫濡쒕뱶 ?곕룞???꾩슂?⑸땲??",
+      tag: "search", tagLabel: "寃???꾪꽣"
+    },
+    {
+      num: "05", region: "stats", title: "?몄썝 ?꾪솴 ?붿빟 移대뱶",
+      desc: "?몄궗 ?꾪솴??吏묎퀎??蹂댁뿬二쇰뒗 ?붿빟 蹂대뱶?낅땲??",
+      data: "?꾩껜 ?몄썝, ?ъ쭅?? ?댁쭅?? ?좉퇋 ?낆궗??,
+      action: "?붿빟 ?섏튂 議고쉶, 移대뱶 ?대┃ ??紐낅? ?꾪꽣 ?곕룞",
+      dev: "湲곗???吏묎퀎? 議곗쭅蹂?Drill-down??怨좊젮?섏뼱???⑸땲??",
+      tag: "view", tagLabel: "議고쉶"
+    },
+    {
+      num: "06", region: "emptable", title: "?ъ썝紐낅? ?뚯씠釉?,
+      desc: "?ъ썝??湲곕낯 ?몄궗?뺣낫瑜?紐⑸줉?뺤쑝濡?議고쉶?섎뒗 硫붿씤 ?뚯씠釉붿엯?덈떎.",
+      data: "?щ쾲, ?깅챸, 議곗쭅, 吏곴툒, ?낆궗?? ?ъ쭅?곹깭",
+      action: "?뺣젹, ?섏씠吏?ㅼ씠?? ?묒? ?ㅼ슫濡쒕뱶, ?곸꽭蹂닿린 ?대룞",
+      dev: "媛쒖씤?뺣낫 留덉뒪?밴낵 沅뚰븳蹂?而щ읆 遺꾧린 寃???꾩슂",
+      tag: "view", tagLabel: "議고쉶"
+    },
+    {
+      num: "07", region: "pagetitle", title: "?붾㈃蹂?二쇱슂 ?ㅽ뻾 踰꾪듉",
+      desc: "?꾩옱 ?좏깮???붾㈃???곕씪 ?ㅻⅨ 二쇱슂 ?≪뀡???쒓났?섎뒗 怨듯넻 ?ㅽ뻾 ?곸뿭?낅땲??",
+      data: "?ъ썝紐낅?=?좉퇋?깅줉/?묒?, 湲곕줉移대뱶=?섏젙???蹂듭썝, 肄붾뱶愿由?肄붾뱶????좉퇋, 諛쒕졊?낅젰=諛쒕졊諛섏쁺/誘몃━蹂닿린",
+      action: "媛??붾㈃???듭떖 ????ㅽ뻾 ?숈옉??利됱떆 ?섑뻾",
+      dev: "?붾㈃ 而⑦뀓?ㅽ듃???곕씪 踰꾪듉 ?덉씠釉붽낵 ?ㅽ뻾 濡쒖쭅???숈쟻?쇰줈 ?꾪솚?댁빞 ?⑸땲??",
+      tag: "input", tagLabel: "?낅젰/?깅줉"
+    },
+    {
+      num: "08", region: "orgchart", title: "議곗쭅??(?숈쟻 ?앹꽦)",
+      desc: "肄붾뱶愿由ъ? ?ъ썝諛곗젙 ?뺣낫瑜?湲곕컲?쇰줈 議곗쭅 援ъ“瑜??쒓컖?뷀븯???붾㈃?낅땲??",
+      data: "蹂몃?/???/?뚰듃 援ъ“, 議곗쭅蹂??몄썝 ??,
+      action: "議곗쭅 援ъ“ ?쒖떆, 蹂寃???利됱떆 ?ш퀎??,
+      dev: "議곗쭅肄붾뱶 李몄“ 吏묎퀎? ?ㅼ떆媛??щ젋?붾쭅???꾩슂?⑸땲??",
+      tag: "view", tagLabel: "議고쉶"
+    },
+    {
+      num: "09", region: "hrcard", title: "?몄궗湲곕줉移대뱶",
+      desc: "媛쒕퀎 ?ъ썝???곸꽭 ?몄궗?뺣낫瑜?議고쉶?섍퀬 ?섏젙?섎뒗 ?듭떖 ?붾㈃?낅땲??",
+      data: "議곗쭅, 吏곴툒/吏곸콉, ?낆궗??吏곴툒, ?몄젙寃쎈젰, 諛곗젙?? 洹쇱냽媛쒖썡?? ?대젰",
+      action: "?곸꽭議고쉶, ?섏젙??? 紐낅?/議곗쭅???숈떆 媛깆떊",
+      dev: "?대젰???곗씠?곗? ?꾩옱媛??곗씠?곕? 遺꾨━ ?ㅺ퀎?댁빞 ?⑸땲??",
+      tag: "view", tagLabel: "議고쉶/?섏젙"
+    },
+    {
+      num: "10", region: "codeview", title: "肄붾뱶愿由?,
+      desc: "議곗쭅泥닿퀎 肄붾뱶, 吏곴툒 肄붾뱶, 吏곸콉 肄붾뱶瑜??쒖?媛믪쑝濡?愿由ы븯??湲곗??뺣낫 ?붾㈃?낅땲??",
+      data: "肄붾뱶媛? 肄붾뱶紐? ?곸쐞肄붾뱶, ?곹깭, ?뺣젹?쒖꽌",
+      action: "肄붾뱶 議고쉶, 肄붾뱶 異붽?/蹂寃? ?낅젰 ?붾㈃ ?쒕∼?ㅼ슫 李몄“",
+      dev: "?곹븯??肄붾뱶 愿怨꾩? ?ъ슜以묒? ?대젰 ?ㅺ퀎媛 ?꾩슂?⑸땲??",
+      tag: "input", tagLabel: "湲곗??뺣낫"
+    },
+    {
+      num: "11", region: "assignmentview", title: "諛쒕졊?낅젰",
+      desc: "遺?쒖씠?? ?좉퇋諛곗튂, ?뱀쭊, 吏곸콉遺?щ? ?낅젰?섎뒗 ?몄궗泥섎━ ?붾㈃?낅땲??",
+      data: "??곸궗?? 諛쒕졊?좏삎, 諛쒕졊?? ?곸슜 議곗쭅/吏곴툒/吏곸콉, 諛쒕졊?ъ쑀",
+      action: "諛쒕졊 ??????몄궗湲곕줉移대뱶 ??꾨씪?? 紐낅?, 議곗쭅???숈떆 媛깆떊",
+      dev: "?꾩옱媛믨낵 ?대젰媛믪쓣 ?④퍡 ?④린??援ъ“媛 ?꾩슂?⑸땲??",
+      tag: "input", tagLabel: "?몄궗泥섎━"
+    },
+  ],
+  2: [
+    {
+      num: "01", region: "eval-topbar", title: "?됯??쒖뒪???곷떒 諛?,
+      desc: "?몄궗?됯??쒖뒪?쒖쓽 怨듯넻 ?곷떒 ?곸뿭?낅땲??",
+      data: "?됯?湲곌컙, 濡쒓렇???ъ슜?? ?뚮┝, 愿由ъ옄 湲곕뒫",
+      action: "?됯? ?꾨찓???대룞, 怨듯넻 硫붾돱 ?묎렐",
+      dev: "?몄궗?쒖뒪?쒓낵 SSO 諛?怨듯넻 ?덉씠?꾩썐 ?곌퀎 ?꾩슂",
+      tag: "nav", tagLabel: "?ㅻ퉬寃뚯씠??
+    },
+    {
+      num: "02", region: "eval-gnb", title: "?됯? 二쇱슂 硫붾돱",
+      desc: "?됯??꾪솴, ?몄궗?됯?, ?곹뼢?됯?, ?ㅻ㈃?됯?, 寃곌낵遺꾩꽍?쇰줈 援щ텇?섎뒗 ?곸쐞 硫붾돱?낅땲??",
+      data: "?됯? ?좏삎, 沅뚰븳, 留덇컧?곹깭",
+      action: "?좏삎蹂??붾㈃ ?대룞, ?곹깭蹂??묎렐 ?쒖뼱",
+      dev: "沅뚰븳怨?留덇컧?곹깭???곕Ⅸ 吏꾩엯 遺꾧린媛 ?꾩슂?⑸땲??",
+      tag: "nav", tagLabel: "?ㅻ퉬寃뚯씠??
+    },
+    {
+      num: "03", region: "eval-sidebar", title: "?됯? ?몃? 湲곕뒫 ?ъ씠?쒕컮",
+      desc: "?됯?愿由??섏쐞 硫붾돱?낅땲??",
+      data: "??븷蹂?硫붾돱 紐⑸줉, ?꾩옱 ?좏깮 湲곕뒫",
+      action: "?됯??낅젰, ?됯???諛곗젙, 湲곌컙 ?ㅼ젙, 寃곌낵吏묎퀎 ?대룞",
+      dev: "??븷蹂??몄텧/鍮꾨끂異??뺤콉???뺤쓽?댁빞 ?⑸땲??",
+      tag: "nav", tagLabel: "?ㅻ퉬寃뚯씠??
+    },
+    {
+      num: "04", region: "eval-tabs", title: "3媛吏 ?됯? ?좏삎 ??,
+      desc: "?몄궗?됯?, ?곹뼢?됯?, ?ㅻ㈃?됯????됯? ?좏삎???꾪솚?섎뒗 ??엯?덈떎.",
+      data: "?좏삎蹂???곸옄, ?됯??? ??ぉ, ?듬챸??,
+      action: "???꾪솚 ???낅젰?쇨낵 ?꾪솴 ?곸뿭 蹂寃?,
+      dev: "?좏삎蹂?蹂꾨룄 ?곗씠??援ъ“ ?ㅺ퀎媛 ?꾩슂?⑸땲??",
+      tag: "nav", tagLabel: "?좏삎 ?꾪솚"
+    },
+    {
+      num: "05", region: "eval-stats", title: "?됯? 吏꾪뻾 ?꾪솴 ?붿빟",
+      desc: "?됯? ??곸옄 ?섏? ?꾨즺 ?곹깭瑜?吏묎퀎?섎뒗 ?댁쁺 ?꾪솴 ?곸뿭?낅땲??",
+      data: "??곸옄 ?? ?꾨즺/吏꾪뻾/誘몄갑??嫄댁닔",
+      action: "吏꾪뻾 ?꾪솴 紐⑤땲?곕쭅, 誘몄셿猷?????뚯븙",
+      dev: "?몄궗?쒖뒪???ъ쭅??湲곗? ?먮룞 ????앹꽦 ?꾩슂",
+      tag: "view", tagLabel: "議고쉶"
+    },
+    {
+      num: "06", region: "eval-progress", title: "?좏삎蹂?吏꾪뻾瑜?諛?,
+      desc: "?됯? ?좏삎蹂??꾨즺?⑥쓣 蹂댁뿬二쇰뒗 吏꾪뻾瑜?蹂대뱶?낅땲??",
+      data: "?좏삎蹂??쒖텧嫄댁닔, ??곴굔?? ?꾨즺??,
+      action: "吏???좏삎 ?뚯븙, Drill-down 湲곕컲 紐⑸줉 吏꾩엯",
+      dev: "?꾪꽣 諛?誘몄셿猷뚯옄 紐⑸줉 ?곌껐???좎슜?⑸땲??",
+      tag: "view", tagLabel: "議고쉶"
+    },
+    {
+      num: "07", region: "eval-form", title: "?몄궗?됯? ?낅젰 ??,
+      desc: "?됯??먭? ??ぉ蹂??먯닔 ?먮뒗 ?깃툒???낅젰?섎뒗 ?듭떖 ?낅젰 ?붾㈃?낅땲??",
+      data: "?됯???ぉ, ?깃툒/?먯닔, 媛以묒튂, ?됯??섍껄",
+      action: "?꾩떆??? 理쒖쥌?쒖텧, ?쒖텧 ???섏젙 ?쒗븳",
+      dev: "媛以묒튂 怨꾩궛怨??쒖텧 ?곹깭 愿由ш? ?꾩슂?⑸땲??",
+      tag: "input", tagLabel: "?낅젰/?깅줉"
+    },
+    {
+      num: "08", region: "eval-pagetitle", title: "?몄궗?쒖뒪???ъ썝?뺣낫 ?곕룞",
+      desc: "?됯??쒖뒪?쒖씠 ?몄궗?쒖뒪?쒖쓽 ?ъ쭅 ?ъ썝 ?뺣낫瑜?李몄“?섎뒗 ?곌퀎 吏?먯엯?덈떎.",
+      data: "?대쫫, 議곗쭅, 吏곴툒, ?ъ쭅?곹깭",
+      action: "?됯????諛??됯?沅뚰븳 ?먮룞 ?앹꽦",
+      dev: "以묐났 ?낅젰 ?놁씠 湲곗? ?곗씠??李몄“ 援ъ“媛 ?꾩슂?⑸땲??",
+      tag: "input", tagLabel: "?쒖뒪???곕룞"
+    },
+    {
+      num: "09", region: "eval-360", title: "?ㅻ㈃?됯?(360째) ?됯???援ъ꽦",
+      desc: "?곸쐞?? ?숇즺, ?섏쐞????蹂듭닔???됯??먮? 臾띠뼱 ?ㅻ㈃?됯?瑜??댁쁺?섎뒗 援ъ꽦 ?붾㈃?낅땲??",
+      data: "?됯????좏삎, ?뚯닔 ?곹깭, ?듬챸 泥섎━ ?щ?",
+      action: "?됯???諛곗젙, ?뚯닔??異붿쟻, 寃곌낵 怨듦컻 ?쒖젏 愿由?,
+      dev: "諛곗젙 洹쒖튃怨??듬챸 泥섎━ ?뺤콉???④퍡 ?뺤쓽?댁빞 ?⑸땲??",
+      tag: "action", tagLabel: "?ㅻ㈃?됯?"
+    },
+  ]
+};
+
+const hrRegionViewMap = {
+  searchbar: 'directory',
+  stats: 'directory',
+  emptable: 'directory',
+  orgchart: 'orgchart',
+  hrcard: 'record',
+  codeview: 'codes',
+  assignmentview: 'assignment'
+};
+
+const regionTargetSelectors = {
+  topbar: '.hr-logo',
+  gnb: '.hr-top-item.active, .hr-top-item',
+  sidebar: '.hr-sidebar-item.active, .hr-sidebar-item',
+  pagetitle: '#hrPageActions',
+  searchbar: '.hr-search-input',
+  stats: '.hr-stat-card:first-child',
+  emptable: '.hr-table-header',
+  orgchart: '#orgNavTree',
+  hrcard: '#recordEditForm',
+  codeview: '.code-entry-actions, .code-subview-header, .code-card',
+  assignmentview: '#assignmentPreview',
+  'eval-topbar': '.eval-logo',
+  'eval-gnb': '.eval-top-item.active, .eval-top-item',
+  'eval-sidebar': '.eval-sidebar-item.active, .eval-sidebar-item',
+  'eval-pagetitle': '.eval-page-title',
+  'eval-tabs': '.eval-tab-btn.active, .eval-tab-btn',
+  'eval-stats': '.eval-stat-card:first-child',
+  'eval-progress': '.eval-progress-item:first-child',
+  'eval-form': '.eval-criteria-row:first-child',
+  'eval-360': '.eval-peer-card:first-child'
+};
+
+const regionMarkerAnchors = {
+  topbar: { x: 0.04, y: 0.5 },
+  gnb: { x: 0.32, y: 0.5 },
+  sidebar: { x: 0.1, y: 0.14 },
+  pagetitle: { x: 0.82, y: 0.42 },
+  searchbar: { x: 0.12, y: 0.5 },
+  stats: { x: 0.12, y: 0.35 },
+  emptable: { x: 0.12, y: 0.1 },
+  orgchart: { x: 0.5, y: 0.18 },
+  hrcard: { x: 0.08, y: 0.1 },
+  codeview: { x: 0.1, y: 0.08 },
+  assignmentview: { x: 0.1, y: 0.08 },
+  "eval-topbar": { x: 0.05, y: 0.5 },
+  "eval-gnb": { x: 0.34, y: 0.5 },
+  "eval-sidebar": { x: 0.1, y: 0.12 },
+  "eval-pagetitle": { x: 0.12, y: 0.4 },
+  "eval-tabs": { x: 0.14, y: 0.5 },
+  "eval-stats": { x: 0.14, y: 0.28 },
+  "eval-progress": { x: 0.14, y: 0.14 },
+  "eval-form": { x: 0.14, y: 0.08 },
+  "eval-360": { x: 0.14, y: 0.08 }
+};
+
+let currentSystem = 1;
+let currentHrView = 'directory';
+let currentEmployeeId = 'EMP-0024';
+let orgChartSelectedCode = '';
+let showRegionMarkers = true;
+let selectedOrgCode = 'HQ-001';
+let selectedGradeCode = 'GR-03';
+let selectedPositionCode = 'PS-002';
+let currentCodeTab = 'overview';
+let selectedLevelCode = 'L1';
+const levelCodeData = [
+  { code: 'L1', label: 'Level 1', typeName: '蹂몃?', parent: '', description: '理쒖긽??議곗쭅 ?⑥쐞濡??섏쐞 ???먮뒗 ????ы븿?⑸땲??' },
+  { code: 'L2', label: 'Level 2', typeName: '??, parent: 'L1', description: '蹂몃? ?섏쐞 議곗쭅?쇰줈 ???愿由ы븯???⑥쐞?낅땲??' },
+  { code: 'L3', label: 'Level 3', typeName: '?', parent: 'L2', description: '???섏쐞???댁쁺 議곗쭅 ?⑥쐞?낅땲??' },
+  { code: 'L4', label: 'Level 4', typeName: '?뚰듃', parent: 'L3', description: '? ?섏쐞???몃? ?댁쁺 ?⑥쐞?낅땲??' }
+];
+const codeHistory = [
+  { text: '議곗쭅肄붾뱶 TM-002 媛쒕컻? ?앹꽦 / ?ъ슜以?/ 湲곗??뺣낫 諛섏쁺' },
+  { text: '吏곸콉肄붾뱶 PS-002 HR?쒖뒪??PM ?깅줉 / ?꾨줈?앺듃 ??븷' }
+];
+
+const rawOrgRows = [
+  ['?ㅽ넗?뚮윭??, 'CEO', 'CEO', ''],
+  ['??쒖씠??吏곸냽', 'RTC', '', ''],
+  ['??쒖씠??吏곸냽', 'RTC', '怨듭젙吏?먰?', ''],
+  ['??쒖씠??吏곸냽', 'RTC', 'RTC RQI?', ''],
+  ['??쒖씠??吏곸냽', 'RTC', 'RTC ?덉쭏媛쒖꽑?', 'RTC ?덉쭏媛쒖꽑?'],
+  ['??쒖씠??吏곸냽', 'RTC', 'RTC ?덉쭏媛쒖꽑?', 'RTC ?꾩옣?뚰듃'],
+  ['??쒖씠??吏곸냽', 'RTC', 'RTC ?덉쭏媛쒖꽑?', 'RTC ?뺣퉬?먭툑?뚰듃'],
+  ['BPO?ъ뾽蹂몃?', '', '', ''],
+  ['BPO?ъ뾽蹂몃?', '湲덉쑖?ъ뾽??, '', ''],
+  ['BPO?ъ뾽蹂몃?', '湲덉쑖?ъ뾽??, '諛섎궔?댁쁺?', ''],
+  ['BPO?ъ뾽蹂몃?', '湲덉쑖?ъ뾽??, '?쒗쑕?ъ뾽?', ''],
+  ['BPO?ъ뾽蹂몃?', '湲덉쑖?ъ뾽??, '?좊Ъ?댁쁺?', ''],
+  ['BPO?ъ뾽蹂몃?', '?μ뀡?ъ뾽??, '', ''],
+  ['BPO?ъ뾽蹂몃?', '?μ뀡?ъ뾽??, '由щ낯移댁삦?섑?', '由щ낯移댁삦?섑? ?곸뾽?뚰듃'],
+  ['BPO?ъ뾽蹂몃?', '?μ뀡?ъ뾽??, '由щ낯移댁삦?섑?', '由щ낯移댁삦?섑? ?댁쁺?뚰듃'],
+  ['BPO?ъ뾽蹂몃?', '?곹뭹留ㅼ엯??, '踰뺤씤?곸뾽?', ''],
+  ['BPO?ъ뾽蹂몃?', '?곹뭹留ㅼ엯??, '踰뺤씤?곸뾽?', '踰뺤씤?곸뾽? 1?뚰듃'],
+  ['BPO?ъ뾽蹂몃?', '?곹뭹留ㅼ엯??, '踰뺤씤?곸뾽?', '踰뺤씤?곸뾽? 2?뚰듃'],
+  ['BPO?ъ뾽蹂몃?', '?곹뭹留ㅼ엯??, '', ''],
+  ['BPO?ъ뾽蹂몃?', '?곹뭹留ㅼ엯??, '?⑤씪?몃ℓ?낇?', ''],
+  ['BPO?ъ뾽蹂몃?', '?곹뭹留ㅼ엯??, '?⑤씪?몃ℓ?낇?', '?⑤씪?몃ℓ?낇? 1?뚰듃'],
+  ['BPO?ъ뾽蹂몃?', '?곹뭹留ㅼ엯??, '?⑤씪?몃ℓ?낇?', '?⑤씪?몃ℓ?낇? 2?뚰듃'],
+  ['寃쎌쁺愿由щ낯遺', '', '', ''],
+  ['寃쎌쁺愿由щ낯遺', '寃쎌쁺吏?먯떎', '寃쎌쁺湲고쉷?', ''],
+  ['寃쎌쁺愿由щ낯遺', '寃쎌쁺吏?먯떎', '?몃Т?', ''],
+  ['寃쎌쁺愿由щ낯遺', '寃쎌쁺吏?먯떎', '?몄궗?', ''],
+  ['寃쎌쁺愿由щ낯遺', '寃쎌쁺吏?먯떎', '?몄궗?(遺)', ''],
+  ['寃쎌쁺愿由щ낯遺', '寃쎌쁺吏?먯떎', '?щТ?', ''],
+  ['寃쎌쁺愿由щ낯遺', '寃쎌쁺吏?먯떎', '?щТ?', '?щТ? ?먭툑?뚰듃'],
+  ['寃쎌쁺愿由щ낯遺', '?붿??몄궗?낆떎', '', ''],
+  ['寃쎌쁺愿由щ낯遺', '?붿??몄궗?낆떎', '?명봽?쇨컻諛쒗?', ''],
+  ['寃쎌쁺愿由щ낯遺', '?붿??몄궗?낆떎', '?⑤씪?멸컻諛쒗?', ''],
+  ['寃쎌쁺愿由щ낯遺', '?붿??몄궗?낆떎', '?쒕퉬?ㅺ린?랁?', ''],
+  ['寃쎌쁺愿由щ낯遺', '?붿??몄궗?낆떎', '?쒕퉬?ㅺ린?랁?', 'UX?뚰듃'],
+  ['?ъ뾽愿由щ낯遺', '', '', ''],
+  ['?ъ뾽愿由щ낯遺', '?ъ뾽愿由щ낯遺 吏곸냽', '?ы듃?대━?ㅽ?', ''],
+  ['?ъ뾽愿由щ낯遺', '?ъ뾽愿由щ낯遺 吏곸냽', '?ы듃?대━?ㅽ?', '?ы듃?대━?ㅽ? 寃ъ쟻?ъ궗?뚰듃'],
+  ['?ъ뾽愿由щ낯遺', '?ъ뾽愿由щ낯遺 吏곸냽', '?ы듃?대━?ㅽ?', '?ы듃?대━?ㅽ? 李⑤웾?대룞?뚰듃'],
+  ['?ъ뾽愿由щ낯遺', '?곸뾽湲고쉷??, '', ''],
+  ['?ъ뾽愿由щ낯遺', '?곸뾽湲고쉷??, '怨좉컼吏?먰?', ''],
+  ['?ъ뾽愿由щ낯遺', '?곸뾽湲고쉷??, '怨좉컼吏?먰?', 'EW?뚰듃'],
+  ['?ъ뾽愿由щ낯遺', '?곸뾽湲고쉷??, '留덉??낇?', ''],
+  ['?ъ뾽愿由щ낯遺', '?곸뾽湲고쉷??, '?곸뾽愿由ы?', ''],
+  ['?ъ뾽愿由щ낯遺', '?뚰꽣移댁궗?낆떎', '', ''],
+  ['?ъ뾽愿由щ낯遺', '?뚰꽣移댁궗?낆떎', '?뚰꽣移댁쁺?낇?', '?뚰꽣移댁쁺?낇?'],
+  ['?ъ뾽愿由щ낯遺', '?뚰꽣移댁궗?낆떎', '?뚰꽣移댁??먰?', '?뚰꽣移댁??먰?'],
+  ['?쒕퉬?ㅻ낯遺', '', '', ''],
+  ['?쒕퉬?ㅻ낯遺', '?쒕퉬?ㅻ낯遺 吏곸냽', '?쒗쉶?뺣퉬?', ''],
+  ['?쒕퉬?ㅻ낯遺', '?쒕퉬?ㅻ낯遺 吏곸냽', '?쒗쉶?뺣퉬?', '?쒗쉶(寃쎈궓)'],
+  ['?쒕퉬?ㅻ낯遺', '?쒕퉬?ㅻ낯遺 吏곸냽', '?쒗쉶?뺣퉬?', '?쒗쉶(遺??'],
+  ['?쒕퉬?ㅻ낯遺', '?쒕퉬?ㅻ낯遺 吏곸냽', '?쒗쉶?뺣퉬?', '?쒗쉶(?쒖슱1)'],
+  ['?쒕퉬?ㅻ낯遺', '?쒕퉬?ㅻ낯遺 吏곸냽', '?쒗쉶?뺣퉬?', '?쒗쉶(?쒖슱2)'],
+  ['?쒕퉬?ㅻ낯遺', '?쒕퉬?ㅻ낯遺 吏곸냽', '?쒗쉶?뺣퉬?', '?쒗쉶(?몄쿇)'],
+  ['?쒕퉬?ㅻ낯遺', '?ㅽ넗耳?댁궗?낆떎', '', ''],
+  ['?쒕퉬?ㅻ낯遺', '?ㅽ넗耳?댁궗?낆떎', 'LP?', ''],
+  ['?쒕퉬?ㅻ낯遺', '?ㅽ넗耳?댁궗?낆떎', '?곸넚?', ''],
+  ['?쒕퉬?ㅻ낯遺', '?ㅽ넗耳?댁궗?낆떎', '?좎감臾쇰쪟?', ''],
+  ['?쒕퉬?ㅻ낯遺', '?ㅽ넗耳?댁궗?낆떎', '?좎감臾쇰쪟?', '寃쎌궛臾쇰쪟'],
+  ['?쒕퉬?ㅻ낯遺', '?ㅽ넗耳?댁궗?낆떎', '?좎감臾쇰쪟?', '愿묒＜臾쇰쪟'],
+  ['?쒕퉬?ㅻ낯遺', '?ㅽ넗耳?댁궗?낆떎', '?좎감臾쇰쪟?', '源?대Ъ瑜?],
+  ['?쒕퉬?ㅻ낯遺', '?ㅽ넗耳?댁궗?낆떎', '?좎감臾쇰쪟?', '?⑹씤臾쇰쪟'],
+  ['?쒕퉬?ㅻ낯遺', '?ㅽ넗耳?댁궗?낆떎', '?좎감臾쇰쪟?', '?몄쿇臾쇰쪟'],
+  ['?쒕퉬?ㅻ낯遺', '?ㅽ넗耳?댁궗?낆떎', '?좎감臾쇰쪟?', '泥?＜臾쇰쪟'],
+  ['?곸뾽蹂몃?', '', '', ''],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '留ㅼ엯?댁쁺?', ''],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '留ㅼ엯?꾨떞?', ''],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '?곸뾽?댁쁺?', ''],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '?쒖슱吏??, ''],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '?쇱궛吏??, ''],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '?쇱궛吏??, '?쇱궛吏??留ㅼ엯?뚰듃'],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '?쇱궛吏??, '?쇱궛吏???먮ℓ?뚰듃'],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '愿묒＜吏??, ''],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '愿묒＜吏??, '愿묒＜吏??留ㅼ엯?뚰듃'],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '愿묒＜吏??, '愿묒＜吏???먮ℓ?뚰듃'],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '源?ъ???, ''],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '源?ъ???, '源?ъ???留ㅼ엯?뚰듃'],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '源?ъ???, '源?ъ????먮ℓ?뚰듃'],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '?숇?援ъ???, ''],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '?숇?援ъ???, '?숇?援ъ???留ㅼ엯?뚰듃'],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '?숇?援ъ???, '?숇?援ъ????먮ℓ?뚰듃'],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '遺?곗???, ''],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '遺?곗???, '遺?곗????쇱씠釉뚮갑?≫뙆??],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '遺?곗???, '遺?곗???留ㅼ엯?뚰듃'],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '遺?곗???, '遺?곗???吏?먰뙆??],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '遺?곗???, '遺?곗????먮ℓ?뚰듃'],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '泥쒖븞吏??, ''],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '泥쒖븞吏??, '泥쒖븞吏??留ㅼ엯?뚰듃'],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '泥쒖븞吏??, '泥쒖븞吏???먮ℓ?뚰듃'],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '泥?씪吏??, ''],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '泥?씪吏??, '泥?씪吏???쇱씠釉뚮갑?≫뙆??],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '泥?씪吏??, '泥?씪吏??吏?먰뙆??],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '泥?씪吏??, '泥?씪吏???먮ℓ?뚰듃'],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '?쒖＜吏??, ''],
+  ['?곸뾽蹂몃?', '?곸뾽蹂몃? 吏곸냽', '以묒븰?뱁뙋吏??, '']
+];
+
+function normalizeOrgRows(rows) {
+  return rows.map(([headquarters, office, team, part]) => {
+    let normalizedOffice = office || '';
+    let normalizedTeam = team || '';
+    let normalizedPart = part || '';
+
+    if (normalizedOffice && normalizedTeam && normalizedOffice === normalizedTeam) {
+      normalizedOffice = '';
+    }
+    if (normalizedPart && normalizedTeam && normalizedPart === normalizedTeam) {
+      normalizedPart = '';
+    }
+    if (normalizedPart && normalizedOffice && normalizedPart === normalizedOffice) {
+      normalizedPart = '';
+    }
+
+    return [headquarters || '', normalizedOffice, normalizedTeam, normalizedPart];
+  });
+}
+
+const normalizedOrgRows = normalizeOrgRows(rawOrgRows);
+
+function buildOrgCodeData(rows) {
+  const data = [];
+  const codeMap = new Map();
+  const counters = { '蹂몃?': 1, '??: 1, '?': 1, '?뚰듃': 1 };
+  const prefixMap = { '蹂몃?': 'HQ', '??: 'OF', '?': 'TM', '?뚰듃': 'PT' };
+
+  function ensureCode(type, name, parentCode = '-') {
+    if (!name) return '';
+    const key = `${type}|${parentCode}|${name}`;
+    if (codeMap.has(key)) return codeMap.get(key);
+    const code = `${prefixMap[type]}-${String(counters[type]++).padStart(3, '0')}`;
+    codeMap.set(key, code);
+    data.push({ type, code, name, parent: parentCode || '-', status: '?ъ슜以? });
+    return code;
+  }
+
+  rows.forEach(([headquarters, office, team, part]) => {
+    const headquartersCode = ensureCode('蹂몃?', headquarters, '-');
+    const officeCode = ensureCode('??, office, headquartersCode);
+    const teamCode = ensureCode('?', team, officeCode || headquartersCode);
+    ensureCode('?뚰듃', part, teamCode || officeCode || headquartersCode);
+  });
+
+  return data;
+}
+
+const orgCodeData = buildOrgCodeData(normalizedOrgRows);
+orgChartSelectedCode = orgCodeData.find((item) => item.type === '蹂몃?' && item.name === '寃쎌쁺愿由щ낯遺')?.code || orgCodeData.find((item) => item.type === '蹂몃?')?.code || '';
+
+const gradeCodeData = [
+  { code: 'GR-01', name: '사장', order: 1 },
+  { code: 'GR-02', name: '부사장', order: 2 },
+  { code: 'GR-03', name: '전무이사', order: 3 },
+  { code: 'GR-04', name: '상무이사', order: 4 },
+  { code: 'GR-05', name: '이사', order: 5 },
+  { code: 'GR-06', name: '부장', order: 6 },
+  { code: 'GR-07', name: '차장', order: 7 },
+  { code: 'GR-08', name: '과장', order: 8 },
+  { code: 'GR-09', name: '대리', order: 9 },
+  { code: 'GR-10', name: '사원', order: 10 }
+];
+
+const positionCodeData = [
+  { code: 'PS-001', name: '대표이사', note: '임원' },
+  { code: 'PS-002', name: '본부장', note: '조직장' },
+  { code: 'PS-003', name: '실장', note: '조직장' },
+  { code: 'PS-004', name: '센터장', note: '조직장' },
+  { code: 'PS-005', name: '팀장', note: '조직장' },
+  { code: 'PS-006', name: '파트장', note: '조직장' },
+  { code: 'PS-007', name: '지점장', note: '현장조직장' }
+];
+
+const jobFamilyCodeData = [
+  { code: 'JF-001', name: '임원', note: '임원직군' },
+  { code: 'JF-002', name: '관리', note: '경영지원 및 관리' },
+  { code: 'JF-003', name: '관리(성과)', note: '성과관리 및 지원' },
+  { code: 'JF-004', name: '물류', note: '물류 운영' },
+  { code: 'JF-005', name: '정비', note: '정비 운영' },
+  { code: 'JF-006', name: '별정', note: '특수직군' },
+  { code: 'JF-007', name: '영업(판매)', note: '판매 영업' },
+  { code: 'JF-008', name: '영업(매입)', note: '매입 영업' },
+  { code: 'JF-009', name: '순회', note: '순회 운영' }
+];
+
+const employeeRecords = {
+  'EMP-0024': {
+    employeeId: 'EMP-0024',
+    name: '源吏??,
+    headquarters: '寃쎌쁺愿由щ낯遺',
+    office: '?붿??몄궗?낆떎',
+    team: '?쒕퉬?ㅺ린?랁?',
+    part: 'UX?뚰듃',
+    title: '?由?,
+    position: '?쒕퉬?ㅺ린???대떦',
+    jobFamily: '관리',
+    employeeType: '정규직',
+    contractPeriod: '',
+    joinTitle: '?ъ썝',
+    joinDate: '2021.03.02',
+    assignmentDate: '2024.01.01',
+    birth: '1992.05.14',
+    phone: '010-3456-4521',
+    education: '?뗢뿃??숆탳 而댄벂?곌났?숆낵',
+    priorCareer: '1??2媛쒖썡',
+    status: '?ъ쭅',
+    grade: 'A',
+    promotion: '寃?????,
+    memo: '李⑥꽭? ?몄궗?됯? ?붾㈃ ?ㅺ퀎 ?꾨줈?앺듃??李몄뿬 以묒씠硫? ?묒뾽 留뚯”?꾩? ?쇱젙 以????ぉ?먯꽌 ?믪? ?먯닔瑜??좎??섍퀬 ?덉뒿?덈떎.',
+    timeline: [
+      { date: '2024.01.01', text: '媛쒕컻? ?由??뱀쭊', color: '#4f8ef7' },
+      { date: '2022.07.01', text: '媛쒕컻2? ??媛쒕컻? ?대룞', color: '#7c5cfc' },
+      { date: '2021.03.02', text: '?낆궗 (媛쒕컻2? ?ъ썝)', color: '#38d9a9' }
+    ],
+    educationHistory: [
+      { date: '2025.01', text: '?깃낵?됯? 肄붿묶 由щ뜑 怨쇱젙 ?섎즺', color: '#38d9a9' },
+      { date: '2023.08', text: '?뺣낫泥섎━湲곗궗 痍⑤뱷', color: '#f5a623' },
+      { date: '2022.03', text: '吏곷Т援먯쑁 ?댁닔 (40h)', color: '#f5a623' }
+    ]
+  },
+  'EMP-0031': {
+    employeeId: 'EMP-0031',
+    name: '?댁듅??,
+    headquarters: '?곸뾽蹂몃?',
+    office: '?곸뾽蹂몃? 吏곸냽',
+    team: '遺?곗???,
+    part: '遺?곗????먮ℓ?뚰듃',
+    title: '怨쇱옣',
+    position: '?곸뾽 ?댁쁺?대떦',
+    jobFamily: '영업(판매)',
+    employeeType: '정규직',
+    contractPeriod: '',
+    joinTitle: '?由?,
+    joinDate: '2018.07.15',
+    assignmentDate: '2025.01.01',
+    birth: '1988.11.03',
+    phone: '010-2283-7741',
+    education: '遺?곕??숆탳 臾댁뿭?숆낵',
+    priorCareer: '4??,
+    status: '?ъ쭅',
+    grade: 'A+',
+    promotion: '?듭떖 ?몄옱',
+    memo: '?곸뾽 KPI ?ъ꽦瑜좎씠 ?믨퀬 ?좉퇋 嫄곕옒泥?諛쒓뎬 ?깃낵媛 ?곗닔?섏뿬 李④린 由щ뜑 ?꾨낫援곗쑝濡?遺꾨쪟?섏뼱 ?덉뒿?덈떎.',
+    timeline: [
+      { date: '2025.01.01', text: '?곸뾽? 怨쇱옣 ?뱀쭊', color: '#4f8ef7' },
+      { date: '2021.01.01', text: '?곸뾽1? ???곸뾽? ?듯빀 諛곗튂', color: '#7c5cfc' },
+      { date: '2018.07.15', text: '?낆궗 (?곸뾽1? ?ъ썝)', color: '#38d9a9' }
+    ],
+    educationHistory: [
+      { date: '2024.09', text: 'B2B ?몄씪利?由щ뜑??怨쇱젙 ?섎즺', color: '#38d9a9' },
+      { date: '2023.05', text: '?댁쇅?곸뾽 ?ㅻТ援먯쑁 ?댁닔', color: '#f5a623' }
+    ]
+  },
+  'EMP-0045': {
+    employeeId: 'EMP-0045',
+    name: '諛뺣???,
+    headquarters: '寃쎌쁺愿由щ낯遺',
+    office: '寃쎌쁺吏?먯떎',
+    team: '?몄궗?',
+    part: '',
+    title: '?ъ썝',
+    position: '?몄궗?댁쁺 ?대떦',
+    jobFamily: '관리',
+    employeeType: '계약직',
+    contractPeriod: '2026.02.01 ~ 2027.01.31',
+    joinTitle: '?ъ썝',
+    joinDate: '2023.01.09',
+    assignmentDate: '2023.01.09',
+    birth: '1998.04.17',
+    phone: '010-7192-1432',
+    education: '?댄솕?ъ옄??숆탳 ?됱젙?숆낵',
+    priorCareer: '?놁쓬',
+    status: '?댁쭅',
+    grade: 'B+',
+    promotion: '?쇰컲',
+    memo: '?≪븘?댁쭅 以묒씠硫?蹂듭쭅 ?덉젙 ?쇱젙???곕씪 議곗쭅 諛곗튂瑜??ш??좏븷 ?덉젙?낅땲??',
+    timeline: [
+      { date: '2026.02.01', text: '?≪븘?댁쭅 ?쒖옉', color: '#f5a623' },
+      { date: '2023.01.09', text: '?낆궗 (寃쎌쁺吏?먰?)', color: '#38d9a9' }
+    ],
+    educationHistory: [
+      { date: '2024.06', text: '湲됱뿬?뺤궛 湲곗큹 援먯쑁 ?섎즺', color: '#38d9a9' }
+    ]
+  },
+  'EMP-0012': {
+    employeeId: 'EMP-0012',
+    name: '理쒗쁽??,
+    headquarters: '?쒕퉬?ㅻ낯遺',
+    office: '?ㅽ넗耳?댁궗?낆떎',
+    team: '?좎감臾쇰쪟?',
+    part: '?⑹씤臾쇰쪟',
+    title: '李⑥옣',
+    position: '臾쇰쪟?댁쁺 由щ뜑',
+    jobFamily: '물류',
+    employeeType: '정규직',
+    contractPeriod: '',
+    joinTitle: '?由?,
+    joinDate: '2015.04.20',
+    assignmentDate: '2024.01.01',
+    birth: '1986.02.08',
+    phone: '010-6624-9234',
+    education: '?쒖뼇??숆탳 ?뚰봽?몄썾?댄븰怨?,
+    priorCareer: '5??,
+    status: '?ъ쭅',
+    grade: 'A+',
+    promotion: '?듭떖 ?몄옱',
+    memo: '媛쒕컻議곗쭅 由щ뜑 ?꾨낫?대ŉ ?ㅻ㈃?됯??먯꽌 由щ뜑??낵 ?≪꽦 ??ぉ ?먯닔媛 吏?띿쟻?쇰줈 ?믨쾶 ?좎??섍퀬 ?덉뒿?덈떎.',
+    timeline: [
+      { date: '2024.01.01', text: '媛쒕컻? 李⑥옣 ?뱀쭊', color: '#4f8ef7' },
+      { date: '2020.01.01', text: '?뚮옯?쇨컻諛쒖떎 梨낆엫 ??李⑥옣 ?꾨낫', color: '#7c5cfc' },
+      { date: '2015.04.20', text: '?낆궗 (?뚮옯?쇨컻諛쒖떎)', color: '#38d9a9' }
+    ],
+    educationHistory: [
+      { date: '2025.02', text: '?뚰겕 由щ뜑???꾩뭅?곕? ?섎즺', color: '#38d9a9' },
+      { date: '2023.10', text: '?좎옄??肄붿묶 ?몄쬆 痍⑤뱷', color: '#f5a623' }
+    ]
+  },
+  'EMP-0067': {
+    employeeId: 'EMP-0067',
+    name: '?뺣떎?',
+    headquarters: '?ъ뾽愿由щ낯遺',
+    office: '?곸뾽湲고쉷??,
+    team: '留덉??낇?',
+    part: '',
+    title: '?ъ썝',
+    position: '留덉????대떦',
+    jobFamily: '관리(성과)',
+    employeeType: '정규직',
+    contractPeriod: '',
+    joinTitle: '?ъ썝',
+    joinDate: '2024.02.26',
+    assignmentDate: '2024.02.26',
+    birth: '1999.12.11',
+    phone: '010-4852-2619',
+    education: '?깃퇏愿??숆탳 誘몃뵒?댁빱裕ㅻ땲耳?댁뀡?숆낵',
+    priorCareer: '1??,
+    status: '?ъ쭅',
+    grade: 'A',
+    promotion: '?쇰컲',
+    memo: '?붿???罹좏럹???댁쁺 ??웾???믨퀬 ?묒뾽遺???쇰뱶諛깆씠 醫뗭븘 ?ㅻ㈃?됯? ??곸옄濡??먯＜ ?좎젙?⑸땲??',
+    timeline: [
+      { date: '2024.02.26', text: '?낆궗 (留덉??낇?)', color: '#38d9a9' }
+    ],
+    educationHistory: [
+      { date: '2025.03', text: '釉뚮옖??肄섑뀗痢?湲고쉷 援먯쑁 ?섎즺', color: '#38d9a9' }
+    ]
+  }
+};
+
+function formatSeedNumber(value) {
+  return String(value).padStart(2, '0');
+}
+
+function buildDummyEmployeeName(index) {
+  const lastNames = ['源', '??, '諛?, '理?, '??, '媛?, '議?, '??, '??, '??];
+  const firstNames = ['誘쇱?', '?쒖뿰', '?섏?', '吏??, '?꾩쑄', '?좎쭊', '?꾩슦', '?쒖?', '以??, '媛?'];
+  return `${lastNames[index % lastNames.length]}${firstNames[index % firstNames.length]}`;
+}
+
+function appendDummyEmployeesFromOrgRows() {
+  normalizedOrgRows.forEach((row, index) => {
+    const employeeId = `EMP-${String(1001 + index).padStart(4, '0')}`;
+    if (employeeRecords[employeeId]) return;
+
+    const [headquarters, office, team, part] = row;
+    const deptLabel = part || team || office || headquarters;
+    const month = formatSeedNumber((index % 12) + 1);
+    const day = formatSeedNumber((index % 27) + 1);
+    const joinDate = `202${index % 6}.${month}.${day}`;
+    const employeeType = index % 15 === 0 ? '계약직' : (index % 11 === 0 ? '임원' : '정규직');
+    const jobFamily = ['관리', '관리(성과)', '물류', '정비', '영업(판매)', '영업(매입)', '순회', '별정'][index % 8];
+    const title = employeeType === '임원' ? ['사장', '부사장', '전무이사', '상무이사', '이사'][index % 5] : ['사원', '대리', '과장', '차장', '부장'][index % 5];
+    const position = employeeType === '임원' ? ['대표이사', '본부장', '실장', '센터장'][index % 4] : ['팀장', '파트장', '지점장'][index % 3];
+
+    employeeRecords[employeeId] = {
+      employeeId,
+      name: buildDummyEmployeeName(index),
+      headquarters: headquarters || '',
+      office: office || '',
+      team: team || '',
+      part: part || '',
+      title,
+      position,
+      jobFamily,
+      employeeType,
+      contractPeriod: employeeType === '계약직' ? `2026.${month}.01 ~ 2027.${month}.01` : '',
+      joinTitle: employeeType === '임원' ? title : '사원',
+      joinDate,
+      assignmentDate: joinDate,
+      birth: `199${index % 10}.${month}.${day}`,
+      phone: `010-${String(2000 + index).padStart(4, '0')}-${String(3000 + index).padStart(4, '0')}`,
+      education: '?섑뵆??숆탳 寃쎌쁺?숆낵',
+      priorCareer: index % 3 === 0 ? '?놁쓬' : `${(index % 5) + 1}??,
+      status: '?ъ쭅',
+      grade: ['A', 'B+', 'A+'][index % 3],
+      promotion: ['?쇰컲', '寃?????, '?듭떖 ?몄옱'][index % 3],
+      memo: `${deptLabel} 議곗쭅 ?뚯뒪?몃? ?꾪븳 ?붾? ?ъ썝?낅땲??`,
+      timeline: [
+        { date: joinDate, text: `${deptLabel} 諛곗튂`, color: '#4f8ef7' }
+      ],
+      educationHistory: [
+        { date: `2025.${month}`, text: '?⑤낫??援먯쑁 ?섎즺', color: '#38d9a9' }
+      ]
+    };
+  });
+}
+
+appendDummyEmployeesFromOrgRows();
+
+function switchSystem(n) {
+  currentSystem = n;
+  document.getElementById('tab1').classList.toggle('active', n===1);
+  document.getElementById('tab2').classList.toggle('active', n===2);
+  document.getElementById('hrSystem').classList.toggle('active', n===1);
+  document.getElementById('evalSystem').classList.toggle('active', n===2);
+  renderAnnotations();
+  clearHighlight();
+  if (n === 1) {
+    setHrView(currentHrView);
+  }
+  if (n === 2) {
+    document.getElementById('eval360Wrap').style.display = 'block';
+  }
+  renderRegionMarkers();
+}
+
+const hrViewMeta = {
+  directory: {
+    title: '?ъ썝紐낅?',
+    desc: '?꾩껜 ?ъ썝 ?뺣낫瑜?議고쉶?섍퀬 愿由ы빀?덈떎'
+  },
+  record: {
+    title: '?몄궗湲곕줉移대뱶',
+    desc: '?좉퇋 ?깅줉 ?먮뒗 ?곸꽭蹂닿린 ?좏깮 ??媛쒖씤 ?몄궗湲곕줉???뺤씤?⑸땲??
+  },
+  orgchart: {
+    title: '議곗쭅??,
+    desc: '?ъ썝?뺣낫瑜?湲곗??쇰줈 議곗쭅 援ъ“? ?몄썝 諛곗튂瑜??뺤씤?⑸땲??
+  },
+  codes: {
+    title: '肄붾뱶愿由?,
+    desc: '議곗쭅, 吏곴툒, 吏곸콉 ??湲곗?肄붾뱶瑜?愿由ы븯怨??ъ썝?뺣낫 ?낅젰???쒖?媛믪쑝濡??ъ슜?⑸땲??
+  },
+  assignment: {
+    title: '諛쒕졊?낅젰',
+    desc: '諛쒕졊?좏삎怨??곸슜 議곗쭅/吏곴툒/吏곸콉???낅젰?섍퀬 ?몄궗?대젰??諛섏쁺?⑸땲??
+  }
+};
+
+function updateHrPageActions(view) {
+  const primary = document.getElementById('pagePrimaryAction');
+  const secondary = document.getElementById('pageSecondaryAction');
+
+  primary.onclick = null;
+  secondary.onclick = null;
+  secondary.style.display = 'inline-flex';
+
+  if (view === 'directory') {
+    secondary.textContent = '?뱿 Excel ?대낫?닿린';
+    primary.textContent = '???좉퇋 ?깅줉';
+    primary.onclick = openEmployeeModal;
+    secondary.onclick = () => {};
+    return;
+  }
+
+  if (view === 'record') {
+    secondary.textContent = '???먮낯 蹂듭썝';
+    primary.textContent = '?뮶 ?섏젙 ???;
+    secondary.onclick = () => document.getElementById('recordResetBtn').click();
+    primary.onclick = () => document.getElementById('recordSaveBtn').click();
+    return;
+  }
+
+  if (view === 'orgchart') {
+    secondary.textContent = '?봽 議곗쭅???덈줈怨좎묠';
+    primary.textContent = '?뱧 諛쒕졊?낅젰 ?대룞';
+    secondary.onclick = renderOrgChart;
+    primary.onclick = () => setHrView('assignment');
+    return;
+  }
+
+  if (view === 'codes') {
+    if (currentCodeTab === 'org-edit') {
+      secondary.textContent = '?넅 ?좉퇋 肄붾뱶';
+      primary.textContent = '?뮶 肄붾뱶 ???;
+      secondary.onclick = () => document.getElementById('orgCodeNewBtn').click();
+      primary.onclick = () => document.getElementById('orgCodeSaveBtn').click();
+      return;
+    }
+    if (currentCodeTab === 'level-manage') {
+      secondary.textContent = '??肄붾뱶 ?꾪솴';
+      primary.textContent = '?뮶 ?덈꺼 ???;
+      secondary.onclick = () => switchCodeTab('overview');
+      primary.onclick = () => document.getElementById('levelCodeSaveBtn').click();
+      return;
+    }
+    if (currentCodeTab === 'meta-edit') {
+      secondary.textContent = '??肄붾뱶 ?꾪솴';
+      primary.textContent = '?뮶 硫뷀?肄붾뱶 ???;
+      secondary.onclick = () => switchCodeTab('overview');
+      primary.onclick = () => document.getElementById('gradeCodeSaveBtn').click();
+      return;
+    }
+    secondary.textContent = '?썱 議곗쭅肄붾뱶 ?섏젙';
+    primary.textContent = '?뱪 ?덈꺼愿由?;
+    secondary.onclick = () => switchCodeTab('org-edit');
+    primary.onclick = () => switchCodeTab('level-manage');
+    return;
+  }
+
+  if (view === 'assignment') {
+    secondary.textContent = '?몓 諛쒕졊 誘몃━蹂닿린';
+    primary.textContent = '??諛쒕졊 諛섏쁺';
+    secondary.onclick = updateAssignmentPreview;
+    primary.onclick = () => document.getElementById('assignmentApplyBtn').click();
+    return;
+  }
+}
+
+function setHrView(view) {
+  currentHrView = view;
+
+  document.querySelectorAll('[data-hr-view]').forEach((section) => {
+    section.classList.toggle('is-hidden', section.dataset.hrView !== view);
+  });
+
+  document.querySelectorAll('[data-hr-view-trigger]').forEach((trigger) => {
+    const isActive = trigger.dataset.hrViewTrigger === view;
+    trigger.classList.toggle('active', isActive);
+  });
+
+  const title = hrViewMeta[view] || hrViewMeta.directory;
+  document.getElementById('hrPageTitleText').textContent = title.title;
+  document.getElementById('hrPageTitleDesc').textContent = title.desc;
+  if (view === 'codes') {
+    switchCodeTab('overview');
+  }
+  updateHrPageActions(view);
+  clearHighlight();
+  renderAnnotations();
+  renderRegionMarkers();
+}
+
+function formatDate(value) {
+  return value ? value.replaceAll('-', '.') : '-';
+}
+
+function getOrgLevel(type) {
+  const levelMap = {
+    '蹂몃?': 1,
+    '??: 2,
+    '?': 3,
+    '?뚰듃': 4
+  };
+  return levelMap[type] || '';
+}
+
+function getOrgParentOptions(type) {
+  const parentTypeMap = {
+    '蹂몃?': null,
+    '??: '蹂몃?',
+    '?': '??,
+    '?뚰듃': '?'
+  };
+  const parentType = parentTypeMap[type];
+  if (!parentType) return [];
+  return orgCodeData
+    .filter((item) => item.type === parentType)
+    .map((item) => ({ value: item.code, label: `${item.code} | ${item.name}` }));
+}
+
+function renderOrgParentSelect(type, selectedValue = '') {
+  const select = document.getElementById('orgCodeParent');
+  if (!select) return;
+  const options = getOrgParentOptions(type);
+  select.innerHTML = '';
+  if (!options.length) {
+    select.innerHTML = '<option value="">?놁쓬</option>';
+    select.disabled = true;
+    return;
+  }
+  options.forEach((item) => {
+    const option = document.createElement('option');
+    option.value = item.value;
+    option.textContent = item.label;
+    option.selected = item.value === selectedValue;
+    select.appendChild(option);
+  });
+  select.disabled = false;
+}
+
+function fillSelect(selectId, values, selectedValue, includeEmpty = false) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  select.innerHTML = '';
+  if (includeEmpty) {
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = '?놁쓬';
+    select.appendChild(emptyOption);
+  }
+  values.forEach((value) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    option.selected = value === selectedValue;
+    select.appendChild(option);
+  });
+  if (selectedValue && !values.includes(selectedValue)) {
+    const fallback = document.createElement('option');
+    fallback.value = selectedValue;
+    fallback.textContent = `${selectedValue} (媛쒕퀎媛?`;
+    fallback.selected = true;
+    select.appendChild(fallback);
+  }
+}
+
+function getOrgChildren(type, parentCode) {
+  return orgCodeData
+    .filter((item) => item.type === type && item.status === '?ъ슜以? && item.parent === parentCode)
+    .map((item) => item.name);
+}
+
+function getCodeByName(type, name) {
+  return orgCodeData.find((item) => item.type === type && item.name === name);
+}
+
+function syncOrgSelectChain(prefix, selected = {}) {
+  const headquarters = orgCodeData.filter((item) => item.type === '蹂몃?' && item.status === '?ъ슜以?).map((item) => item.name);
+  fillSelect(`${prefix}Headquarters`, headquarters, selected.headquarters);
+
+  const headquartersCode = getCodeByName('蹂몃?', document.getElementById(`${prefix}Headquarters`).value)?.code;
+  const offices = headquartersCode ? getOrgChildren('??, headquartersCode) : [];
+  fillSelect(`${prefix}Office`, offices, selected.office);
+
+  const officeCode = getCodeByName('??, document.getElementById(`${prefix}Office`).value)?.code;
+  const teams = officeCode ? getOrgChildren('?', officeCode) : [];
+  fillSelect(`${prefix}Team`, teams, selected.team);
+
+  const teamCode = getCodeByName('?', document.getElementById(`${prefix}Team`).value)?.code;
+  const parts = teamCode ? getOrgChildren('?뚰듃', teamCode) : [];
+  fillSelect(`${prefix}Part`, parts, selected.part, true);
+}
+
+function bindOrgSelectChain(prefix) {
+  document.getElementById(`${prefix}Headquarters`).addEventListener('change', () => {
+    syncOrgSelectChain(prefix, { headquarters: document.getElementById(`${prefix}Headquarters`).value });
+  });
+  document.getElementById(`${prefix}Office`).addEventListener('change', () => {
+    syncOrgSelectChain(prefix, {
+      headquarters: document.getElementById(`${prefix}Headquarters`).value,
+      office: document.getElementById(`${prefix}Office`).value
+    });
+  });
+  document.getElementById(`${prefix}Team`).addEventListener('change', () => {
+    syncOrgSelectChain(prefix, {
+      headquarters: document.getElementById(`${prefix}Headquarters`).value,
+      office: document.getElementById(`${prefix}Office`).value,
+      team: document.getElementById(`${prefix}Team`).value
+    });
+  });
+}
+
+function renderCodeTables() {
+  const orgRows = orgCodeData.map((item) => `
+    <tr class="${item.code === selectedOrgCode ? 'is-selected' : ''}" data-org-code="${item.code}">
+      <td>${item.type}</td>
+      <td>L${getOrgLevel(item.type)}</td>
+      <td>${item.code}</td>
+      <td>${item.name}</td>
+      <td>${item.parent}</td>
+      <td><span class="code-badge">${item.status}</span></td>
+    </tr>
+  `).join('');
+  document.getElementById('orgCodeTableBody').innerHTML = orgRows;
+  document.getElementById('orgCodeEditTableBody').innerHTML = orgRows;
+
+  document.getElementById('gradeCodeTableBody').innerHTML = gradeCodeData.map((item) => `
+    <tr class="${item.code === selectedGradeCode ? 'is-selected' : ''}" data-grade-code="${item.code}">
+      <td>${item.code}</td>
+      <td>${item.name}</td>
+      <td>${item.order}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById('positionCodeTableBody').innerHTML = positionCodeData.map((item) => `
+    <tr class="${item.code === selectedPositionCode ? 'is-selected' : ''}" data-position-code="${item.code}">
+      <td>${item.code}</td>
+      <td>${item.name}</td>
+      <td>${item.note}</td>
+    </tr>
+  `).join('');
+  document.getElementById('gradeCodeCount').textContent = gradeCodeData.length;
+  document.getElementById('positionCodeCount').textContent = positionCodeData.length;
+  renderLevelGuides();
+  renderLevelTable();
+}
+
+function renderLevelGuides() {
+  const html = levelCodeData.map((item) => `
+    <div class="level-guide-item">
+      <span>${item.typeName}</span>
+      <span class="level-guide-badge">${item.label}</span>
+    </div>
+  `).join('');
+  document.querySelectorAll('.level-guide').forEach((container) => {
+    container.innerHTML = html;
+  });
+}
+
+function renderLevelTable() {
+  const body = document.getElementById('levelCodeTableBody');
+  if (!body) return;
+  body.innerHTML = levelCodeData.map((item) => `
+    <tr class="${item.code === selectedLevelCode ? 'is-selected' : ''}" data-level-code="${item.code}">
+      <td>${item.code}</td>
+      <td>${item.typeName}</td>
+      <td>${item.parent || '-'}</td>
+      <td>${item.description}</td>
+    </tr>
+  `).join('');
+}
+
+function loadLevelCodeToForm(code) {
+  const item = levelCodeData.find((entry) => entry.code === code);
+  if (!item) return;
+  selectedLevelCode = code;
+  document.getElementById('levelCodeValue').value = item.code;
+  document.getElementById('levelCodeLabel').value = item.label;
+  document.getElementById('levelCodeTypeName').value = item.typeName;
+  document.getElementById('levelCodeParent').value = item.parent;
+  document.getElementById('levelCodeDescription').value = item.description;
+  renderLevelTable();
+}
+
+function switchCodeTab(tab) {
+  currentCodeTab = tab;
+  document.querySelectorAll('.code-tab-btn').forEach((button) => {
+    button.classList.toggle('active', button.dataset.codeTab === tab);
+  });
+  document.querySelectorAll('.code-tab-view').forEach((view) => {
+    view.classList.toggle('active', view.dataset.codeTabView === tab);
+  });
+  if (currentHrView === 'codes') {
+    updateHrPageActions('codes');
+  }
+}
+
+function getPreviewRootCode(code) {
+  let current = getOrgItemByCode(code);
+  while (current && current.parent && current.parent !== '-') {
+    current = getOrgItemByCode(current.parent);
+  }
+  return current?.code || '';
+}
+
+function renderCodePreviewTreeNode(code) {
+  const item = getOrgItemByCode(code);
+  if (!item) return '';
+
+  const childCodes = getOrgChildrenCodes(code);
+  const isSelected = code === selectedOrgCode;
+
+  return `
+    <div class="org-tree-branch">
+      <div class="org-branch-head">
+        <div class="org-node level-${getOrgLevel(item.type)} ${item.parent === '-' ? 'root' : ''} ${isSelected ? 'is-selected' : ''}">
+          <div>${item.name}</div>
+          <div class="org-title">${item.type}${isSelected ? ' · 선택 조직' : ''}</div>
+        </div>
+      </div>
+      ${childCodes.length ? `
+        <div class="org-children">
+          ${childCodes.map((childCode) => `
+            <div class="org-tree-line"></div>
+            ${renderCodePreviewTreeNode(childCode)}
+          `).join('')}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderCodePreview() {
+  const fallbackCode = selectedOrgCode || orgCodeData.find((item) => item.parent === '-')?.code || '';
+  const previewRootCode = getPreviewRootCode(fallbackCode);
+  const previewRoot = getOrgItemByCode(previewRootCode);
+
+  if (!previewRoot) {
+    document.getElementById('codePreviewSummary').textContent = '?좏깮 媛?ν븳 議곗쭅???놁뒿?덈떎';
+    document.getElementById('codePreviewNodes').innerHTML = '<div class="org-empty">議곗쭅肄붾뱶瑜?癒쇱? ?좏깮??二쇱꽭??</div>';
+    return;
+  }
+
+  document.getElementById('codePreviewSummary').textContent = `${previewRoot.name} 議곗쭅??誘몃━蹂닿린`;
+  document.getElementById('codePreviewNodes').innerHTML = `
+    <div class="org-tree">
+      ${renderCodePreviewTreeNode(previewRootCode)}
+    </div>
+  `;
+}
+
+function renderCodeHistory() {
+  document.getElementById('codeHistoryList').innerHTML = codeHistory
+    .slice(0, 6)
+    .map((item) => `<div class="history-item">${item.text}</div>`)
+    .join('');
+}
+
+function loadOrgCodeToForm(code) {
+  const item = orgCodeData.find((entry) => entry.code === code);
+  if (!item) return;
+  selectedOrgCode = code;
+  document.getElementById('orgCodeType').value = item.type;
+  document.getElementById('orgCodeLevel').value = `Level ${getOrgLevel(item.type)}`;
+  document.getElementById('orgCodeValue').value = item.code;
+  document.getElementById('orgCodeName').value = item.name;
+  renderOrgParentSelect(item.type, item.parent === '-' ? '' : item.parent);
+  document.getElementById('orgCodeStatus').value = item.status;
+  renderCodeTables();
+  renderCodePreview();
+}
+
+function loadGradeCodeToForm(code) {
+  const item = gradeCodeData.find((entry) => entry.code === code);
+  if (!item) return;
+  selectedGradeCode = code;
+  document.getElementById('gradeCodeValue').value = item.code;
+  document.getElementById('gradeCodeName').value = item.name;
+  document.getElementById('gradeCodeOrder').value = item.order;
+  renderCodeTables();
+}
+
+function loadPositionCodeToForm(code) {
+  const item = positionCodeData.find((entry) => entry.code === code);
+  if (!item) return;
+  selectedPositionCode = code;
+  document.getElementById('positionCodeValue').value = item.code;
+  document.getElementById('positionCodeName').value = item.name;
+  document.getElementById('positionCodeNote').value = item.note;
+  renderCodeTables();
+}
+
+function renderCodeDrivenSelects() {
+  const grades = gradeCodeData.map((item) => item.name);
+  const positions = positionCodeData.map((item) => item.name);
+  const jobFamilies = jobFamilyCodeData.map((item) => item.name);
+
+  syncOrgSelectChain('emp', {
+    headquarters: '寃쎌쁺愿由щ낯遺',
+    office: '寃쎌쁺吏?먯떎',
+    team: '?몄궗?',
+    part: ''
+  });
+  syncOrgSelectChain('recordForm', {
+    headquarters: '寃쎌쁺愿由щ낯遺',
+    office: '?붿??몄궗?낆떎',
+    team: '?쒕퉬?ㅺ린?랁?',
+    part: 'UX?뚰듃'
+  });
+  fillSelect('empTitle', grades, '?由?);
+  fillSelect('recordFormTitle', grades, '?由?);
+  fillSelect('empJoinTitle', grades, '?ъ썝');
+  fillSelect('recordFormJoinTitle', grades, '?ъ썝');
+  fillSelect('empPosition', positions, positions[0] || '');
+  fillSelect('recordFormPosition', positions, positions[0] || '');
+  fillSelect('empJobFamily', jobFamilies, jobFamilies[1] || jobFamilies[0] || '');
+  fillSelect('recordFormJobFamily', jobFamilies, jobFamilies[1] || jobFamilies[0] || '');
+  fillSelect('assignmentGrade', grades, grades[0]);
+  fillSelect('assignmentPosition', positions, positions[0], true);
+  syncOrgSelectChain('assignment', {
+    headquarters: orgCodeData.find((item) => item.type === '蹂몃?' && item.status === '?ъ슜以?)?.name || '',
+    office: '',
+    team: '',
+    part: ''
+  });
+}
+
+function toggleContractPeriodField(prefix, employeeType) {
+  const isContract = employeeType === '계약직';
+  const field = document.getElementById(prefix === 'emp' ? 'empContractPeriodField' : 'recordContractPeriodField');
+  if (!field) return;
+  field.classList.toggle('field-hidden', !isContract);
+}
+
+function renderAssignmentControls() {
+  const employees = Object.values(employeeRecords).map((item) => `${item.employeeId} | ${item.name}`);
+  fillSelect('assignmentEmployeeSelect', employees, employees[0]);
+  updateEvalSummary();
+  updateAssignmentPreview();
+}
+
+function updateAssignmentPreview() {
+  const employeeKey = document.getElementById('assignmentEmployeeSelect').value.split(' | ')[0];
+  const employee = employeeRecords[employeeKey];
+  if (!employee) return;
+  const nextOrg = [
+    document.getElementById('assignmentHeadquarters').value,
+    document.getElementById('assignmentOffice').value,
+    document.getElementById('assignmentTeam').value,
+    document.getElementById('assignmentPart').value
+  ].filter(Boolean).join(' / ');
+  const nextGrade = document.getElementById('assignmentGrade').value;
+  const nextPosition = document.getElementById('assignmentPosition').value || '-';
+  document.getElementById('assignmentPreview').innerHTML = `
+    <strong>?꾩옱</strong><br>
+    議곗쭅: ${getOrgDisplay(employee)}<br>
+    吏곴툒/吏곸콉: ${employee.title} / ${employee.position}<br><br>
+    <strong>諛쒕졊 ??</strong><br>
+    議곗쭅: ${nextOrg || getOrgDisplay(employee)}<br>
+    吏곴툒/吏곸콉: ${nextGrade || employee.title} / ${nextPosition}<br><br>
+    <strong>?곸슜 ?④낵</strong><br>
+    ?몄궗湲곕줉移대뱶 ??꾨씪??異붽?, 議곗쭅??利됱떆 諛섏쁺, ?됯?????됯???湲곗? ?ъ궛??  `;
+}
+
+function updateEvalSummary() {
+  const employees = Object.values(employeeRecords);
+  const active = employees.filter((employee) => employee.status === '?ъ쭅');
+  const total = active.length;
+  const completed = Math.max(0, total - 4);
+  const inProgress = Math.min(3, total);
+  const pending = Math.max(0, total - completed - inProgress);
+  const ratio = total ? ((completed / total) * 100).toFixed(1) : '0.0';
+
+  document.getElementById('evalTargetCount').textContent = total;
+  document.getElementById('evalCompletedCount').textContent = completed;
+  document.getElementById('evalProgressCount').textContent = inProgress;
+  document.getElementById('evalPendingCount').textContent = pending;
+  document.getElementById('evalCompletedRatio').textContent = `?꾨즺??${ratio}%`;
+  document.getElementById('evalTargetSub').textContent = `?몄궗?쒖뒪???ъ쭅??${total}紐??곕룞`;
+  const excluded = employees.filter((employee) => employee.status !== '?ъ쭅').map((employee) => employee.name).join(', ') || '?놁쓬';
+  document.getElementById('evalAssignmentPreview').innerHTML = `
+    ?꾩옱 ?ъ쭅??${total}紐낆쓣 湲곗??쇰줈 ?됯???곴낵 ?됯???諛곗젙???먮룞 援ъ꽦?⑸땲??<br>
+    ?댁쭅/鍮꾩옱吏??쒖쇅 ??? ${excluded}<br>
+    議곗쭅 蹂寃???媛숈? ?/?뚰듃 湲곗????숇즺?됯????怨??곸쐞??諛곗젙 湲곗????④퍡 ?ш퀎?곕맗?덈떎.
+  `;
+}
+
+function getOrgDisplay(employee) {
+  return [employee.headquarters, employee.office, employee.team, employee.part]
+    .filter(Boolean)
+    .join(' / ');
+}
+
+function getOrgNodeLabel(employee) {
+  return employee.part ? `${employee.team} / ${employee.part}` : employee.team;
+}
+
+function getEmployeesByOrg(field, name) {
+  return Object.values(employeeRecords).filter((employee) => employee[field] === name);
+}
+
+function getOrgItemByCode(code) {
+  return orgCodeData.find((item) => item.code === code);
+}
+
+function getOrgCodeForEmployee(employee) {
+  if (employee.part) return getCodeByName('?뚰듃', employee.part)?.code || '';
+  if (employee.team) return getCodeByName('?', employee.team)?.code || '';
+  if (employee.office) return getCodeByName('??, employee.office)?.code || '';
+  return getCodeByName('蹂몃?', employee.headquarters)?.code || '';
+}
+
+function getOrgChildrenCodes(code) {
+  return orgCodeData
+    .filter((item) => item.status === '?ъ슜以? && item.parent === code)
+    .map((item) => item.code);
+}
+
+function getOrgDescendantCodes(code) {
+  const children = getOrgChildrenCodes(code);
+  return children.flatMap((child) => [child, ...getOrgDescendantCodes(child)]);
+}
+
+function getOrgPathText(code) {
+  const segments = [];
+  let current = getOrgItemByCode(code);
+  while (current) {
+    segments.unshift(current.name);
+    current = current.parent && current.parent !== '-' ? getOrgItemByCode(current.parent) : null;
+  }
+  return ['?ㅽ넗?뚮윭??, ...segments].join(' > ');
+}
+
+function getOrgDirectEmployees(code) {
+  return Object.values(employeeRecords).filter((employee) => getOrgCodeForEmployee(employee) === code);
+}
+
+function getOrgEmployees(code, includeChildren) {
+  const codeSet = includeChildren ? [code, ...getOrgDescendantCodes(code)] : [code];
+  return Object.values(employeeRecords).filter((employee) => codeSet.includes(getOrgCodeForEmployee(employee)));
+}
+
+function getAvatarColor(index) {
+  const palette = [
+    ['#7ba7ff', '#4f8ef7'],
+    ['#7ed7c4', '#38d9a9'],
+    ['#ffb08f', '#ff8f6b'],
+    ['#d2b8ff', '#8b6ff5'],
+    ['#91c0ff', '#5f8dff']
+  ];
+  const pair = palette[index % palette.length];
+  return `linear-gradient(135deg, ${pair[0]}, ${pair[1]})`;
+}
+
+function renderOrgNavNode(code) {
+  const item = getOrgItemByCode(code);
+  if (!item) return '';
+  const children = getOrgChildrenCodes(code);
+  return `
+    <li class="org-nav-item">
+      <button class="org-nav-btn ${orgChartSelectedCode === code ? 'active' : ''}" type="button" data-org-code="${code}">
+        <span class="org-nav-dot"></span>
+        <span>${item.name}</span>
+      </button>
+      ${children.length ? `<ul>${children.map((child) => renderOrgNavNode(child)).join('')}</ul>` : ''}
+    </li>
+  `;
+}
+
+function renderOrgNavTree() {
+  const roots = orgCodeData.filter((item) => item.status === '?ъ슜以? && item.type === '蹂몃?');
+  document.getElementById('orgNavTree').innerHTML = `<ul class="org-nav-tree">${roots.map((root) => renderOrgNavNode(root.code)).join('')}</ul>`;
+}
+
+function renderOrgDetailPanel() {
+  if (!orgChartSelectedCode) {
+    orgChartSelectedCode = orgCodeData.find((item) => item.type === '蹂몃?')?.code || '';
+  }
+  const selected = getOrgItemByCode(orgChartSelectedCode);
+  if (!selected) return;
+
+  const includeChildren = document.getElementById('orgIncludeChildren')?.checked ?? true;
+  const query = (document.getElementById('orgMemberSearch')?.value || '').trim();
+  const sectionCodes = includeChildren ? [orgChartSelectedCode, ...getOrgDescendantCodes(orgChartSelectedCode)] : [orgChartSelectedCode];
+  const sectionsHtml = sectionCodes.map((code) => {
+    const item = getOrgItemByCode(code);
+    if (!item) return '';
+    let employees = getOrgDirectEmployees(code);
+    if (query) {
+      employees = employees.filter((employee) => {
+        const source = `${employee.name} ${employee.title} ${employee.position} ${getOrgDisplay(employee)}`.toLowerCase();
+        return source.includes(query.toLowerCase());
+      });
+    }
+    if (!employees.length && code !== orgChartSelectedCode) return '';
+    return `
+      <section class="org-section">
+        <div class="org-section-title">${item.name} <strong style="color:#2a62c7">${employees.length}</strong></div>
+        <div class="org-section-path">${getOrgPathText(code)}</div>
+        ${employees.length ? `
+          <div class="org-member-grid">
+            ${employees.map((employee, index) => `
+              <div class="org-member-card">
+                <div class="org-member-avatar" style="background:${getAvatarColor(index)}">${employee.name.charAt(0)}</div>
+                <div class="org-member-name">${employee.name}</div>
+                <div class="org-member-role">${employee.title}</div>
+              </div>
+            `).join('')}
+          </div>
+        ` : `<div class="org-empty">吏곸젒 諛곗튂??援ъ꽦?먯씠 ?놁뒿?덈떎.</div>`}
+      </section>
+    `;
+  }).join('');
+
+  const totalEmployees = getOrgEmployees(orgChartSelectedCode, includeChildren);
+  document.getElementById('orgDetailTitle').textContent = selected.name;
+  document.getElementById('orgDetailPath').innerHTML = `${getOrgPathText(orgChartSelectedCode)} <strong>${totalEmployees.length}</strong>`;
+  document.getElementById('orgDetailSections').innerHTML = sectionsHtml || `<div class="org-empty">寃??寃곌낵媛 ?놁뒿?덈떎.</div>`;
+}
+
+function renderHrStats() {
+  const employees = Object.values(employeeRecords);
+  const activeEmployees = employees.filter((employee) => employee.status === '?ъ쭅');
+  const leaveEmployees = employees.filter((employee) => employee.status !== '?ъ쭅');
+  const recentEmployees = employees.filter((employee) => {
+    const year = Number(String(employee.joinDate || '').split('.')[0]);
+    return year >= 2025;
+  });
+
+  document.getElementById('hrStatTotal').textContent = employees.length;
+  document.getElementById('hrStatTotalSub').textContent = `議곗쭅 湲곗? ?섑뵆 ?ъ썝 ${employees.length}紐?;
+  document.getElementById('hrStatActive').textContent = activeEmployees.length;
+  document.getElementById('hrStatActiveSub').textContent = `?ъ쭅瑜?${employees.length ? Math.round((activeEmployees.length / employees.length) * 100) : 0}%`;
+  document.getElementById('hrStatLeave').textContent = leaveEmployees.length;
+  document.getElementById('hrStatLeaveSub').textContent = leaveEmployees.length ? '?댁쭅/鍮꾩옱吏??ы븿' : '?댁쭅???놁쓬';
+  document.getElementById('hrStatNew').textContent = recentEmployees.length;
+  document.getElementById('hrStatNewSub').textContent = '2025???댄썑 ?낆궗';
+}
+
+function renderOrgTreeNode(code, level = 1) {
+  const item = orgCodeData.find((entry) => entry.code === code && entry.status === '?ъ슜以?);
+  if (!item) return '';
+
+  const childTypeMap = {
+    '蹂몃?': '??,
+    '??: '?',
+    '?': '?뚰듃'
+  };
+  const employeeFieldMap = {
+    '蹂몃?': 'headquarters',
+    '??: 'office',
+    '?': 'team',
+    '?뚰듃': 'part'
+  };
+  const employeeCount = getEmployeesByOrg(employeeFieldMap[item.type], item.name).length;
+  const children = childTypeMap[item.type]
+    ? orgCodeData.filter((entry) => entry.status === '?ъ슜以? && entry.type === childTypeMap[item.type] && entry.parent === item.code)
+    : [];
+
+  return `
+    <li>
+      <div class="org-card-stack">
+        <div class="org-node level-${level}">
+          <div>${item.name}</div>
+          <div class="org-title">${item.type}</div>
+        </div>
+        <div class="org-node-info">${employeeCount}紐?</div>
+      </div>
+      ${children.length ? `<ul>${children.map((child) => renderOrgTreeNode(child.code, level + 1)).join('')}</ul>` : ''}
+    </li>
+  `;
+}
+
+function calcTenureMonths(dateText) {
+  if (!dateText || !dateText.includes('.')) return '-';
+  const [y, m] = dateText.split('.').map(Number);
+  const today = new Date('2026-04-13T00:00:00');
+  const months = (today.getFullYear() - y) * 12 + ((today.getMonth() + 1) - m);
+  return `${Math.max(months, 0)}媛쒖썡`;
+}
+
+function renderTimeline(containerId, items) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = items.map((item) => `
+    <div class="hr-timeline-item">
+      <div class="hr-timeline-dot" style="background:${item.color}"></div>
+      <div class="hr-timeline-date">${item.date}</div>
+      <div class="hr-timeline-text">${item.text}</div>
+    </div>
+  `).join('');
+}
+
+function renderOrgChart() {
+  const total = Object.values(employeeRecords).length;
+  document.getElementById('orgTotalCount').textContent = `珥?${total}紐?;
+  if (!orgChartSelectedCode) {
+    orgChartSelectedCode = orgCodeData.find((item) => item.type === '蹂몃?')?.code || '';
+  }
+  renderOrgNavTree();
+  renderOrgDetailPanel();
+}
+
+function renderEmployeeRecord(employeeId) {
+  const employee = employeeRecords[employeeId];
+  if (!employee) return;
+
+  currentEmployeeId = employeeId;
+  document.getElementById('recordAvatar').textContent = employee.name.charAt(0);
+  document.getElementById('recordName').textContent = employee.name;
+  document.getElementById('recordPosition').textContent = `${getOrgNodeLabel(employee)} 쨌 ${employee.title} / ${employee.position}`;
+  document.getElementById('recordFormEmployeeId').value = employee.employeeId;
+  document.getElementById('recordFormName').value = employee.name;
+  syncOrgSelectChain('recordForm', {
+    headquarters: employee.headquarters,
+    office: employee.office,
+    team: employee.team,
+    part: employee.part
+  });
+  fillSelect('recordFormTitle', gradeCodeData.map((item) => item.name), employee.title);
+  fillSelect('recordFormPosition', positionCodeData.map((item) => item.name), employee.position || '');
+  fillSelect('recordFormJobFamily', jobFamilyCodeData.map((item) => item.name), employee.jobFamily || '');
+  fillSelect('recordFormJoinTitle', gradeCodeData.map((item) => item.name), employee.joinTitle || employee.title);
+  document.getElementById('recordFormEmployeeType').value = employee.employeeType || '정규직';
+  document.getElementById('recordFormContractPeriod').value = employee.contractPeriod || '';
+  toggleContractPeriodField('recordForm', employee.employeeType || '정규직');
+  document.getElementById('recordFormBirth').value = employee.birth;
+  document.getElementById('recordFormJoinDate').value = employee.joinDate;
+  document.getElementById('recordFormPhone').value = employee.phone;
+  document.getElementById('recordFormAssignmentDate').value = employee.assignmentDate || employee.joinDate;
+  document.getElementById('recordFormEducation').value = employee.education;
+  document.getElementById('recordFormPriorCareer').value = employee.priorCareer || '';
+  document.getElementById('recordFormStatus').value = employee.status;
+  document.getElementById('recordFormGrade').value = employee.grade;
+  document.getElementById('recordFormPromotion').value = employee.promotion;
+  document.getElementById('recordFormMemo').value = employee.memo;
+  document.getElementById('recordDepartmentTenure').textContent = calcTenureMonths(employee.assignmentDate || employee.joinDate);
+  document.getElementById('recordJobFamilyText').textContent = employee.jobFamily || '-';
+  document.getElementById('recordEmployeeTypeText').textContent = employee.employeeType || '정규직';
+  document.getElementById('recordContractPeriodText').textContent = employee.contractPeriod || '-';
+  document.getElementById('recordContractInfoRow').style.display = employee.employeeType === '계약직' ? 'flex' : 'none';
+  document.getElementById('recordMetaNote').innerHTML = `
+    <div class="record-meta-stack">
+      <div class="record-meta-card">
+        <strong>?꾩옱 議곗쭅</strong>
+        <span>${getOrgDisplay(employee)}</span>
+      </div>
+      <div class="record-meta-card">
+        <strong>?낆궗 湲곗? ?뺣낫</strong>
+        <span>?낆궗??吏곴툒: ${employee.joinTitle || '-'}</span>
+        <span>?낆궗???몄젙寃쎈젰: ${employee.priorCareer || '-'}</span>
+        <span>직군: ${employee.jobFamily || '-'}</span>
+        <span>직원유형: ${employee.employeeType || '정규직'}</span>
+        ${employee.employeeType === '계약직' ? `<span>계약기간: ${employee.contractPeriod || '-'}</span>` : ''}
+      </div>
+    </div>
+  `;
+  renderTimeline('recordTimeline', employee.timeline);
+  renderTimeline('recordEducationHistory', employee.educationHistory);
+}
+
+function openEmployeeModal() {
+  document.getElementById('employeeModal').classList.add('open');
+}
+
+function closeEmployeeModal() {
+  document.getElementById('employeeModal').classList.remove('open');
+}
+
+function prependEmployeeRow(employee) {
+  renderEmployeeTable();
+  renderHrStats();
+  renderOrgChart();
+}
+
+function renderEmployeeTable(limit = 24) {
+  const tbody = document.getElementById('employeeTableBody');
+  const allEmployees = Object.values(employeeRecords)
+    .sort((a, b) => a.employeeId.localeCompare(b.employeeId))
+  const employees = allEmployees.slice(0, limit);
+
+  tbody.innerHTML = employees.map((employee) => `
+    <tr data-employee-id="${employee.employeeId}">
+      <td><input type="checkbox"></td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">${employee.employeeId}</td>
+      <td><span class="emp-name">${employee.name}</span></td>
+      <td>${getOrgNodeLabel(employee)}</td>
+      <td>${employee.title}</td>
+      <td>${employee.joinDate}</td>
+      <td><span class="status-badge ${employee.status === '?ъ쭅' ? 'status-active' : 'status-leave'}">${employee.status}</span></td>
+      <td><a href="#" class="employee-detail-link" data-employee-id="${employee.employeeId}" style="font-size:11px;color:#4f8ef7;text-decoration:none">?곸꽭蹂닿린</a></td>
+    </tr>
+  `).join('');
+  document.getElementById('employeeTableSummary').textContent = `珥?${allEmployees.length}紐?쨌 1-${employees.length} ?쒖떆`;
+}
+
+function updateEmployeeRow(employee) {
+  renderEmployeeTable();
+  renderHrStats();
+}
+
+const tagMap = {
+  nav: 'tag-nav',
+  view: 'tag-view',
+  input: 'tag-input',
+  action: 'tag-action',
+  search: 'tag-search'
+};
+
+function renderAnnotations() {
+  const list = document.getElementById('annoList');
+  const items = getVisibleAnnotations();
+  list.innerHTML = '';
+  items.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'anno-item';
+    div.dataset.region = item.region;
+    div.innerHTML = `
+      <div class="anno-num">${item.num}</div>
+      <div class="anno-title">${item.title}</div>
+      <div class="anno-desc">${item.desc}</div>
+      <div class="anno-meta">
+        <div class="anno-meta-row"><strong>?곗씠??</strong>${item.data}</div>
+        <div class="anno-meta-row"><strong>?숈옉</strong>${item.action}</div>
+        <div class="anno-meta-row"><strong>媛쒕컻</strong>${item.dev}</div>
+      </div>
+      <span class="anno-tag ${tagMap[item.tag]}">${item.tagLabel}</span>
+    `;
+    div.addEventListener('mouseenter', () => highlightRegion(item.region, item.title, div));
+    div.addEventListener('mouseleave', () => { clearHighlight(); div.classList.remove('hovered'); });
+    list.appendChild(div);
+  });
+  renderRegionMarkers();
+}
+
+function getVisibleAnnotations() {
+  return annotations[currentSystem].filter((item) => {
+    if (currentSystem === 1 && hrRegionViewMap[item.region] && hrRegionViewMap[item.region] !== currentHrView) {
+      return false;
+    }
+    const target = getRegionTargetEl(item.region);
+    if (!target) return false;
+    const style = window.getComputedStyle(target);
+    return style.display !== 'none' && style.visibility !== 'hidden';
+  });
+}
+
+function renderRegionMarkers() {
+  document.querySelectorAll('.region-marker').forEach((marker) => marker.remove());
+  if (!showRegionMarkers) return;
+
+  const system = currentSystem === 1 ? document.getElementById('hrSystem') : document.getElementById('evalSystem');
+  const inner = document.getElementById('demoInner');
+  const innerRect = inner.getBoundingClientRect();
+  const panelScrollTop = document.getElementById('demoPanel').scrollTop;
+
+  getVisibleAnnotations().forEach((item) => {
+    const el = getRegionTargetEl(item.region);
+    if (!el) return;
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden') return;
+    const rect = el.getBoundingClientRect();
+    const anchor = regionMarkerAnchors[item.region] || { x: 0.08, y: 0.12 };
+    const marker = document.createElement('div');
+    marker.className = 'region-marker visible';
+    marker.innerHTML = `
+      <span class="region-marker-num">${item.num}</span>
+      <span class="region-marker-tip">${item.title}</span>
+    `;
+    marker.style.top = `${rect.top - innerRect.top + panelScrollTop + (rect.height * anchor.y)}px`;
+    marker.style.left = `${rect.left - innerRect.left + (rect.width * anchor.x)}px`;
+    inner.appendChild(marker);
+  });
+}
+
+function getRegionEl(region) {
+  const system = currentSystem === 1 ? document.getElementById('hrSystem') : document.getElementById('evalSystem');
+  return system.querySelector(`[data-region="${region}"]`);
+}
+
+function getRegionTargetEl(region) {
+  const regionEl = getRegionEl(region);
+  if (!regionEl) return null;
+  const selector = regionTargetSelectors[region];
+  if (!selector) return regionEl;
+  const matches = Array.from(regionEl.querySelectorAll(selector));
+  const visibleMatch = matches.find((node) => {
+    const style = window.getComputedStyle(node);
+    return style.display !== 'none' && style.visibility !== 'hidden';
+  });
+  return visibleMatch || regionEl.querySelector(selector) || regionEl;
+}
+
+function highlightRegion(region, label, annoDiv) {
+  annoDiv.classList.add('hovered');
+  if (currentSystem === 1 && hrRegionViewMap[region]) {
+    setHrView(hrRegionViewMap[region]);
+  }
+  const el = getRegionTargetEl(region);
+  if (!el) return;
+  const overlay = document.getElementById('highlightOverlay');
+  const labelEl = document.getElementById('highlightLabel');
+  const inner = document.getElementById('demoInner');
+  const panel = document.getElementById('demoPanel');
+
+  const elRect = el.getBoundingClientRect();
+  const innerRect = inner.getBoundingClientRect();
+  const scrollTop = panel.scrollTop;
+
+  const top = elRect.top - innerRect.top + scrollTop - 3;
+  const left = elRect.left - innerRect.left - 3;
+  const width = elRect.width + 6;
+  const height = elRect.height + 6;
+
+  overlay.style.top = top + 'px';
+  overlay.style.left = left + 'px';
+  overlay.style.width = width + 'px';
+  overlay.style.height = height + 'px';
+  overlay.classList.add('visible');
+  labelEl.textContent = label;
+
+  // Scroll region into view
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function clearHighlight() {
+  document.getElementById('highlightOverlay').classList.remove('visible');
+  document.querySelectorAll('.anno-item').forEach(a => a.classList.remove('hovered'));
+}
+
+document.querySelectorAll('[data-hr-view-trigger]').forEach((trigger) => {
+  trigger.addEventListener('click', () => setHrView(trigger.dataset.hrViewTrigger));
+});
+
+document.getElementById('closeEmployeeModal').addEventListener('click', closeEmployeeModal);
+document.getElementById('cancelEmployeeModal').addEventListener('click', closeEmployeeModal);
+document.getElementById('employeeModal').addEventListener('click', (event) => {
+  if (event.target.id === 'employeeModal') closeEmployeeModal();
+});
+
+document.getElementById('markerToggle').addEventListener('click', () => {
+  showRegionMarkers = !showRegionMarkers;
+  const button = document.getElementById('markerToggle');
+  button.classList.toggle('active', showRegionMarkers);
+  button.textContent = showRegionMarkers ? 'ON' : 'OFF';
+  renderRegionMarkers();
+});
+
+document.getElementById('demoPanel').addEventListener('scroll', () => {
+  if (showRegionMarkers) renderRegionMarkers();
+});
+
+window.addEventListener('resize', () => {
+  if (showRegionMarkers) renderRegionMarkers();
+});
+
+document.getElementById('employeeTableBody').addEventListener('click', (event) => {
+  const detailLink = event.target.closest('.employee-detail-link');
+  if (!detailLink) return;
+
+  event.preventDefault();
+  const row = detailLink.closest('tr');
+  const employeeId = detailLink.dataset.employeeId || row?.dataset.employeeId;
+  if (!employeeId) return;
+
+  renderEmployeeRecord(employeeId);
+  setHrView('record');
+});
+
+document.getElementById('orgNavTree').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-org-code]');
+  if (!button) return;
+  orgChartSelectedCode = button.dataset.orgCode;
+  renderOrgChart();
+});
+
+document.getElementById('orgIncludeChildren').addEventListener('change', renderOrgDetailPanel);
+document.getElementById('orgMemberSearch').addEventListener('input', renderOrgDetailPanel);
+
+document.getElementById('orgCodeTableBody').addEventListener('click', (event) => {
+  const row = event.target.closest('tr[data-org-code]');
+  if (!row) return;
+  loadOrgCodeToForm(row.dataset.orgCode);
+  switchCodeTab('org-edit');
+});
+
+document.getElementById('orgCodeEditTableBody').addEventListener('click', (event) => {
+  const row = event.target.closest('tr[data-org-code]');
+  if (!row) return;
+  loadOrgCodeToForm(row.dataset.orgCode);
+});
+
+document.getElementById('gradeCodeTableBody').addEventListener('click', (event) => {
+  const row = event.target.closest('tr[data-grade-code]');
+  if (!row) return;
+  loadGradeCodeToForm(row.dataset.gradeCode);
+  switchCodeTab('meta-edit');
+});
+
+document.getElementById('positionCodeTableBody').addEventListener('click', (event) => {
+  const row = event.target.closest('tr[data-position-code]');
+  if (!row) return;
+  loadPositionCodeToForm(row.dataset.positionCode);
+  switchCodeTab('meta-edit');
+});
+
+document.querySelectorAll('.code-tab-btn').forEach((button) => {
+  button.addEventListener('click', () => switchCodeTab(button.dataset.codeTab));
+});
+
+document.querySelectorAll('[data-code-go]').forEach((button) => {
+  button.addEventListener('click', () => switchCodeTab(button.dataset.codeGo));
+});
+
+document.getElementById('openOrgCodeEditBtn').addEventListener('click', () => switchCodeTab('org-edit'));
+document.getElementById('openLevelManageBtn').addEventListener('click', () => switchCodeTab('level-manage'));
+document.getElementById('openMetaEditBtn').addEventListener('click', () => switchCodeTab('meta-edit'));
+document.getElementById('empEmployeeType').addEventListener('change', (event) => toggleContractPeriodField('emp', event.target.value));
+document.getElementById('recordFormEmployeeType').addEventListener('change', (event) => toggleContractPeriodField('recordForm', event.target.value));
+
+document.getElementById('orgCodeType').addEventListener('change', () => {
+  const type = document.getElementById('orgCodeType').value;
+  document.getElementById('orgCodeLevel').value = `Level ${getOrgLevel(type)}`;
+  const currentParent = document.getElementById('orgCodeParent').value;
+  renderOrgParentSelect(type, currentParent);
+});
+
+document.getElementById('orgCodeNewBtn').addEventListener('click', () => {
+  selectedOrgCode = '';
+  document.getElementById('orgCodeType').value = '?';
+  document.getElementById('orgCodeLevel').value = `Level ${getOrgLevel('?')}`;
+  document.getElementById('orgCodeValue').value = 'TM-NEW';
+  document.getElementById('orgCodeName').value = '';
+  renderOrgParentSelect('?', '');
+  document.getElementById('orgCodeStatus').value = '?ъ슜以?;
+  renderCodeTables();
+  renderCodePreview();
+  switchCodeTab('org-edit');
+});
+
+document.getElementById('gradeCodeNewBtn').addEventListener('click', () => {
+  selectedGradeCode = '';
+  document.getElementById('gradeCodeValue').value = 'GR-NEW';
+  document.getElementById('gradeCodeName').value = '';
+  document.getElementById('gradeCodeOrder').value = gradeCodeData.length + 1;
+  renderCodeTables();
+  switchCodeTab('meta-edit');
+});
+
+document.getElementById('positionCodeNewBtn').addEventListener('click', () => {
+  selectedPositionCode = '';
+  document.getElementById('positionCodeValue').value = 'PS-NEW';
+  document.getElementById('positionCodeName').value = '';
+  document.getElementById('positionCodeNote').value = '';
+  renderCodeTables();
+  switchCodeTab('meta-edit');
+});
+
+document.getElementById('levelCodeTableBody').addEventListener('click', (event) => {
+  const row = event.target.closest('tr[data-level-code]');
+  if (!row) return;
+  loadLevelCodeToForm(row.dataset.levelCode);
+});
+
+document.getElementById('orgCodeSaveBtn').addEventListener('click', () => {
+  const previousItem = orgCodeData.find((item) => item.code === selectedOrgCode);
+  const payload = {
+    type: document.getElementById('orgCodeType').value,
+    code: document.getElementById('orgCodeValue').value,
+    name: document.getElementById('orgCodeName').value,
+    parent: document.getElementById('orgCodeParent').value || '-',
+    status: document.getElementById('orgCodeStatus').value
+  };
+
+  const existingIndex = orgCodeData.findIndex((item) => item.code === payload.code || item.code === selectedOrgCode);
+  if (existingIndex >= 0) {
+    orgCodeData[existingIndex] = payload;
+  } else {
+    orgCodeData.push(payload);
+  }
+
+  if (previousItem && previousItem.name !== payload.name) {
+    Object.values(employeeRecords).forEach((employee) => {
+      if (payload.type === '蹂몃?' && employee.headquarters === previousItem.name) employee.headquarters = payload.name;
+      if (payload.type === '?? && employee.office === previousItem.name) employee.office = payload.name;
+      if (payload.type === '?' && employee.team === previousItem.name) employee.team = payload.name;
+      if (payload.type === '?뚰듃' && employee.part === previousItem.name) employee.part = payload.name;
+    });
+  }
+
+  selectedOrgCode = payload.code;
+  codeHistory.unshift({ text: `議곗쭅肄붾뱶 ${payload.code} ${payload.name} ???/ ?곹깭 ${payload.status} / ?곸쐞肄붾뱶 ${payload.parent}` });
+  renderCodeTables();
+  renderCodePreview();
+  renderCodeHistory();
+  renderCodeDrivenSelects();
+  renderOrgChart();
+  renderAssignmentControls();
+  Object.values(employeeRecords).forEach((employee) => updateEmployeeRow(employee));
+  if (employeeRecords[currentEmployeeId]) renderEmployeeRecord(currentEmployeeId);
+  updateEvalSummary();
+});
+
+document.getElementById('gradeCodeSaveBtn').addEventListener('click', () => {
+  const payload = {
+    code: document.getElementById('gradeCodeValue').value,
+    name: document.getElementById('gradeCodeName').value,
+    order: Number(document.getElementById('gradeCodeOrder').value)
+  };
+  const existingIndex = gradeCodeData.findIndex((item) => item.code === payload.code || item.code === selectedGradeCode);
+  if (existingIndex >= 0) {
+    gradeCodeData[existingIndex] = payload;
+  } else {
+    gradeCodeData.push(payload);
+  }
+  selectedGradeCode = payload.code;
+  codeHistory.unshift({ text: `吏곴툒肄붾뱶 ${payload.code} ${payload.name} ???/ ?뺣젹?쒖꽌 ${payload.order}` });
+  renderCodeTables();
+  renderCodeHistory();
+  renderCodeDrivenSelects();
+  if (employeeRecords[currentEmployeeId]) renderEmployeeRecord(currentEmployeeId);
+});
+
+document.getElementById('levelCodeSaveBtn').addEventListener('click', () => {
+  const payload = {
+    code: document.getElementById('levelCodeValue').value,
+    label: document.getElementById('levelCodeLabel').value,
+    typeName: document.getElementById('levelCodeTypeName').value,
+    parent: document.getElementById('levelCodeParent').value,
+    description: document.getElementById('levelCodeDescription').value
+  };
+  const existingIndex = levelCodeData.findIndex((item) => item.code === payload.code);
+  if (existingIndex >= 0) {
+    levelCodeData[existingIndex] = payload;
+  }
+  selectedLevelCode = payload.code;
+  codeHistory.unshift({ text: `?덈꺼湲곗? ${payload.code} ${payload.typeName} ???/ ?곸쐞?덈꺼 ${payload.parent || '-'} / ?ㅻ챸 ${payload.description}` });
+  renderCodeTables();
+  renderCodeHistory();
+});
+
+document.getElementById('positionCodeSaveBtn').addEventListener('click', () => {
+  const payload = {
+    code: document.getElementById('positionCodeValue').value,
+    name: document.getElementById('positionCodeName').value,
+    note: document.getElementById('positionCodeNote').value
+  };
+  const existingIndex = positionCodeData.findIndex((item) => item.code === payload.code || item.code === selectedPositionCode);
+  if (existingIndex >= 0) {
+    positionCodeData[existingIndex] = payload;
+  } else {
+    positionCodeData.push(payload);
+  }
+  selectedPositionCode = payload.code;
+  codeHistory.unshift({ text: `吏곸콉肄붾뱶 ${payload.code} ${payload.name} ???/ 鍮꾧퀬 ${payload.note}` });
+  renderCodeTables();
+  renderCodeHistory();
+  renderCodeDrivenSelects();
+  if (employeeRecords[currentEmployeeId]) renderEmployeeRecord(currentEmployeeId);
+});
+
+document.getElementById('assignmentEmployeeSelect').addEventListener('change', updateAssignmentPreview);
+document.getElementById('assignmentHeadquarters').addEventListener('change', updateAssignmentPreview);
+document.getElementById('assignmentOffice').addEventListener('change', updateAssignmentPreview);
+document.getElementById('assignmentTeam').addEventListener('change', updateAssignmentPreview);
+document.getElementById('assignmentPart').addEventListener('change', updateAssignmentPreview);
+document.getElementById('assignmentGrade').addEventListener('change', updateAssignmentPreview);
+document.getElementById('assignmentPosition').addEventListener('change', updateAssignmentPreview);
+
+document.getElementById('assignmentApplyBtn').addEventListener('click', () => {
+  const employeeKey = document.getElementById('assignmentEmployeeSelect').value.split(' | ')[0];
+  const employee = employeeRecords[employeeKey];
+  if (!employee) return;
+
+  employee.headquarters = document.getElementById('assignmentHeadquarters').value || employee.headquarters;
+  employee.office = document.getElementById('assignmentOffice').value || employee.office;
+  employee.team = document.getElementById('assignmentTeam').value || employee.team;
+  employee.part = document.getElementById('assignmentPart').value || '';
+  employee.title = document.getElementById('assignmentGrade').value || employee.title;
+  employee.position = document.getElementById('assignmentPosition').value || employee.position;
+  employee.assignmentDate = document.getElementById('assignmentDate').value || employee.assignmentDate;
+  employee.timeline.unshift({
+    date: employee.assignmentDate,
+    text: `${document.getElementById('assignmentType').value} 諛섏쁺 (${getOrgDisplay(employee)} / ${employee.title})`,
+    color: '#4f8ef7'
+  });
+
+  updateEmployeeRow(employee);
+  renderEmployeeRecord(employee.employeeId);
+  renderOrgChart();
+  renderAssignmentControls();
+  updateEvalSummary();
+});
+
+document.getElementById('employeeForm').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  const employee = {
+    employeeId: formData.get('employeeId'),
+    name: formData.get('name'),
+    headquarters: formData.get('headquarters'),
+    office: formData.get('office'),
+    team: formData.get('team'),
+    part: formData.get('part'),
+    title: formData.get('title'),
+    position: formData.get('position'),
+    jobFamily: formData.get('jobFamily'),
+    employeeType: formData.get('employeeType'),
+    contractPeriod: formData.get('contractPeriod'),
+    joinTitle: formData.get('joinTitle'),
+    joinDate: formatDate(formData.get('joinDate')),
+    assignmentDate: formatDate(formData.get('assignmentDate')),
+    birth: formatDate(formData.get('birth')),
+    phone: formData.get('phone'),
+    education: formData.get('education'),
+    priorCareer: formData.get('priorCareer'),
+    status: '?ъ쭅',
+    grade: formData.get('grade'),
+    promotion: formData.get('promotion'),
+    memo: formData.get('memo'),
+    timeline: [
+      { date: formatDate(formData.get('joinDate')), text: `?낆궗 (${formData.get('joinTitle')} ?낆궗)`, color: '#38d9a9' },
+      { date: formatDate(formData.get('assignmentDate')), text: `${[formData.get('headquarters'), formData.get('office'), formData.get('team'), formData.get('part')].filter(Boolean).join(' / ')} 遺?쒕같??, color: '#4f8ef7' }
+    ],
+    educationHistory: [
+      { date: '2026.04', text: '?좉퇋?낆궗???⑤낫???덉젙', color: '#f5a623' }
+    ]
+  };
+
+  employeeRecords[employee.employeeId] = employee;
+  prependEmployeeRow(employee);
+  renderEmployeeRecord(employee.employeeId);
+  closeEmployeeModal();
+  event.currentTarget.reset();
+  document.getElementById('empName').value = '?쒖삁由?;
+  document.getElementById('empId').value = 'EMP-0108';
+  document.getElementById('empHeadquarters').value = '寃쎌쁺吏?먮낯遺';
+  document.getElementById('empOffice').value = 'People Operations??;
+  document.getElementById('empTeam').value = '?몄궗?';
+  document.getElementById('empPart').value = '梨꾩슜?뚰듃';
+  document.getElementById('empJoinDate').value = '2026-04-13';
+  document.getElementById('empPosition').value = '梨꾩슜?대떦';
+  document.getElementById('empJobFamily').value = '관리';
+  document.getElementById('empEmployeeType').value = '정규직';
+  document.getElementById('empContractPeriod').value = '';
+  toggleContractPeriodField('emp', '정규직');
+  document.getElementById('empJoinTitle').value = '?ъ썝';
+  document.getElementById('empBirth').value = '1996-09-21';
+  document.getElementById('empPhone').value = '010-5512-9821';
+  document.getElementById('empAssignmentDate').value = '2026-04-13';
+  document.getElementById('empEducation').value = '?쒓뎅?멸뎅?대??숆탳 寃쎌쁺?숆낵';
+  document.getElementById('empPriorCareer').value = '2??6媛쒖썡';
+  document.getElementById('empMemo').value = '梨꾩슜?꾪삎 ?곗닔 ?됯??먮줈 ?좊컻?섏뿀怨? ?⑤낫??怨쇱젙?먯꽌 議곗쭅 ?곸쓳 ?띾룄媛 鍮좊Ⅸ ?몄엯?덈떎. ?ν썑 ?됯??쒖뒪???댁쁺 ?대떦 ?꾨낫濡?寃??媛?ν빀?덈떎.';
+  setHrView('record');
+});
+
+document.getElementById('recordResetBtn').addEventListener('click', () => {
+  renderEmployeeRecord(currentEmployeeId);
+});
+
+document.getElementById('recordSaveBtn').addEventListener('click', () => {
+  const employee = employeeRecords[currentEmployeeId];
+  if (!employee) return;
+
+  employee.name = document.getElementById('recordFormName').value;
+  employee.headquarters = document.getElementById('recordFormHeadquarters').value;
+  employee.office = document.getElementById('recordFormOffice').value;
+  employee.team = document.getElementById('recordFormTeam').value;
+  employee.part = document.getElementById('recordFormPart').value;
+  employee.title = document.getElementById('recordFormTitle').value;
+  employee.position = document.getElementById('recordFormPosition').value;
+  employee.jobFamily = document.getElementById('recordFormJobFamily').value;
+  employee.employeeType = document.getElementById('recordFormEmployeeType').value;
+  employee.contractPeriod = document.getElementById('recordFormContractPeriod').value;
+  employee.joinTitle = document.getElementById('recordFormJoinTitle').value;
+  employee.birth = document.getElementById('recordFormBirth').value;
+  employee.joinDate = document.getElementById('recordFormJoinDate').value;
+  employee.phone = document.getElementById('recordFormPhone').value;
+  employee.assignmentDate = document.getElementById('recordFormAssignmentDate').value;
+  employee.education = document.getElementById('recordFormEducation').value;
+  employee.priorCareer = document.getElementById('recordFormPriorCareer').value;
+  employee.status = document.getElementById('recordFormStatus').value;
+  employee.grade = document.getElementById('recordFormGrade').value;
+  employee.promotion = document.getElementById('recordFormPromotion').value;
+  employee.memo = document.getElementById('recordFormMemo').value;
+
+  updateEmployeeRow(employee);
+  renderOrgChart();
+  renderEmployeeRecord(currentEmployeeId);
+  updateEvalSummary();
+});
+
+// Init
+renderCodeTables();
+renderCodeDrivenSelects();
+renderEmployeeTable();
+renderHrStats();
+bindOrgSelectChain('emp');
+bindOrgSelectChain('recordForm');
+bindOrgSelectChain('assignment');
+renderCodePreview();
+renderCodeHistory();
+loadOrgCodeToForm(selectedOrgCode);
+loadGradeCodeToForm(selectedGradeCode);
+loadPositionCodeToForm(selectedPositionCode);
+loadLevelCodeToForm(selectedLevelCode);
+toggleContractPeriodField('emp', document.getElementById('empEmployeeType').value);
+toggleContractPeriodField('recordForm', document.getElementById('recordFormEmployeeType').value);
+renderAssignmentControls();
+renderAnnotations();
+switchSystem(1);
+renderEmployeeRecord(currentEmployeeId);
+renderOrgChart();
+updateEvalSummary();
+</script>
+</body>
+</html>
+
+
+
+
+
