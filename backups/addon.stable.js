@@ -266,6 +266,12 @@
   const createModal = buildModal("codexCreateModal", "신규 사원 등록");
   const editModal = buildModal("codexEditModal", "인사기록카드 수정");
   const statsModal = buildModal("codexStatsModal", "인원 현황 상세");
+  statsModal.body.addEventListener("click", (event) => {
+    const row = event.target.closest("[data-stat-employee]");
+    if (!row) return;
+    state.statModalSelection = row.dataset.statEmployee;
+    openQuickProfileInNewTab(state.statModalSelection);
+  });
   function ensurePanels() {
     if (panels.codes && panels.assignment) return;
     const codeMenu = document.createElement("div");
@@ -413,12 +419,6 @@
       const items = state.employees.filter((employee) => employee.status !== "재직");
       if (!state.statModalSelection && items[0]) state.statModalSelection = items[0].id;
       statsModal.body.innerHTML = `<div class="codex-stack"><div class="codex-note-box"><strong>휴직 중 대상자</strong>현재 휴직 상태로 분류된 사원 목록입니다. 발령입력 또는 기록카드 수정으로 재직상태가 바뀌면 이 목록도 즉시 갱신됩니다.</div>${renderEmployeeList(items)}</div>`;
-      $$("[data-stat-employee]", statsModal.body).forEach((row) => {
-        row.addEventListener("click", () => {
-          state.statModalSelection = row.dataset.statEmployee;
-          openQuickProfileInNewTab(state.statModalSelection);
-        });
-      });
       statsModal.open();
       return;
     }
@@ -466,12 +466,6 @@
         state.hireStatHalf = Number(event.target.value);
         renderStats();
         openStatModal("hire");
-      });
-      $$("[data-stat-employee]", statsModal.body).forEach((row) => {
-        row.addEventListener("click", () => {
-          state.statModalSelection = row.dataset.statEmployee;
-          openQuickProfileInNewTab(state.statModalSelection);
-        });
       });
       statsModal.open();
     }
