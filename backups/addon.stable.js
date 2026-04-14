@@ -221,7 +221,7 @@
     return `<div class="codex-sheet-preview"><table><thead><tr>${headers.map((header) => `<th>${header}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${headers.map((_, index) => `<td>${row[index] || ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
   }
   function buildSheetSection(title, tabId, headers, rows, active = false) {
-    return `<div class="codex-sheet-section ${active ? "is-active" : ""}"><div class="codex-sheet-side"><div>${title}</div><button type="button" class="codex-sheet-detail-btn" data-record-tab="${tabId}">상세보기</button></div><div class="codex-sheet-main">${previewGrid(headers, rows)}</div></div>`;
+    return `<div class="codex-sheet-section ${active ? "is-active" : ""}"><div class="codex-sheet-side"><div>${title}</div><button type="button" class="codex-sheet-detail-btn" data-record-detail="${tabId}">상세보기</button></div><div class="codex-sheet-main">${previewGrid(headers, rows)}</div></div>`;
   }
   function sheetFieldTable(rows) {
     return `<div class="codex-sheet-focus"><table><tbody>${rows.map((row) => `<tr><th>${row[0] || ""}</th><td>${row[1] || ""}</td><th>${row[2] || ""}</th><td>${row[3] || ""}</td></tr>`).join("")}</tbody></table></div>`;
@@ -354,11 +354,15 @@
   const editModal = buildModal("codexEditModal", "인사기록카드 수정");
   const statsModal = buildModal("codexStatsModal", "인원 현황 상세");
   const quickProfileModal = buildModal("codexQuickProfileModal", "사원 기본정보");
+  const recordDetailModal = buildModal("codexRecordDetailModal", "인사기록카드 상세");
   const modalStack = [createModal, editModal, statsModal, quickProfileModal];
+  modalStack.push(recordDetailModal);
   quickProfileModal.root.classList.add("codex-quick-modal-wrap");
   quickProfileModal.root.querySelector(".codex-modal").classList.add("codex-quick-modal");
   quickProfileModal.save.textContent = "확인";
   quickProfileModal.root.querySelector('[data-role="cancel"]').classList.add("codex-hidden");
+  recordDetailModal.root.querySelector('[data-role="cancel"]').classList.add("codex-hidden");
+  recordDetailModal.save.textContent = "확인";
   const quickHeadButton = document.createElement("button");
   quickHeadButton.type = "button";
   quickHeadButton.className = "codex-quick-head-button";
@@ -631,15 +635,57 @@
       memo: `<div class="codex-sheet-memo">${employee.memo}</div>`
     };
     const infoPreview = `<div class="codex-sheet-top"><div class="codex-sheet-logo">AUTOPLUS</div><div class="codex-sheet-top-main"><table><tbody><tr><th>부서</th><td>${employeePath(employee)}</td><th>성명</th><td>${employee.name}</td></tr><tr><th>직급</th><td>${employee.grade}</td><th>직책</th><td>${employee.title}</td></tr><tr><th>주민등록번호</th><td>${employee.residentNumber || getResidentNumber(employee)}</td><th>입사일</th><td>${employee.hireDate}</td></tr><tr><th>생년월일</th><td>${employee.birthDate}</td><th>입사시 직원유형</th><td>${employee.hireEmployeeType || employee.employeeType}</td></tr><tr><th>직전승급일</th><td>${employee.assignmentDate}</td><th>근속년수</th><td>${Math.floor(Number(employee.careerMonths || 0) / 12)}년 ${Number(employee.careerMonths || 0) % 12}개월</td></tr><tr><th>내선번호</th><td>${getCompanyPhone(employee)}</td><th>결혼여부</th><td>${employee.maritalStatus || getMaritalStatus(employee)}</td></tr><tr><th>연락처</th><td>${employee.phone}</td><th>E-Mail</th><td>${getCompanyEmail(employee)}</td></tr><tr><th>주소</th><td colspan="3">${getAddress(employee)}</td></tr></tbody></table></div></div>`;
-    const summary = `<div class="codex-record-summary"><div class="codex-record-card"><div class="codex-record-head"><div class="hr-profile-avatar">${employee.name[0]}</div><div class="hr-card-name">${employee.name}</div><div class="codex-record-subtitle">${employee.id} · ${employee.grade} · ${employee.title}</div><div class="codex-record-subtitle">${employeePath(employee)}</div></div><div class="codex-record-block"><h5>핵심 정보</h5><div class="codex-record-list"><div class="codex-record-item"><div class="label">그룹웨어 ID</div><div class="value">${employee.groupwareId || getGroupwareId(employee)}</div></div><div class="codex-record-item"><div class="label">주민등록번호</div><div class="value">${employee.residentNumber || getResidentNumber(employee)}</div></div><div class="codex-record-item"><div class="label">직원유형</div><div class="value">${employee.employeeType}</div></div><div class="codex-record-item"><div class="label">결혼여부</div><div class="value">${employee.maritalStatus || getMaritalStatus(employee)}</div></div></div></div><div class="codex-record-block"><h5>연락 / 신상</h5><div class="codex-record-list"><div class="codex-record-item"><div class="label">회사 이메일</div><div class="value">${getCompanyEmail(employee)}</div></div><div class="codex-record-item"><div class="label">회사 전화</div><div class="value">${getCompanyPhone(employee)}</div></div><div class="codex-record-item"><div class="label">휴대전화</div><div class="value">${employee.phone}</div></div><div class="codex-record-item"><div class="label">주소</div><div class="value">${getAddress(employee)}</div></div></div></div></div></div>`;
-    const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"><div class="codex-record-sheet-head"><div class="codex-record-sheet-title">인사정보카드</div><div class="codex-record-tabs">${tabs.map(([id, label]) => `<button type="button" class="codex-record-tab ${tab === id ? "active" : ""}" data-record-tab="${id}">${label}</button>`).join("")}</div></div>${infoPreview}<div class="codex-sheet-focus-wrap">${focusSections[tab] || focusSections.overview}</div>${buildSheetSection("학력사항", "education", ["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""]), tab === "education")}${buildSheetSection("경력사항", "career", ["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""]), tab === "career")}${buildSheetSection("가족사항", "personal", ["관계", "성명", "생년월일"], getFamilyEntries(employee), tab === "personal")}${buildSheetSection("자격증", "training", ["자격증명", "발급기관", "취득일"], getCertificateEntries(employee).map((item) => [item[1], item[2], item[3]]), tab === "training")}${buildSheetSection("상벌사항", "memo", ["상벌구분", "상벌명", "발생일", "사유"], getAwardEntries(employee), tab === "memo")}${buildSheetSection("승급사항", "hire", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], getPromotionEntries(employee), tab === "hire")}${buildSheetSection("발령사항", "assignment", ["발령구분", "발령일", "발령부서", "직급", "직책", "비고"], employee.history.map((item, index) => [index === employee.history.length - 1 ? "입사" : "발령", item[0], deepestDept(employee), employee.grade, employee.title, item[1]]), tab === "assignment")}${buildSheetSection("교육사항", "training", ["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""]), tab === "training")}</div></div>`;
-    refs.cardWrap.innerHTML = `<div class="codex-record-shell codex-record-shell-wide">${summary}${detail}</div>`;
+    const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"><div class="codex-record-sheet-head"><div class="codex-record-sheet-title">인사정보카드</div></div>${infoPreview}${buildSheetSection("기본정보", "overview", ["구분", "내용", "구분", "내용"], [["사원번호", employee.id, "그룹웨어 ID", employee.groupwareId || getGroupwareId(employee)], ["직급", employee.grade, "직책", employee.title], ["직군", employee.jobFamily, "재직상태", employee.status], ["회사 이메일", getCompanyEmail(employee), "회사 전화", getCompanyPhone(employee)]], tab === "overview")}${buildSheetSection("입사정보", "hire", ["구분", "내용", "구분", "내용"], [["입사일", employee.hireDate, "입사시 직급", employee.hireGrade], ["입사시 직원유형", employee.hireEmployeeType || employee.employeeType, "입사시 직군", employee.hireJobFamily || employee.jobFamily], ["인정경력", `${employee.careerMonths}개월`, "초기 배치일", employee.assignmentDate], ["계약기간", employee.employeeType === "계약직" ? employee.contractPeriod || "-" : "-", "", ""]], tab === "hire")}${buildSheetSection("신상정보", "personal", ["구분", "내용", "구분", "내용"], [["주민등록번호", employee.residentNumber || getResidentNumber(employee), "결혼여부", employee.maritalStatus || getMaritalStatus(employee)], ["생년월일", employee.birthDate, "휴대전화", employee.phone], ["개인 이메일", getPersonalEmail(employee), "회사 전화", getCompanyPhone(employee)], ["주소", getAddress(employee), "", ""]], tab === "personal")}${buildSheetSection("학력사항", "education", ["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""]), tab === "education")}${buildSheetSection("경력사항", "career", ["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""]), tab === "career")}${buildSheetSection("가족사항", "personal", ["관계", "성명", "생년월일"], getFamilyEntries(employee), false)}${buildSheetSection("자격증", "training", ["자격증명", "발급기관", "취득일"], getCertificateEntries(employee).map((item) => [item[1], item[2], item[3]]), false)}${buildSheetSection("상벌사항", "memo", ["상벌구분", "상벌명", "발생일", "사유"], getAwardEntries(employee), false)}${buildSheetSection("승급사항", "hire", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], getPromotionEntries(employee), false)}${buildSheetSection("발령사항", "assignment", ["발령구분", "발령일", "발령부서", "직급", "직책", "비고"], employee.history.map((item, index) => [index === employee.history.length - 1 ? "입사" : "발령", item[0], deepestDept(employee), employee.grade, employee.title, item[1]]), tab === "assignment")}${buildSheetSection("교육사항", "training", ["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""]), tab === "training")}</div></div>`;
+    refs.cardWrap.innerHTML = `<div class="codex-record-shell codex-record-shell-wide">${detail}</div>`;
   }
   function renderQuickRecord() {
     const employee = selectedEmployee();
     refs.cardWrap.style.gridTemplateColumns = "minmax(0, 1fr)";
     refs.cardWrap.style.width = "100%";
     refs.cardWrap.innerHTML = `<div class="codex-record-shell" style="grid-template-columns:minmax(0,1fr)"><div class="codex-record-detail"><div class="codex-record-section"><h4>기본 프로필</h4><div class="codex-record-grid"><div class="codex-record-field"><span class="label">사원번호</span><span class="value">${employee.id}</span></div><div class="codex-record-field"><span class="label">성명</span><span class="value">${employee.name}</span></div><div class="codex-record-field"><span class="label">직급</span><span class="value">${employee.grade}</span></div><div class="codex-record-field"><span class="label">직책</span><span class="value">${employee.title}</span></div><div class="codex-record-field"><span class="label">직군</span><span class="value">${employee.jobFamily}</span></div><div class="codex-record-field"><span class="label">직원유형</span><span class="value">${employee.employeeType}</span></div><div class="codex-record-field full"><span class="label">소속</span><span class="value">${employeePath(employee)}</span></div></div></div><div class="codex-record-section"><h4>기본 인사정보</h4><div class="codex-record-grid"><div class="codex-record-field"><span class="label">입사일</span><span class="value">${employee.hireDate}</span></div><div class="codex-record-field"><span class="label">생년월일</span><span class="value">${employee.birthDate}</span></div><div class="codex-record-field"><span class="label">연락처</span><span class="value">${employee.phone}</span></div><div class="codex-record-field"><span class="label">최종학력</span><span class="value">${employee.education}</span></div><div class="codex-record-field"><span class="label">재직상태</span><span class="value">${statusBadge(employee.status)}</span></div><div class="codex-record-field"><span class="label">부서배정일</span><span class="value">${employee.assignmentDate}</span></div></div></div><div class="codex-record-section"><h4>안내</h4><div class="codex-record-note">이 화면은 통계 상세에서 여는 기본정보 전용 탭입니다. 경력, 발령이력, 교육이력 등 전체 내용은 상단의 인사기록카드 버튼을 통해 확인합니다.</div></div></div></div>`;
+  }
+  function openRecordDetailModal(tabId) {
+    const employee = selectedEmployee();
+    const titleMap = {
+      overview: "기본정보 상세",
+      hire: "입사정보 상세",
+      personal: "신상정보 상세",
+      education: "학력사항 상세",
+      career: "경력사항 상세",
+      assignment: "발령사항 상세",
+      training: "교육사항 상세",
+      memo: "메모 상세"
+    };
+    const bodies = {
+      overview: sheetFieldTable([
+        ["사원번호", employee.id, "그룹웨어 ID", employee.groupwareId || getGroupwareId(employee)],
+        ["직급", employee.grade, "직책", employee.title],
+        ["직군", employee.jobFamily, "재직상태", employee.status],
+        ["회사 이메일", getCompanyEmail(employee), "회사 전화", getCompanyPhone(employee)],
+        ["소속", employeePath(employee), "", ""]
+      ]),
+      hire: sheetFieldTable([
+        ["입사일", employee.hireDate, "입사시 직급", employee.hireGrade],
+        ["입사시 직원유형", employee.hireEmployeeType || employee.employeeType, "입사시 직군", employee.hireJobFamily || employee.jobFamily],
+        ["인정경력", `${employee.careerMonths}개월`, "초기 배치일", employee.assignmentDate],
+        ["계약기간", employee.employeeType === "계약직" ? employee.contractPeriod || "-" : "-", "", ""]
+      ]),
+      personal: sheetFieldTable([
+        ["주민등록번호", employee.residentNumber || getResidentNumber(employee), "결혼여부", employee.maritalStatus || getMaritalStatus(employee)],
+        ["생년월일", employee.birthDate, "휴대전화", employee.phone],
+        ["개인 이메일", getPersonalEmail(employee), "회사 전화", getCompanyPhone(employee)],
+        ["주소", getAddress(employee), "", ""]
+      ]),
+      education: previewGrid(["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""])),
+      career: previewGrid(["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""])),
+      assignment: previewGrid(["발령구분", "발령일", "발령부서", "직급", "직책", "비고"], employee.history.map((item, index) => [index === employee.history.length - 1 ? "입사" : "발령", item[0], deepestDept(employee), employee.grade, employee.title, item[1]])),
+      training: previewGrid(["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""])),
+      memo: `<div class="codex-sheet-memo">${employee.memo}</div>`
+    };
+    $("h3", recordDetailModal.root).textContent = titleMap[tabId] || "인사기록카드 상세";
+    recordDetailModal.body.innerHTML = `<div class="codex-record-detail-modal-body">${bodies[tabId] || bodies.overview}</div>`;
+    recordDetailModal.save.onclick = () => recordDetailModal.close();
+    recordDetailModal.open();
   }
   function renderCodes() {
     const orgSummary = getOrgSummary();
@@ -819,10 +865,11 @@
     refs.sideItems[2]?.addEventListener("click", () => showHrView("org"));
     document.addEventListener("click", (event) => { const detail = event.target.closest('[data-action="detail"]'); if (detail) { event.preventDefault(); const row = detail.closest("tr"); const id = row?.dataset.employeeId; if (id) { state.selectedId = id; state.currentRecordTab = "overview"; renderRecord(); showHrView("record"); } } });
     document.addEventListener("click", (event) => {
-      const recordTab = event.target.closest("[data-record-tab]");
-      if (!recordTab) return;
-      state.currentRecordTab = recordTab.dataset.recordTab;
-      renderRecord();
+      const recordDetail = event.target.closest("[data-record-detail]");
+      if (!recordDetail) return;
+      event.preventDefault();
+      state.currentRecordTab = recordDetail.dataset.recordDetail;
+      openRecordDetailModal(recordDetail.dataset.recordDetail);
     });
     document.addEventListener("click", (event) => {
       const quickTrigger = event.target.closest("[data-quick-profile]");
