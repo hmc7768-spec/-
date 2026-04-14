@@ -275,10 +275,15 @@
 .codex-secondary-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .codex-sidebar-extra {
   cursor: pointer;
+}
+
+.codex-table-selected td {
+  background: #f3f7ff;
 }
 
 .codex-record-shell {

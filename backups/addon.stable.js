@@ -16,7 +16,7 @@
     { id: "L3", name: "팀", parent: "L2", desc: "실 하위 팀 단위" },
     { id: "L4", name: "파트", parent: "L3", desc: "팀 하위 파트 단위" }
   ];
-  const state = { employees: employeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0024", currentHrView: "directory", currentSystem: 1 };
+  const state = { employees: employeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0024", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "" };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const refs = { hrSystem: $("#hrSystem"), evalSystem: $("#evalSystem"), pageTitle: $(".hr-page-title"), searchBar: $('[data-region="searchbar"]'), stats: $('[data-region="stats"]'), tableWrap: $('[data-region="emptable"]'), orgWrap: $("#orgChartWrap"), cardWrap: $("#hrCardGrid"), hrContent: $(".hr-content"), hrSidebar: $(".hr-sidebar"), topItems: $$(".hr-top-item"), sideItems: $$(".hr-sidebar-item"), annoList: $("#annoList") };
@@ -26,6 +26,54 @@
   function deepestDept(employee) { return employee.part || employee.team || employee.office || employee.hq; }
   function selectedEmployee() { return state.employees.find((employee) => employee.id === state.selectedId) || state.employees[0]; }
   function statusBadge(status) { return `<span class="status-badge ${status === "재직" ? "status-active" : "status-leave"}">${status}</span>`; }
+  function getOrgSummary() {
+    const map = new Map();
+    state.employees.forEach((employee) => {
+      const entries = [
+        { level: "L1", name: employee.hq || "", hq: employee.hq || "", office: "", team: "", part: "", parent: "오토플러스" },
+        { level: "L2", name: employee.office || "", hq: employee.hq || "", office: employee.office || "", team: "", part: "", parent: employee.hq || "오토플러스" },
+        { level: "L3", name: employee.team || "", hq: employee.hq || "", office: employee.office || "", team: employee.team || "", part: "", parent: employee.office || employee.hq || "오토플러스" },
+        { level: "L4", name: employee.part || "", hq: employee.hq || "", office: employee.office || "", team: employee.team || "", part: employee.part || "", parent: employee.team || employee.office || employee.hq || "오토플러스" }
+      ].filter((item) => item.name);
+      entries.forEach((entry) => {
+        const key = [entry.level, entry.hq, entry.office, entry.team, entry.part].join("|");
+        if (!map.has(key)) {
+          map.set(key, { ...entry, key, count: 0 });
+        }
+        map.get(key).count += 1;
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key, "ko"));
+  }
+  function renderOrgBoard(hqFilter = "") {
+    const root = new Map();
+    state.employees
+      .filter((employee) => !hqFilter || employee.hq === hqFilter)
+      .forEach((employee) => {
+        const hqKey = employee.hq || "미지정 본부";
+        if (!root.has(hqKey)) root.set(hqKey, { employees: [], offices: new Map() });
+        const hqNode = root.get(hqKey);
+        hqNode.employees.push(employee);
+        const officeKey = employee.office || "직속";
+        if (!hqNode.offices.has(officeKey)) hqNode.offices.set(officeKey, { employees: [], teams: new Map() });
+        const officeNode = hqNode.offices.get(officeKey);
+        officeNode.employees.push(employee);
+        const teamKey = employee.team || "직속";
+        if (!officeNode.teams.has(teamKey)) officeNode.teams.set(teamKey, { employees: [], parts: new Map() });
+        const teamNode = officeNode.teams.get(teamKey);
+        teamNode.employees.push(employee);
+        if (employee.part) {
+          if (!teamNode.parts.has(employee.part)) teamNode.parts.set(employee.part, []);
+          teamNode.parts.get(employee.part).push(employee);
+        }
+      });
+    const peopleRow = (members) => members.length ? `<div class="codex-org-people">${members.map((employee) => `<span class="codex-org-person"><strong>${employee.name}</strong><span>${employee.grade}</span></span>`).join("")}</div>` : "";
+    const renderPart = (part, members) => `<div class="codex-org-card" data-level="part"><div class="codex-org-header"><div class="codex-org-title"><strong>${part}</strong></div><div class="codex-org-meta">파트 · ${members.length}명</div></div>${peopleRow(members)}</div>`;
+    const renderTeam = (team, teamNode) => `<div class="codex-org-card" data-level="team"><div class="codex-org-header"><div class="codex-org-title"><strong>${team}</strong></div><div class="codex-org-meta">팀 · ${teamNode.employees.length}명</div></div>${peopleRow(teamNode.employees.filter((employee) => !employee.part))}${teamNode.parts.size ? `<div class="codex-org-children">${Array.from(teamNode.parts.entries()).map(([part, members]) => renderPart(part, members)).join("")}</div>` : ""}</div>`;
+    const renderOffice = (office, officeNode) => `<div class="codex-org-card" data-level="office"><div class="codex-org-header"><div class="codex-org-title"><strong>${office}</strong></div><div class="codex-org-meta">실 · ${officeNode.employees.length}명</div></div>${peopleRow(officeNode.employees.filter((employee) => !employee.team))}<div class="codex-org-children">${Array.from(officeNode.teams.entries()).map(([team, teamNode]) => renderTeam(team, teamNode)).join("")}</div></div>`;
+    const renderHq = (hq, hqNode) => `<div class="codex-org-card" data-level="hq"><div class="codex-org-header"><div class="codex-org-title"><strong>${hq}</strong></div><div class="codex-org-meta">본부 · ${hqNode.employees.length}명</div></div>${peopleRow(hqNode.employees.filter((employee) => !employee.office))}<div class="codex-org-children">${Array.from(hqNode.offices.entries()).map(([office, officeNode]) => renderOffice(office, officeNode)).join("")}</div></div>`;
+    return `<div class="codex-org-board"><div class="codex-org-root">오토플러스 <span style="opacity:.75;font-weight:500">${state.employees.filter((employee) => !hqFilter || employee.hq === hqFilter).length}명</span></div><div class="codex-org-level">${Array.from(root.entries()).map(([hq, hqNode]) => renderHq(hq, hqNode)).join("")}</div></div>`;
+  }
   function buildModal(id, title) {
     const backdrop = document.createElement("div");
     backdrop.id = id;
@@ -71,43 +119,58 @@
     $(".hr-table-header div", refs.tableWrap).textContent = `총 ${state.employees.length}명 · 1-${state.employees.length} 표시`;
   }
   function renderOrg() {
-    const root = new Map();
+    refs.orgWrap.innerHTML = renderOrgBoard();
+  }
+  function saveOrgCode() {
+    const summary = getOrgSummary();
+    const selected = summary.find((item) => item.key === state.currentCodeSelection);
+    if (!selected) return;
+    const nextName = $("#codeOrgName")?.value?.trim();
+    if (!nextName) return;
     state.employees.forEach((employee) => {
-      const hqKey = employee.hq || "미지정 본부";
-      if (!root.has(hqKey)) root.set(hqKey, { employees: [], offices: new Map() });
-      const hqNode = root.get(hqKey);
-      hqNode.employees.push(employee);
-
-      const officeKey = employee.office || "직속";
-      if (!hqNode.offices.has(officeKey)) hqNode.offices.set(officeKey, { employees: [], teams: new Map() });
-      const officeNode = hqNode.offices.get(officeKey);
-      officeNode.employees.push(employee);
-
-      const teamKey = employee.team || "직속";
-      if (!officeNode.teams.has(teamKey)) officeNode.teams.set(teamKey, { employees: [], parts: new Map() });
-      const teamNode = officeNode.teams.get(teamKey);
-      teamNode.employees.push(employee);
-
-      if (employee.part) {
-        if (!teamNode.parts.has(employee.part)) teamNode.parts.set(employee.part, []);
-        teamNode.parts.get(employee.part).push(employee);
-      }
+      if (selected.level === "L1" && employee.hq === selected.hq) employee.hq = nextName;
+      if (selected.level === "L2" && employee.hq === selected.hq && employee.office === selected.office) employee.office = nextName;
+      if (selected.level === "L3" && employee.hq === selected.hq && employee.office === selected.office && employee.team === selected.team) employee.team = nextName;
+      if (selected.level === "L4" && employee.hq === selected.hq && employee.office === selected.office && employee.team === selected.team && employee.part === selected.part) employee.part = nextName;
     });
-
-    const peopleRow = (members) => members.length ? `<div class="codex-org-people">${members.map((employee) => `<span class="codex-org-person"><strong>${employee.name}</strong><span>${employee.grade}</span></span>`).join("")}</div>` : "";
-    const renderPart = (part, members) => `<div class="codex-org-card" data-level="part"><div class="codex-org-header"><div class="codex-org-title"><strong>${part}</strong></div><div class="codex-org-meta">파트 · ${members.length}명</div></div>${peopleRow(members)}</div>`;
-    const renderTeam = (team, teamNode) => `<div class="codex-org-card" data-level="team"><div class="codex-org-header"><div class="codex-org-title"><strong>${team}</strong></div><div class="codex-org-meta">팀 · ${teamNode.employees.length}명</div></div>${peopleRow(teamNode.employees.filter((employee) => !employee.part))}${teamNode.parts.size ? `<div class="codex-org-children">${Array.from(teamNode.parts.entries()).map(([part, members]) => renderPart(part, members)).join("")}</div>` : ""}</div>`;
-    const renderOffice = (office, officeNode) => `<div class="codex-org-card" data-level="office"><div class="codex-org-header"><div class="codex-org-title"><strong>${office}</strong></div><div class="codex-org-meta">실 · ${officeNode.employees.length}명</div></div>${peopleRow(officeNode.employees.filter((employee) => !employee.team))}<div class="codex-org-children">${Array.from(officeNode.teams.entries()).map(([team, teamNode]) => renderTeam(team, teamNode)).join("")}</div></div>`;
-    const renderHq = (hq, hqNode) => `<div class="codex-org-card" data-level="hq"><div class="codex-org-header"><div class="codex-org-title"><strong>${hq}</strong></div><div class="codex-org-meta">본부 · ${hqNode.employees.length}명</div></div>${peopleRow(hqNode.employees.filter((employee) => !employee.office))}<div class="codex-org-children">${Array.from(hqNode.offices.entries()).map(([office, officeNode]) => renderOffice(office, officeNode)).join("")}</div></div>`;
-
-    refs.orgWrap.innerHTML = `<div class="codex-org-board"><div class="codex-org-root">오토플러스 <span style="opacity:.75;font-weight:500">${state.employees.length}명</span></div><div class="codex-org-level">${Array.from(root.entries()).map(([hq, hqNode]) => renderHq(hq, hqNode)).join("")}</div></div>`;
+    renderAll();
+    renderCodes();
   }
   function renderRecord() {
     const employee = selectedEmployee();
     refs.cardWrap.innerHTML = `<div class="codex-record-shell"><div class="codex-record-summary"><div class="codex-record-card"><div class="codex-record-head"><div class="hr-profile-avatar">${employee.name[0]}</div><div class="hr-card-name">${employee.name}</div><div class="codex-record-subtitle">${employee.id} · ${employee.grade} · ${employee.title}</div><div class="codex-record-subtitle">${employeePath(employee)}</div></div><div class="codex-record-block"><h5>기본 정보</h5><div class="codex-record-list"><div class="codex-record-item"><div class="label">생년월일</div><div class="value">${employee.birthDate}</div></div><div class="codex-record-item"><div class="label">입사일</div><div class="value">${employee.hireDate}</div></div><div class="codex-record-item"><div class="label">연락처</div><div class="value">${employee.phone}</div></div><div class="codex-record-item"><div class="label">최종학력</div><div class="value">${employee.education}</div></div></div></div><div class="codex-record-block"><h5>조직 정보</h5><div class="codex-record-list"><div class="codex-record-item"><div class="label">본부</div><div class="value">${employee.hq || "-"}</div></div><div class="codex-record-item"><div class="label">실</div><div class="value">${employee.office || "-"}</div></div><div class="codex-record-item"><div class="label">팀</div><div class="value">${employee.team || "-"}</div></div><div class="codex-record-item"><div class="label">파트</div><div class="value">${employee.part || "-"}</div></div></div></div><div class="codex-record-block"><h5>인사 속성</h5><div class="codex-record-list"><div class="codex-record-item"><div class="label">직군</div><div class="value">${employee.jobFamily}</div></div><div class="codex-record-item"><div class="label">직원유형</div><div class="value">${employee.employeeType}</div></div><div class="codex-record-item"><div class="label">재직상태</div><div class="value">${statusBadge(employee.status)}</div></div><div class="codex-record-item"><div class="label">계약기간</div><div class="value">${employee.employeeType === "계약직" ? employee.contractPeriod || "-" : "-"}</div></div></div></div></div><div class="codex-record-detail"><div class="codex-record-section"><h4>인사기본정보</h4><div class="codex-record-grid"><div class="codex-record-field"><span class="label">사원번호</span><span class="value">${employee.id}</span></div><div class="codex-record-field"><span class="label">직급</span><span class="value">${employee.grade}</span></div><div class="codex-record-field"><span class="label">직책</span><span class="value">${employee.title}</span></div><div class="codex-record-field"><span class="label">입사시 직급</span><span class="value">${employee.hireGrade}</span></div><div class="codex-record-field"><span class="label">인정경력</span><span class="value">${employee.careerMonths}개월</span></div><div class="codex-record-field"><span class="label">부서배정일</span><span class="value">${employee.assignmentDate}</span></div></div></div><div class="codex-record-section"><h4>발령이력</h4><div class="hr-timeline">${employee.history.map((item, index) => `<div class="hr-timeline-item"><div class="hr-timeline-dot" style="${index === 1 ? "background:#7c5cfc" : index === 2 ? "background:#38d9a9" : ""}"></div><div class="hr-timeline-date">${item[0]}</div><div class="hr-timeline-text">${item[1]}</div></div>`).join("")}</div></div><div class="codex-record-section"><h4>자격/교육이력</h4><div class="hr-timeline">${employee.educationHistory.map((item) => `<div class="hr-timeline-item"><div class="hr-timeline-dot" style="background:#f5a623"></div><div class="hr-timeline-date">${item[0]}</div><div class="hr-timeline-text">${item[1]}</div></div>`).join("")}</div></div><div class="codex-record-section"><h4>인사 메모</h4><div class="codex-record-note">${employee.memo}</div></div></div></div>`;
   }
   function renderCodes() {
-    panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><h3>코드관리</h3><div style="font-size:11px;color:#9095b0">조직코드 / 레벨관리 / 직급 / 직책 / 직군 / 직원유형</div></div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">조직코드 현황</h4><table><thead><tr><th>레벨</th><th>조직</th><th>인원수</th></tr></thead><tbody>${Array.from(new Map(state.employees.map((employee) => [deepestDept(employee), state.employees.filter((item) => deepestDept(item) === deepestDept(employee)).length])).entries()).map(([dept, count]) => `<tr><td>${dept.includes("파트") ? "L4" : dept.includes("팀") || dept.includes("지점") ? "L3" : dept.includes("실") ? "L2" : "L1"}</td><td>${dept}</td><td>${count}명</td></tr>`).join("")}</tbody></table></div><div class="codex-stack"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">레벨관리</h4>${levelDefs.map((level) => `<div class="codex-note-box"><strong>${level.id} · ${level.name}</strong>상위레벨: ${level.parent} · ${level.desc}</div>`).join("")}</div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">기준코드</h4><div class="codex-note-box"><strong>직급</strong>${gradeCodes.join(" / ")}</div><div class="codex-note-box"><strong>직책</strong>${titleCodes.join(" / ")}</div><div class="codex-note-box"><strong>직군</strong>${familyCodes.join(" / ")}</div><div class="codex-note-box"><strong>직원유형</strong>${employeeTypes.join(" / ")}</div></div></div></div>`;
+    const orgSummary = getOrgSummary();
+    if (!state.currentCodeSelection && orgSummary[0]) state.currentCodeSelection = orgSummary[0].key;
+    const codeActions = `<div class="codex-secondary-actions"><button type="button" class="hr-btn btn-outline" data-code-view="overview">코드 현황</button><button type="button" class="hr-btn btn-outline" data-code-view="org-edit">조직코드 수정</button><button type="button" class="hr-btn btn-outline" data-code-view="level-edit">레벨관리</button><button type="button" class="hr-btn btn-outline" data-code-view="meta-edit">기준코드 수정</button></div>`;
+    if (state.currentCodeView === "overview") {
+      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>코드관리</h3><div style="font-size:11px;color:#9095b0">조직코드 / 레벨관리 / 직급 / 직책 / 직군 / 직원유형 현황</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">조직코드 현황</h4><table><thead><tr><th>레벨</th><th>조직</th><th>상위조직</th><th>인원수</th></tr></thead><tbody>${orgSummary.map((item) => `<tr><td>${item.level}</td><td>${item.name}</td><td>${item.parent}</td><td>${item.count}명</td></tr>`).join("")}</tbody></table></div><div class="codex-stack"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">레벨 현황</h4>${levelDefs.map((level) => `<div class="codex-note-box"><strong>${level.id} · ${level.name}</strong>상위레벨: ${level.parent} · ${level.desc}</div>`).join("")}</div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">기준코드 현황</h4><div class="codex-note-box"><strong>직급</strong>${gradeCodes.join(" / ")}</div><div class="codex-note-box"><strong>직책</strong>${titleCodes.join(" / ")}</div><div class="codex-note-box"><strong>직군</strong>${familyCodes.join(" / ")}</div><div class="codex-note-box"><strong>직원유형</strong>${employeeTypes.join(" / ")}</div></div></div></div>`;
+    } else if (state.currentCodeView === "org-edit") {
+      const selected = orgSummary.find((item) => item.key === state.currentCodeSelection) || orgSummary[0];
+      if (selected && selected.key !== state.currentCodeSelection) state.currentCodeSelection = selected.key;
+      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>조직코드 수정</h3><div style="font-size:11px;color:#9095b0">현황 화면에서 진입한 후 조직 구조를 검토하고 수정하는 화면</div></div>${codeActions}</div><div class="codex-grid-2" style="margin-top:16px"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">조직코드 목록</h4><table><thead><tr><th>선택</th><th>레벨</th><th>조직</th><th>상위조직</th><th>인원수</th></tr></thead><tbody>${orgSummary.map((item) => `<tr class="${item.key === state.currentCodeSelection ? "codex-table-selected" : ""}"><td><button type="button" class="hr-btn btn-outline" data-org-select="${item.key}">선택</button></td><td>${item.level}</td><td>${item.name}</td><td>${item.parent}</td><td>${item.count}명</td></tr>`).join("")}</tbody></table></div><div class="codex-stack"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">조직코드 편집</h4>${selected ? `<div class="codex-form-grid"><label><span>레벨</span><input value="${selected.level}" readonly></label><label><span>상위조직</span><input value="${selected.parent}" readonly></label><label class="span-2"><span>조직명</span><input id="codeOrgName" value="${selected.name}"></label><label><span>본부</span><input value="${selected.hq || "-"}" readonly></label><label><span>실</span><input value="${selected.office || "-"}" readonly></label><label><span>팀</span><input value="${selected.team || "-"}" readonly></label><label><span>파트</span><input value="${selected.part || "-"}" readonly></label></div><div class="codex-modal-actions"><button type="button" class="hr-btn btn-primary" id="codeOrgSaveBtn">코드 저장</button></div>` : `<div class="codex-note-box">수정할 조직을 선택하세요.</div>`}</div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">본부 기준 조직도 미리보기</h4>${selected ? renderOrgBoard(selected.hq) : `<div class="codex-note-box">선택된 조직이 없습니다.</div>`}</div></div></div>`;
+    } else if (state.currentCodeView === "level-edit") {
+      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>레벨관리</h3><div style="font-size:11px;color:#9095b0">조직 레벨 정의와 상하위 관계를 관리하는 화면</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">레벨 목록</h4>${levelDefs.map((level) => `<div class="codex-note-box"><strong>${level.id} · ${level.name}</strong>상위레벨: ${level.parent} · ${level.desc}</div>`).join("")}</div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">수정 화면 안내</h4><div class="codex-note-box"><strong>향후 편집 항목</strong>레벨명, 조직구분명, 상위레벨, 설명, 사용여부</div><div class="codex-note-box"><strong>적용 영향</strong>조직도 표시, 조직코드 유효성, 신규등록/발령입력 선택 구조에 공통 반영</div></div></div>`;
+    } else {
+      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>기준코드 수정</h3><div style="font-size:11px;color:#9095b0">직급 / 직책 / 직군 / 직원유형 기준을 관리하는 화면</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-stack"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">직급 코드</h4><div class="codex-note-box">${gradeCodes.join(" / ")}</div></div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">직책 코드</h4><div class="codex-note-box">${titleCodes.join(" / ")}</div></div></div><div class="codex-stack"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">직군 코드</h4><div class="codex-note-box">${familyCodes.join(" / ")}</div></div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">직원유형 코드</h4><div class="codex-note-box">${employeeTypes.join(" / ")}</div></div></div></div>`;
+    }
+    $$("[data-code-view]", panels.codes).forEach((button) => {
+      button.classList.toggle("btn-primary", button.dataset.codeView === state.currentCodeView);
+      button.classList.toggle("btn-outline", button.dataset.codeView !== state.currentCodeView);
+      button.addEventListener("click", () => {
+        state.currentCodeView = button.dataset.codeView;
+        renderCodes();
+        renderNotesByView();
+      });
+    });
+    $$("[data-org-select]", panels.codes).forEach((button) => {
+      button.addEventListener("click", () => {
+        state.currentCodeSelection = button.dataset.orgSelect;
+        renderCodes();
+      });
+    });
+    $("#codeOrgSaveBtn", panels.codes)?.addEventListener("click", saveOrgCode);
   }
   function renderAssignment() {
     const employee = selectedEmployee();
