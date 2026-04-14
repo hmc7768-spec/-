@@ -1065,6 +1065,14 @@
   opacity: 0.45;
 }
 
+#hrSystem .hr-top-menu {
+  display: none;
+}
+
+#hrSystem .hr-topbar {
+  justify-content: space-between;
+}
+
 .codex-anno-detail {
   display: grid;
   gap: 6px;

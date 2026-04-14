@@ -1291,7 +1291,7 @@
   }
   function renderNotesByView() {
     if (typeof annotations === "undefined" || !refs.annoList || state.currentSystem !== 1) return;
-    const map = { directory: ["topbar", "gnb", "sidebar", "searchbar", "stats", "emptable", "pagetitle"], record: ["topbar", "gnb", "sidebar", "pagetitle", "hrcard"], org: ["topbar", "gnb", "sidebar", "pagetitle", "orgchart"], codes: ["topbar", "gnb", "sidebar", "pagetitle"], assignment: ["topbar", "gnb", "sidebar", "pagetitle"] };
+    const map = { directory: ["topbar", "sidebar", "searchbar", "stats", "emptable", "pagetitle"], record: ["topbar", "sidebar", "pagetitle", "hrcard"], org: ["topbar", "sidebar", "pagetitle", "orgchart"], codes: ["topbar", "sidebar", "pagetitle"], assignment: ["topbar", "sidebar", "pagetitle"] };
     const base = (annotations[1] || []).filter((item) => map[state.currentHrView].includes(item.region));
     const overrides = {
       directory: {
@@ -1299,11 +1299,6 @@
           title: "상단 공통 프레임",
           desc: "인사시스템 전체 공통 프레임으로 시스템명, 최상위 메뉴, 사용자 진입점을 제공한다.",
           detail: [["주요 기능", "시스템 레벨 메뉴 전환, 현재 위치 인지, 우측 사용자 액션 노출"], ["연계", "사원정보관리 / 인사기록카드 / 조직도 / 발령·이동 / 보고서"], ["개발 포인트", "화면 전환 시 활성 메뉴 유지, 공통 버튼 충돌 방지"]]
-        },
-        gnb: {
-          title: "1차 메뉴 네비게이션",
-          desc: "업무 도메인 단위의 전역 네비게이션이다. 메뉴 클릭 시 해당 콘텐츠와 우측 주석이 함께 바뀌어야 한다.",
-          detail: [["주요 기능", "도메인 화면 전환, 활성 메뉴 표시"], ["연계", "좌측 사이드바와 현재 콘텐츠 영역"], ["검토 포인트", "메뉴별 액션 버튼과 주석 카드가 같이 변경되는지 확인"]]
         },
         sidebar: {
           title: "2차 업무 메뉴",
@@ -1337,11 +1332,6 @@
           desc: "기록카드 화면도 동일한 공통 프레임을 사용하므로 도메인 전환 후 선택 사원 정보가 유지되어야 한다.",
           detail: [["연계", "사원명부에서 넘어온 선택 사원 유지"], ["검토 포인트", "기록카드에서 다른 화면 이동 후 복귀 시 선택 대상 유지 여부"]]
         },
-        gnb: {
-          title: "1차 메뉴 네비게이션",
-          desc: "기록카드 상태에서도 다른 업무 화면으로 이동 가능한 상단 메뉴이다.",
-          detail: [["주요 기능", "도메인 전환"], ["연계", "선택 사원 상태 URL 또는 상태값 유지"], ["개발 포인트", "기록카드 편집 중 이탈 시 경고 여부는 추후 정책 결정"]]
-        },
         sidebar: {
           title: "기록카드 관련 세부 메뉴",
           desc: "사원명부에서 상세보기로 진입한 뒤에도 좌측 메뉴를 통해 다른 HR 화면으로 이동할 수 있다.",
@@ -1363,11 +1353,6 @@
           title: "상단 공통 프레임",
           desc: "조직도 화면도 공통 프레임을 사용하며 조직 선택 상태와 검색 상태가 우측 콘텐츠에 영향을 준다.",
           detail: [["연계", "전역 메뉴 전환 후 조직도 복귀 시 선택 조직 유지"], ["검토 포인트", "조직 선택 상태와 검색어 유지 정책 확인"]]
-        },
-        gnb: {
-          title: "1차 메뉴 네비게이션",
-          desc: "조직도에서 다른 도메인으로 이동하는 전역 메뉴이다.",
-          detail: [["주요 기능", "도메인 전환"], ["연계", "조직도와 발령입력 간 이동"], ["개발 포인트", "조직도 전용 상태가 다른 화면에 누수되지 않도록 분리"]]
         },
         sidebar: {
           title: "조직 관련 세부 메뉴",
@@ -1391,11 +1376,6 @@
           desc: "코드관리도 공통 프레임 안에서 동작하며, 운영 기준코드의 진입 화면 역할을 한다.",
           detail: [["연계", "조직도, 신규등록, 기록카드 수정, 발령입력"], ["검토 포인트", "기준코드 변경이 입력 화면에 재반영되는지 확인"]]
         },
-        gnb: {
-          title: "1차 메뉴 네비게이션",
-          desc: "기준정보 수정 중에도 다른 도메인으로 이동 가능한 전역 메뉴이다.",
-          detail: [["주요 기능", "도메인 전환"], ["개발 포인트", "미저장 수정 상태 처리 정책 추후 검토"]]
-        },
         sidebar: {
           title: "코드관리 관련 세부 메뉴",
           desc: "코드관리 진입용 사이드 메뉴이다. 조직/직급/직책/직군/직원유형 기준 흐름과 연결된다.",
@@ -1412,11 +1392,6 @@
           title: "상단 공통 프레임",
           desc: "발령·이동 화면도 공통 프레임을 사용하며, 발령 반영 후 다른 화면으로의 흐름이 중요하다.",
           detail: [["연계", "조직도, 사원명부, 인사기록카드, 통계"], ["검토 포인트", "반영 후 어느 화면으로 이동할지 정책 일관성 확인"]]
-        },
-        gnb: {
-          title: "1차 메뉴 네비게이션",
-          desc: "발령 입력 중 다른 도메인으로 이동하는 메뉴이다.",
-          detail: [["주요 기능", "도메인 전환"], ["개발 포인트", "미반영 데이터 이탈 처리 여부 추후 검토"]]
         },
         sidebar: {
           title: "인사처리 세부 메뉴",
@@ -1446,7 +1421,6 @@
           hrcard: refs.cardWrap,
           pagetitle: refs.pageTitle,
           sidebar: refs.hrSidebar,
-          gnb: $(".hr-top-menu", refs.hrSystem),
           topbar: $(".hr-topbar", refs.hrSystem)
         };
         const el = regionMap[item.region] || getRegionEl(item.region);
