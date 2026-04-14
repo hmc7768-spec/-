@@ -1103,7 +1103,47 @@
   word-break: keep-all;
 }
 
+#hrSystem .hr-search-bar {
+  display: grid;
+  gap: 10px;
+}
+
+.codex-directory-search-main {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.codex-search-toggle.is-open {
+  border-color: #4f8ef7;
+  color: #4f8ef7;
+  background: #f3f8ff;
+}
+
+.codex-directory-search-advanced {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.codex-directory-search-advanced label {
+  display: grid;
+  gap: 6px;
+}
+
+.codex-directory-search-advanced span {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6d7890;
+}
+
 @media (max-width: 900px) {
+  .codex-directory-search-advanced {
+    grid-template-columns: 1fr;
+  }
+
   .codex-record-shell-wide {
     grid-template-columns: 1fr;
   }

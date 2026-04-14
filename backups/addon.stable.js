@@ -148,7 +148,7 @@
     { id: "L3", name: "팀", parent: "L2", desc: "실 하위 팀 단위" },
     { id: "L4", name: "파트", parent: "L3", desc: "팀 하위 파트 단위" }
   ];
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: "", directoryGrade: "", directoryStatus: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const refs = { hrSystem: $("#hrSystem"), evalSystem: $("#evalSystem"), pageTitle: $(".hr-page-title"), searchBar: $('[data-region="searchbar"]'), stats: $('[data-region="stats"]'), tableWrap: $('[data-region="emptable"]'), orgWrap: $("#orgChartWrap"), cardWrap: $("#hrCardGrid"), hrContent: $(".hr-content"), hrSidebar: $(".hr-sidebar"), topItems: $$(".hr-top-item"), sideItems: $$(".hr-sidebar-item"), annoList: $("#annoList") };
@@ -427,6 +427,54 @@
     url.searchParams.set("employeeId", employeeId);
     window.open(url.toString(), "_blank");
   }
+  function getDirectoryFilteredEmployees() {
+    const keyword = state.directorySearchText.trim().toLowerCase();
+    return state.employees.filter((employee) => {
+      const dept = deepestDept(employee);
+      const deptPath = employeePath(employee);
+      const textMatched = !keyword || [employee.id, employee.name, dept, deptPath, employee.grade, employee.title, getCompanyEmail(employee), employee.phone].filter(Boolean).join(" ").toLowerCase().includes(keyword);
+      const deptMatched = !state.directoryDept || deptPath === state.directoryDept || dept === state.directoryDept;
+      const gradeMatched = !state.directoryGrade || employee.grade === state.directoryGrade;
+      const statusMatched = !state.directoryStatus || employee.status === state.directoryStatus;
+      return textMatched && deptMatched && gradeMatched && statusMatched;
+    });
+  }
+  function renderDirectorySearchBar() {
+    const deptOptions = uniqueValues(state.employees.map((employee) => employeePath(employee) || deepestDept(employee))).sort((a, b) => a.localeCompare(b, "ko"));
+    refs.searchBar.innerHTML = `<div class="codex-directory-search-main"><input id="directorySearchInput" class="hr-search-input" placeholder="사원번호, 성명, 부서, 직급, 이메일, 연락처 검색" value="${state.directorySearchText}" style="flex:1"><button type="button" class="hr-btn btn-outline codex-search-toggle ${state.directoryAdvancedOpen ? "is-open" : ""}" id="directoryDetailToggle">상세검색</button><button type="button" class="hr-btn btn-primary" id="directorySearchSubmit">검색</button><button type="button" class="hr-btn btn-outline" id="directorySearchReset">검색 초기화</button></div>${state.directoryAdvancedOpen ? `<div class="codex-directory-search-advanced"><label><span>부서</span><select id="directoryDeptFilter" class="hr-filter-select"><option value="">전체</option>${deptOptions.map((item) => `<option value="${item}" ${item === state.directoryDept ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직급</span><select id="directoryGradeFilter" class="hr-filter-select"><option value="">전체</option>${gradeCodes.map((item) => `<option value="${item}" ${item === state.directoryGrade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>재직상태</span><select id="directoryStatusFilter" class="hr-filter-select"><option value="">전체</option><option value="재직" ${state.directoryStatus === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${state.directoryStatus === "휴직" ? "selected" : ""}>휴직</option></select></label></div>` : ""}`;
+    $("#directoryDetailToggle", refs.searchBar)?.addEventListener("click", () => {
+      state.directoryAdvancedOpen = !state.directoryAdvancedOpen;
+      renderDirectorySearchBar();
+    });
+    $("#directorySearchInput", refs.searchBar)?.addEventListener("input", (event) => {
+      state.directorySearchText = event.target.value;
+    });
+    $("#directorySearchInput", refs.searchBar)?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      renderTable();
+    });
+    $("#directoryDeptFilter", refs.searchBar)?.addEventListener("change", (event) => {
+      state.directoryDept = event.target.value;
+    });
+    $("#directoryGradeFilter", refs.searchBar)?.addEventListener("change", (event) => {
+      state.directoryGrade = event.target.value;
+    });
+    $("#directoryStatusFilter", refs.searchBar)?.addEventListener("change", (event) => {
+      state.directoryStatus = event.target.value;
+    });
+    $("#directorySearchSubmit", refs.searchBar)?.addEventListener("click", () => {
+      renderTable();
+    });
+    $("#directorySearchReset", refs.searchBar)?.addEventListener("click", () => {
+      state.directorySearchText = "";
+      state.directoryDept = "";
+      state.directoryGrade = "";
+      state.directoryStatus = "";
+      state.directoryAdvancedOpen = false;
+      renderDirectorySearchBar();
+      renderTable();
+    });
+  }
   function getOrgSummary() {
     const map = new Map();
     state.employees.forEach((employee) => {
@@ -629,9 +677,10 @@
     });
   }
   function renderTable() {
+    const employees = getDirectoryFilteredEmployees();
     const tbody = $("tbody", refs.tableWrap);
-    tbody.innerHTML = state.employees.map((employee) => `<tr data-employee-id="${employee.id}"><td><input type="checkbox"></td><td><button type="button" class="codex-link-button codex-id-button" data-quick-profile="${employee.id}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">${employee.id}</button></td><td><button type="button" class="codex-link-button emp-name" data-quick-profile="${employee.id}">${employee.name}</button></td><td>${deepestDept(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${statusBadge(employee.status)}</td><td><a href="#" data-action="detail" style="font-size:11px;color:#4f8ef7;text-decoration:none">상세보기</a></td></tr>`).join("");
-    $(".hr-table-header div", refs.tableWrap).textContent = `총 ${state.employees.length}명 · 1-${state.employees.length} 표시`;
+    tbody.innerHTML = employees.map((employee) => `<tr data-employee-id="${employee.id}"><td><input type="checkbox"></td><td><button type="button" class="codex-link-button codex-id-button" data-quick-profile="${employee.id}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">${employee.id}</button></td><td><button type="button" class="codex-link-button emp-name" data-quick-profile="${employee.id}">${employee.name}</button></td><td>${deepestDept(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${statusBadge(employee.status)}</td><td><a href="#" data-action="detail" style="font-size:11px;color:#4f8ef7;text-decoration:none">상세보기</a></td></tr>`).join("");
+    $(".hr-table-header div", refs.tableWrap).textContent = `총 ${employees.length}명 · 1-${employees.length} 표시`;
   }
   function renderOrg() {
     expandOrgAncestors(state.currentOrgNode, false);
@@ -1226,7 +1275,7 @@
     panels.codeMenu?.classList.toggle("active", view === "codes");
   }
   function toggleBaseSections(directory, record, org) {
-    refs.searchBar.style.display = directory ? "flex" : "none";
+    refs.searchBar.style.display = directory ? "block" : "none";
     refs.stats.style.display = directory ? "grid" : "none";
     refs.tableWrap.style.display = directory ? "block" : "none";
     refs.orgWrap.style.display = org ? "block" : "none";
@@ -1247,7 +1296,7 @@
     updatePrimaryAction(view);
     renderNotesByView();
   }
-  function renderAll() { renderStats(); renderTable(); renderOrg(); renderRecord(); renderCodes(); renderAssignment(); }
+  function renderAll() { renderDirectorySearchBar(); renderStats(); renderTable(); renderOrg(); renderRecord(); renderCodes(); renderAssignment(); }
   function bindCoreActions() {
     refs.topItems[0]?.addEventListener("click", () => showHrView("directory"));
     refs.topItems[1]?.addEventListener("click", () => showHrView("record"));
