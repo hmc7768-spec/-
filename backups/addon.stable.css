@@ -141,6 +141,8 @@
   border: 1px solid #e2e8f4;
   border-radius: 10px;
   background: #fbfcff;
+  font: inherit;
+  color: #24324a;
 }
 
 .codex-repeatable-head {
@@ -151,7 +153,8 @@
 }
 
 .codex-repeatable-head strong {
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 700;
   color: #1e3a5f;
 }
 
@@ -163,9 +166,9 @@
 
 .codex-repeatable-columns {
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) 84px;
-  font-size: 11px;
-  color: #7b8aa5;
-  font-weight: 700;
+  font-size: 12px;
+  color: #627089;
+  font-weight: 600;
 }
 
 .codex-repeatable-row {
@@ -180,6 +183,9 @@
 
 .codex-repeatable-row input {
   min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  color: #24324a;
 }
 
 .codex-disabled-field input,

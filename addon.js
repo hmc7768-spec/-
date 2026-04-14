@@ -134,7 +134,7 @@
     { id: "L3", name: "팀", parent: "L2", desc: "실 하위 팀 단위" },
     { id: "L4", name: "파트", parent: "L3", desc: "팀 하위 파트 단위" }
   ];
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const refs = { hrSystem: $("#hrSystem"), evalSystem: $("#evalSystem"), pageTitle: $(".hr-page-title"), searchBar: $('[data-region="searchbar"]'), stats: $('[data-region="stats"]'), tableWrap: $('[data-region="emptable"]'), orgWrap: $("#orgChartWrap"), cardWrap: $("#hrCardGrid"), hrContent: $(".hr-content"), hrSidebar: $(".hr-sidebar"), topItems: $$(".hr-top-item"), sideItems: $$(".hr-sidebar-item"), annoList: $("#annoList") };
@@ -334,11 +334,44 @@
       return year === state.hireStatYear;
     });
   }
+  function getLeaveStatEvents(employee) {
+    const events = [];
+    (employee.awardItems || []).forEach((item) => {
+      const date = item?.[2];
+      const label = `${item?.[0] || ""} ${item?.[1] || ""} ${item?.[3] || ""}`;
+      if (label.includes("휴직")) events.push({ date, label });
+    });
+    if (employee.status !== "재직" && employee.assignmentDate) {
+      events.push({ date: employee.assignmentDate, label: "현재 휴직 상태" });
+    }
+    return events;
+  }
+  function matchesPeriod(year, month, mode, selectedYear, selectedMonth, selectedQuarter, selectedHalf) {
+    if (!year || !month) return false;
+    if (mode === "month") return year === selectedYear && month === selectedMonth;
+    if (mode === "quarter") return year === selectedYear && month >= ((selectedQuarter - 1) * 3) + 1 && month <= selectedQuarter * 3;
+    if (mode === "half") return year === selectedYear && month >= (selectedHalf === 1 ? 1 : 7) && month <= (selectedHalf === 1 ? 6 : 12);
+    return year === selectedYear;
+  }
+  function getLeaveStatEmployees(mode) {
+    if (mode === "current") return state.employees.filter((employee) => employee.status !== "재직");
+    return state.employees.filter((employee) => getLeaveStatEvents(employee).some((event) => {
+      const { year, month } = parseDateParts(event.date);
+      return matchesPeriod(year, month, mode, state.leaveStatYear, state.leaveStatMonth, state.leaveStatQuarter, state.leaveStatHalf);
+    }));
+  }
   function getHireStatLabel(mode) {
     if (mode === "month") return `${state.hireStatYear}년 ${state.hireStatMonth}월 기준`;
     if (mode === "quarter") return `${state.hireStatYear}년 ${state.hireStatQuarter}분기 기준`;
     if (mode === "half") return `${state.hireStatYear}년 ${state.hireStatHalf === 1 ? "상반기" : "하반기"} 기준`;
     return `${state.hireStatYear}년 연간 기준`;
+  }
+  function getLeaveStatLabel(mode) {
+    if (mode === "current") return "현재 기준";
+    if (mode === "month") return `${state.leaveStatYear}년 ${state.leaveStatMonth}월 기준`;
+    if (mode === "quarter") return `${state.leaveStatYear}년 ${state.leaveStatQuarter}분기 기준`;
+    if (mode === "half") return `${state.leaveStatYear}년 ${state.leaveStatHalf === 1 ? "상반기" : "하반기"} 기준`;
+    return `${state.leaveStatYear}년 연간 기준`;
   }
   function renderEmployeeList(items) {
     return items.length ? `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>직급</th><th>입사일</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${employee.status}</td></tr>`).join("")}</tbody></table>` : `<div class="codex-note-box"><strong>대상자 없음</strong>선택한 조건에 해당하는 대상자가 없습니다.</div>`;
@@ -638,9 +671,53 @@
       openQuickProfileModal(state.statModalSelection);
     };
     if (type === "leave") {
-      const items = state.employees.filter((employee) => employee.status !== "재직");
+      const modes = [
+        { id: "current", label: "현재 기준" },
+        { id: "month", label: "월별" },
+        { id: "quarter", label: "분기별" },
+        { id: "half", label: "반기별" },
+        { id: "year", label: "년도별" }
+      ];
+      const years = uniqueValues(state.employees.flatMap((employee) => [
+        parseDateParts(employee.assignmentDate).year,
+        ...getLeaveStatEvents(employee).map((event) => parseDateParts(event.date).year)
+      ]).filter(Boolean)).sort((a, b) => b - a);
+      if (!years.length) years.push(new Date().getFullYear());
+      const items = getLeaveStatEmployees(state.leaveStatMode);
       if (!state.statModalSelection && items[0]) state.statModalSelection = items[0].id;
-      statsModal.body.innerHTML = `<div class="codex-stack"><div class="codex-note-box"><strong>휴직 중 대상자</strong>현재 휴직 상태로 분류된 사원 목록입니다. 발령입력 또는 기록카드 수정으로 재직상태가 바뀌면 이 목록도 즉시 갱신됩니다.</div>${renderEmployeeList(items)}</div>`;
+      if (state.statModalSelection && !items.some((item) => item.id === state.statModalSelection)) state.statModalSelection = items[0]?.id || "";
+      const periodControl = state.leaveStatMode === "month"
+        ? `<select id="leaveStatMonth">${Array.from({ length: 12 }, (_, index) => index + 1).map((month) => `<option value="${month}" ${month === state.leaveStatMonth ? "selected" : ""}>${month}월</option>`).join("")}</select>`
+        : state.leaveStatMode === "quarter"
+          ? `<select id="leaveStatQuarter">${[1, 2, 3, 4].map((quarter) => `<option value="${quarter}" ${quarter === state.leaveStatQuarter ? "selected" : ""}>${quarter}분기</option>`).join("")}</select>`
+          : state.leaveStatMode === "half"
+            ? `<select id="leaveStatHalf"><option value="1" ${state.leaveStatHalf === 1 ? "selected" : ""}>상반기</option><option value="2" ${state.leaveStatHalf === 2 ? "selected" : ""}>하반기</option></select>`
+            : state.leaveStatMode === "year"
+              ? `<input value="연간 기준" readonly>`
+              : `<input value="현재 휴직자" readonly>`;
+      statsModal.body.innerHTML = `<div class="codex-stack"><div class="codex-secondary-actions">${modes.map((mode) => `<button type="button" class="hr-btn ${state.leaveStatMode === mode.id ? "btn-primary" : "btn-outline"}" data-leave-mode="${mode.id}">${mode.label}</button>`).join("")}</div><div class="codex-form-grid">${state.leaveStatMode === "current" ? `<label class="span-2"><span>조회 기준</span><input value="현재 휴직 상태 기준" readonly></label>` : `<label><span>기준 연도</span><select id="leaveStatYear">${years.map((year) => `<option value="${year}" ${year === state.leaveStatYear ? "selected" : ""}>${year}년</option>`).join("")}</select></label><label><span>세부 기준</span>${periodControl}</label>`}</div><div class="codex-note-box"><strong>휴직 대상자</strong>${getLeaveStatLabel(state.leaveStatMode)} ${state.leaveStatMode === "current" ? "휴직 상태로 분류된 사원 목록입니다." : "휴직 전환 이력 또는 휴직 발령일 기준 대상자 목록입니다."}</div>${renderEmployeeList(items)}</div>`;
+      $$("[data-leave-mode]", statsModal.body).forEach((button) => {
+        button.addEventListener("click", () => {
+          state.leaveStatMode = button.dataset.leaveMode;
+          openStatModal("leave");
+        });
+      });
+      $("#leaveStatYear", statsModal.body)?.addEventListener("change", (event) => {
+        state.leaveStatYear = Number(event.target.value);
+        openStatModal("leave");
+      });
+      $("#leaveStatMonth", statsModal.body)?.addEventListener("change", (event) => {
+        state.leaveStatMonth = Number(event.target.value);
+        openStatModal("leave");
+      });
+      $("#leaveStatQuarter", statsModal.body)?.addEventListener("change", (event) => {
+        state.leaveStatQuarter = Number(event.target.value);
+        openStatModal("leave");
+      });
+      $("#leaveStatHalf", statsModal.body)?.addEventListener("change", (event) => {
+        state.leaveStatHalf = Number(event.target.value);
+        openStatModal("leave");
+      });
       statsModal.open();
       return;
     }
