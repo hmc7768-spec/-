@@ -133,6 +133,22 @@
     const parts = (value || "").split(".");
     return { year: Number(parts[0] || 0), month: Number(parts[1] || 0), day: Number(parts[2] || 0) };
   }
+  function normalizedNameToken(name) {
+    return (name || "").replace(/\s+/g, "").toLowerCase();
+  }
+  function getCompanyEmail(employee) {
+    return `${normalizedNameToken(employee.name)}.${employee.id.toLowerCase()}@autoplus.co.kr`;
+  }
+  function getPersonalEmail(employee) {
+    return `${normalizedNameToken(employee.name)}@gmail.com`;
+  }
+  function getCompanyPhone(employee) {
+    const digits = employee.id.replace(/\D/g, "").slice(-4).padStart(4, "0");
+    return `02-6200-${digits}`;
+  }
+  function getAddress(employee) {
+    return `서울특별시 ${employee.hq || "오토플러스"} ${deepestDept(employee)} ${employee.id.slice(-2)}호`;
+  }
   function getHireStatEmployees(mode) {
     return state.employees.filter((employee) => {
       const { year, month } = parseDateParts(employee.hireDate);
@@ -261,24 +277,26 @@
   const editModal = buildModal("codexEditModal", "인사기록카드 수정");
   const statsModal = buildModal("codexStatsModal", "인원 현황 상세");
   const quickProfileModal = buildModal("codexQuickProfileModal", "사원 기본정보");
-  quickProfileModal.save.textContent = "인사기록카드 보기";
-  quickProfileModal.root.querySelector('[data-role="cancel"]').textContent = "닫기";
+  quickProfileModal.root.classList.add("codex-quick-modal-wrap");
+  quickProfileModal.root.querySelector(".codex-modal").classList.add("codex-quick-modal");
+  quickProfileModal.save.textContent = "확인";
+  quickProfileModal.root.querySelector('[data-role="cancel"]').classList.add("codex-hidden");
   const quickHeadButton = document.createElement("button");
   quickHeadButton.type = "button";
-  quickHeadButton.className = "hr-btn btn-primary";
-  quickHeadButton.textContent = "인사기록카드 보기";
+  quickHeadButton.className = "codex-quick-head-button";
+  quickHeadButton.textContent = "인사기록카드";
   quickProfileModal.root.querySelector(".codex-modal-head").insertBefore(quickHeadButton, quickProfileModal.root.querySelector('[data-role="close"]'));
   function openQuickProfileModal(employeeId) {
     const employee = state.employees.find((item) => item.id === employeeId);
     if (!employee) return;
     state.selectedId = employee.id;
-    quickProfileModal.body.innerHTML = `<div class="codex-stack"><div class="codex-quick-profile-hero"><div class="codex-quick-profile-top"><div class="codex-quick-profile-name">${employee.name}</div><div class="codex-quick-profile-id">${employee.id}</div></div><div class="codex-quick-profile-path">${employeePath(employee)}</div><div class="codex-quick-profile-chips"><span class="codex-quick-chip">${employee.grade}</span><span class="codex-quick-chip">${employee.title}</span><span class="codex-quick-chip">${employee.jobFamily}</span><span class="codex-quick-chip">${employee.employeeType}</span></div></div><div class="codex-record-section"><h4>기본 인사정보</h4><div class="codex-record-grid"><div class="codex-record-field"><span class="label">입사일</span><span class="value">${employee.hireDate}</span></div><div class="codex-record-field"><span class="label">생년월일</span><span class="value">${employee.birthDate}</span></div><div class="codex-record-field"><span class="label">연락처</span><span class="value">${employee.phone}</span></div><div class="codex-record-field"><span class="label">재직상태</span><span class="value">${statusBadge(employee.status)}</span></div><div class="codex-record-field"><span class="label">부서배정일</span><span class="value">${employee.assignmentDate}</span></div><div class="codex-record-field"><span class="label">입사시 직급</span><span class="value">${employee.hireGrade}</span></div><div class="codex-record-field full"><span class="label">최종학력</span><span class="value">${employee.education}</span></div></div></div><div class="codex-note-box"><strong>안내</strong>이 창은 통계 상세에서 빠르게 확인하는 기본정보 전용 팝업입니다. 경력, 발령이력, 교육이력 등 전체 내용은 우측 상단의 인사기록카드 보기 버튼을 통해 확인합니다.</div></div>`;
+    quickProfileModal.body.innerHTML = `<div class="codex-quick-card"><div class="codex-quick-header"><div class="codex-quick-avatar">${employee.name[0]}</div><div class="codex-quick-header-body"><div class="codex-quick-name-row"><div class="codex-quick-name">${employee.name}</div></div><div class="codex-quick-role">${employee.grade}</div><div class="codex-quick-role">${employee.title || "팀원"}</div></div></div><div class="codex-quick-orgpath">${employeePath(employee)}</div><div class="codex-quick-divider"></div><div class="codex-quick-info-list"><div class="codex-quick-info-row"><div class="codex-quick-info-label">이메일</div><div class="codex-quick-info-value">${getCompanyEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">회사 전화</div><div class="codex-quick-info-value">${getCompanyPhone(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">개인 이메일</div><div class="codex-quick-info-value">${getPersonalEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴대 전화</div><div class="codex-quick-info-value">${employee.phone}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">입사일</div><div class="codex-quick-info-value">${employee.hireDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">사번</div><div class="codex-quick-info-value">${employee.id}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">생년월일</div><div class="codex-quick-info-value">${employee.birthDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">주소</div><div class="codex-quick-info-value">${getAddress(employee)}</div></div></div></div>`;
     const goRecord = () => {
       quickProfileModal.close();
       statsModal.close();
       showHrView("record");
     };
-    quickProfileModal.save.onclick = goRecord;
+    quickProfileModal.save.onclick = () => quickProfileModal.close();
     quickHeadButton.onclick = goRecord;
     quickProfileModal.open();
   }
