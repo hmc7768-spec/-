@@ -169,8 +169,31 @@
   function getOrgRowPath(row) {
     return [row.hq, row.office, row.team, row.part].filter(Boolean).join(" > ");
   }
+  function completeBlueprintHierarchy(rows) {
+    const map = new Map();
+    const pushRow = (row, preferred = {}) => {
+      if (!row.hq) return;
+      const normalized = {
+        hq: row.hq || "",
+        office: row.office || "",
+        team: row.team || "",
+        part: row.part || "",
+        sourceKey: preferred.sourceKey || row.sourceKey || getOrgRowKey(row),
+        createdAt: preferred.createdAt || row.createdAt || "2023.08.16 00:00",
+        updatedAt: preferred.updatedAt || row.updatedAt || "2026.04.14 09:00"
+      };
+      map.set(getOrgRowKey(normalized), { ...(map.get(getOrgRowKey(normalized)) || {}), ...normalized });
+    };
+    rows.forEach((row) => {
+      pushRow(row);
+      if (row.hq) pushRow({ hq: row.hq, office: "", team: "", part: "" }, { sourceKey: getOrgRowKey({ hq: row.hq, office: "", team: "", part: "" }) });
+      if (row.office) pushRow({ hq: row.hq, office: row.office, team: "", part: "" }, { sourceKey: getOrgRowKey({ hq: row.hq, office: row.office, team: "", part: "" }) });
+      if (row.team) pushRow({ hq: row.hq, office: row.office, team: row.team, part: "" }, { sourceKey: getOrgRowKey({ hq: row.hq, office: row.office, team: row.team, part: "" }) });
+    });
+    return Array.from(map.values()).sort((a, b) => getOrgRowKey(a).localeCompare(getOrgRowKey(b), "ko"));
+  }
   function createOrgBlueprint(rows) {
-    return rows.map((row, index) => ({
+    return completeBlueprintHierarchy(rows.map((row, index) => ({
       hq: row.hq,
       office: row.office,
       team: row.team,
@@ -179,7 +202,7 @@
       code: `${getOrgRowLevel(row)}-${String(index + 1).padStart(3, "0")}`,
       createdAt: "2023.08.16 00:00",
       updatedAt: "2026.04.14 09:00"
-    }));
+    }))).map((row, index) => ({ ...row, code: `${getOrgRowLevel(row)}-${String(index + 1).padStart(3, "0")}` }));
   }
   function cloneOrgBlueprint(rows) {
     return rows.map((row) => ({ ...row }));
@@ -1283,13 +1306,13 @@
     return { level, hq, office, team, part };
   }
   function normalizeBlueprint(rows) {
-    return rows
+    return completeBlueprintHierarchy(rows
       .filter((row) => row.hq)
       .map((row) => {
         const normalized = { ...row, hq: row.hq || "", office: row.office || "", team: row.team || "", part: row.part || "" };
         normalized.sourceKey = row.sourceKey || getOrgRowKey(normalized);
         return normalized;
-      })
+      }))
       .sort((a, b) => getOrgRowKey(a).localeCompare(getOrgRowKey(b), "ko"))
       .map((row, index) => ({ ...row, code: `${getOrgRowLevel(row)}-${String(index + 1).padStart(3, "0")}`, createdAt: row.createdAt || "2023.08.16 00:00", updatedAt: "2026.04.14 09:00" }));
   }
@@ -1363,7 +1386,7 @@
     const { root, nodeMap } = buildOrgExplorerData();
     const selected = nodeMap.get(state.currentOrgNode) || root;
     const keyword = (state.assignmentLandingSearch || "").trim().toLowerCase();
-    const selectedMembers = (selected.key === "ROOT" ? state.employees : selected.members).filter((employee) => {
+    const selectedMembers = getEmployeesInOrgKey(selected.key, true).filter((employee) => {
       if (!keyword) return true;
       return [employee.name, employee.id, employee.title, employeePath(employee)].join(" ").toLowerCase().includes(keyword);
     });
