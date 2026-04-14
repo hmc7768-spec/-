@@ -134,6 +134,54 @@
   margin-bottom: 6px;
 }
 
+.codex-repeatable-editor {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e2e8f4;
+  border-radius: 10px;
+  background: #fbfcff;
+}
+
+.codex-repeatable-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.codex-repeatable-head strong {
+  font-size: 13px;
+  color: #1e3a5f;
+}
+
+.codex-repeatable-columns,
+.codex-repeatable-row {
+  display: grid;
+  gap: 8px;
+}
+
+.codex-repeatable-columns {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) 84px;
+  font-size: 11px;
+  color: #7b8aa5;
+  font-weight: 700;
+}
+
+.codex-repeatable-row {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) 84px;
+  align-items: center;
+}
+
+.codex-repeatable-body {
+  display: grid;
+  gap: 8px;
+}
+
+.codex-repeatable-row input {
+  min-width: 0;
+}
+
 .codex-note-selected {
   background: #f3f7ff;
   border-color: #cddcf7;
