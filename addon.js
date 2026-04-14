@@ -1295,6 +1295,8 @@
       beforeExpandedKeys: ["ROOT"],
       afterExpandedKeys: ["ROOT"],
       personnelExpandedKeys: ["ROOT"],
+      editingAfterOrgKey: "",
+      dragAfterOrgKey: "",
       orgSummary: { created: [], updated: [], deleted: [] },
       personnelActions: [],
       personnelSearch: ""
@@ -1421,6 +1423,86 @@
     if (team) setAssignmentExpanded(prefix, ["L3", hq, office, team, ""].join("|"), true);
     if (part) setAssignmentExpanded(prefix, ["L4", hq, office, team, part].join("|"), true);
   }
+  function getOrgDepthByKey(key) {
+    if (!key || key === "ROOT") return 0;
+    const row = parseOrgKey(key);
+    if (row.level === "L1") return 1;
+    if (row.level === "L2") return 2;
+    if (row.level === "L3") return 3;
+    if (row.level === "L4") return 4;
+    return 0;
+  }
+  function getNextLevelByParentKey(parentKey) {
+    const depth = getOrgDepthByKey(parentKey);
+    return ["L1", "L2", "L3", "L4"][depth] || "";
+  }
+  function buildRowForParent(parentKey, name) {
+    const parent = parseOrgKey(parentKey || "ROOT");
+    const level = getNextLevelByParentKey(parentKey);
+    if (!level) return null;
+    if (level === "L1") return { hq: name, office: "", team: "", part: "" };
+    if (level === "L2") return { hq: parent.hq, office: name, team: "", part: "" };
+    if (level === "L3") return { hq: parent.hq, office: parent.office, team: name, part: "" };
+    return { hq: parent.hq, office: parent.office, team: parent.team, part: name };
+  }
+  function getSubtreeDepth(rows, key) {
+    const children = getChildrenRows(rows, key);
+    if (!children.length) return 1;
+    return 1 + Math.max(...children.map((child) => getSubtreeDepth(rows, getOrgRowKey(child))));
+  }
+  function renameOrgInDraft(orgKey, nextName) {
+    const flow = ensureAssignmentFlow();
+    const row = getBlueprintRow(flow.orgDraft, orgKey);
+    if (!row || !nextName) return;
+    const previous = { ...row };
+    if (previous.part) row.part = nextName;
+    else if (previous.team) row.team = nextName;
+    else if (previous.office) row.office = nextName;
+    else row.hq = nextName;
+    flow.orgDraft.forEach((item) => {
+      if (item === row) return;
+      if (previous.hq && item.hq === previous.hq) item.hq = row.hq;
+      if (previous.office && item.office === previous.office) item.office = row.office || item.office;
+      if (previous.team && item.team === previous.team) item.team = row.team || item.team;
+      if (previous.part && item.part === previous.part) item.part = row.part || item.part;
+    });
+    flow.orgDraft = normalizeBlueprint(flow.orgDraft);
+    flow.orgSummary = summarizeOrgChanges(state.orgBlueprint, flow.orgDraft);
+    flow.selectedAfterOrg = getOrgRowKey(flow.orgDraft.find((item) => (item.sourceKey || getOrgRowKey(item)) === (row.sourceKey || orgKey)) || flow.orgDraft[0] || { hq: "" }) || "ROOT";
+    flow.editingAfterOrgKey = "";
+  }
+  function moveOrgInDraft(orgKey, targetParentKey) {
+    const flow = ensureAssignmentFlow();
+    if (!orgKey || orgKey === "ROOT" || !targetParentKey || orgKey === targetParentKey) return;
+    if (isAncestorOrgKey(orgKey, targetParentKey)) return;
+    const sourceRow = getBlueprintRow(flow.orgDraft, orgKey);
+    if (!sourceRow) return;
+    const nextLevel = getNextLevelByParentKey(targetParentKey);
+    if (!nextLevel) return;
+    const subtreeDepth = getSubtreeDepth(flow.orgDraft, orgKey);
+    if ((getOrgDepthByKey(targetParentKey) + subtreeDepth) > 4) return;
+    const subtreeKeys = [orgKey, ...getDescendantKeys(flow.orgDraft, orgKey)];
+    const subtreeRows = flow.orgDraft.filter((row) => subtreeKeys.includes(getOrgRowKey(row))).map((row) => ({ ...row }));
+    const outsideRows = flow.orgDraft.filter((row) => !subtreeKeys.includes(getOrgRowKey(row))).map((row) => ({ ...row }));
+    const sourceMap = new Map(subtreeRows.map((row) => [getOrgRowKey(row), row]));
+    const rebuilt = [];
+    const rebuildNode = (currentKey, parentKey) => {
+      const current = sourceMap.get(currentKey);
+      if (!current) return;
+      const nextRow = buildRowForParent(parentKey, getOrgRowName(current));
+      if (!nextRow) return;
+      nextRow.sourceKey = current.sourceKey || currentKey;
+      rebuilt.push(nextRow);
+      const childParentKey = getOrgRowKey(nextRow);
+      getChildrenRows(subtreeRows, currentKey).forEach((child) => rebuildNode(getOrgRowKey(child), childParentKey));
+    };
+    rebuildNode(orgKey, targetParentKey);
+    flow.orgDraft = normalizeBlueprint([...outsideRows, ...rebuilt]);
+    flow.orgSummary = summarizeOrgChanges(state.orgBlueprint, flow.orgDraft);
+    const moved = flow.orgDraft.find((row) => (row.sourceKey || getOrgRowKey(row)) === (sourceRow.sourceKey || orgKey));
+    flow.selectedAfterOrg = moved ? getOrgRowKey(moved) : "ROOT";
+    expandAssignmentAncestors("after", flow.selectedAfterOrg);
+  }
   function buildTreeFromBlueprint(rows, selectedKey, includeControls = false, prefix = "landing") {
     const expandedKeys = new Set(["ROOT", ...(getAssignmentExpandedKeys(prefix) || [])]);
     const renderNode = (key, label) => {
@@ -1429,10 +1511,23 @@
       const expanded = expandedKeys.has(key) || selectedKey === key || isAncestorOrgKey(key, selectedKey);
       const selected = selectedKey === key;
       const selectedRow = key === "ROOT" ? null : getBlueprintRow(rows, key);
-      const controls = includeControls && key !== "ROOT"
-        ? `<div class="codex-assignment-tree-actions"><button type="button" class="codex-icon-btn" data-org-edit="${key}">✎</button><button type="button" class="codex-icon-btn" data-org-delete="${key}">🗑</button></div>`
+      const flow = state.assignmentFlow;
+      const isAfterTree = prefix === "after";
+      const isEditing = isAfterTree && flow?.editingAfterOrgKey === key;
+      const dragHandle = isAfterTree && key !== "ROOT"
+        ? `<button type="button" class="codex-org-row-handle" draggable="true" data-org-drag="${key}" title="끌어서 위치 변경">⋮⋮</button>`
+        : `<span class="codex-org-row-handle codex-org-row-handle-placeholder"></span>`;
+      const controls = (includeControls && key !== "ROOT") || (isAfterTree && key !== "ROOT")
+        ? `<div class="codex-assignment-tree-actions"><button type="button" class="codex-icon-btn" data-org-inline-edit="${key}" title="부서명 변경">✎</button><button type="button" class="codex-icon-btn" data-org-delete="${key}" title="삭제">🗑</button></div>`
         : "";
-      return `<div class="codex-org-tree-node ${selected ? "selected" : ""} ${expanded ? "is-open" : ""}"><div class="codex-org-tree-row"><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${key}" data-org-toggle-prefix="${prefix}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button><button type="button" class="codex-org-tree-btn" data-assignment-org-node="${key}" data-assignment-org-prefix="${prefix}"><span class="codex-org-tree-label">${label}</span>${selectedRow?.code ? `<span class="codex-assignment-tree-code">${selectedRow.code}</span>` : ""}</button>${controls}</div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${children.map((child) => renderNode(getOrgRowKey(child), getOrgRowName(child))).join("")}</div>` : ""}</div>`;
+      const labelHtml = isEditing
+        ? `<input class="codex-org-inline-input" data-org-inline-input="${key}" value="${label}">`
+        : `<span class="codex-org-tree-label">${label}</span>${selectedRow?.code ? `<span class="codex-assignment-tree-code">${selectedRow.code}</span>` : ""}`;
+      const buttonHtml = isEditing
+        ? `<div class="codex-org-tree-btn is-editing-field">${labelHtml}</div>`
+        : `<button type="button" class="codex-org-tree-btn" data-assignment-org-node="${key}" data-assignment-org-prefix="${prefix}">${labelHtml}</button>`;
+      const dropAttrs = isAfterTree ? ` data-org-drop="${key}"` : "";
+      return `<div class="codex-org-tree-node ${selected ? "selected" : ""} ${expanded ? "is-open" : ""} ${isEditing ? "is-editing" : ""} ${isAfterTree ? "is-after-tree" : ""}"><div class="codex-org-tree-row"${dropAttrs}><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${key}" data-org-toggle-prefix="${prefix}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button>${dragHandle}${buttonHtml}${controls}</div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${children.map((child) => renderNode(getOrgRowKey(child), getOrgRowName(child))).join("")}</div>` : ""}</div>`;
     };
     return renderNode("ROOT", "오토플러스");
   }
@@ -1514,7 +1609,7 @@
   function openOrgEditModal(mode, orgKey = "ROOT") {
     const flow = ensureAssignmentFlow();
     const selected = orgKey === "ROOT" ? null : getBlueprintRow(flow.orgDraft, orgKey);
-    const currentLevel = selected ? getOrgRowLevel(selected) : "L2";
+    const currentLevel = selected ? getOrgRowLevel(selected) : (getNextLevelByParentKey(orgKey) || "L1");
     const defaultParentKey = mode === "add"
       ? orgKey
       : selected?.part
@@ -1524,6 +1619,7 @@
           : selected?.office
             ? ["L1", selected.hq, "", "", ""].join("|")
             : "ROOT";
+    const currentAddLevel = mode === "add" ? (getNextLevelByParentKey(defaultParentKey) || "") : currentLevel;
     const parentOptions = [`<option value="ROOT" ${defaultParentKey === "ROOT" ? "selected" : ""}>오토플러스</option>`]
       .concat(flow.orgDraft
         .filter((row) => mode === "add" || getOrgRowKey(row) !== orgKey)
@@ -1533,19 +1629,30 @@
         }))
       .join("");
     createModal.root.querySelector("h3").textContent = mode === "add" ? "조직 신설" : "조직 편집";
-    createModal.body.innerHTML = `<div class="codex-form-grid"><label><span>조직명</span><input id="wizardOrgName" value="${selected ? getOrgRowName(selected) : ""}"></label><label><span>레벨</span><select id="wizardOrgLevel">${["L1", "L2", "L3", "L4"].map((level) => `<option value="${level}" ${level === currentLevel ? "selected" : ""}>${level}</option>`).join("")}</select></label><label class="span-2"><span>상위조직</span><select id="wizardOrgParent">${parentOptions}</select></label><div class="codex-note-box span-2"><strong>안내</strong>상위 조직을 바꾸면 하위 부서 경로도 함께 이동하고, 편집 완료 시 부서코드가 자동 재부여됩니다.</div></div>`;
+    createModal.body.innerHTML = `<div class="codex-form-grid"><label><span>조직명</span><input id="wizardOrgName" value="${selected ? getOrgRowName(selected) : ""}"></label><label><span>레벨</span>${mode === "add" ? `<input id="wizardOrgLevelAuto" value="${currentAddLevel || "추가 불가"}" readonly>` : `<select id="wizardOrgLevel">${["L1", "L2", "L3", "L4"].map((level) => `<option value="${level}" ${level === currentLevel ? "selected" : ""}>${level}</option>`).join("")}</select>`}</label><label class="span-2"><span>상위조직</span><select id="wizardOrgParent">${parentOptions}</select></label><div class="codex-note-box span-2"><strong>안내</strong>상위 조직을 바꾸면 하위 부서 경로도 함께 이동하고, 편집 완료 시 부서코드가 자동 재부여됩니다.${mode === "add" ? " 신설 시 레벨은 선택한 상위조직 기준으로 자동 결정됩니다." : ""}</div></div>`;
+    if (mode === "add") {
+      const syncAddLevel = () => {
+        const parentKey = $("#wizardOrgParent", createModal.body)?.value || "ROOT";
+        const nextLevel = getNextLevelByParentKey(parentKey);
+        const levelInput = $("#wizardOrgLevelAuto", createModal.body);
+        if (levelInput) levelInput.value = nextLevel || "추가 불가";
+        if (!nextLevel) createModal.save.disabled = true;
+        else createModal.save.disabled = false;
+      };
+      $("#wizardOrgParent", createModal.body)?.addEventListener("change", syncAddLevel);
+      syncAddLevel();
+    }
     createModal.save.onclick = () => {
       const flowRef = ensureAssignmentFlow();
       const name = $("#wizardOrgName", createModal.body)?.value?.trim();
-      const level = $("#wizardOrgLevel", createModal.body)?.value || "L2";
-      const parent = parseOrgKey($("#wizardOrgParent", createModal.body)?.value || "ROOT");
+      const parentKey = $("#wizardOrgParent", createModal.body)?.value || "ROOT";
+      const level = mode === "add" ? (getNextLevelByParentKey(parentKey) || "") : ($("#wizardOrgLevel", createModal.body)?.value || "L2");
+      const parent = parseOrgKey(parentKey);
       if (!name) return;
       if (mode === "add") {
-        const row = { hq: "", office: "", team: "", part: "" };
-        if (level === "L1") row.hq = name;
-        if (level === "L2") { row.hq = parent.hq || name; row.office = name; }
-        if (level === "L3") { row.hq = parent.hq; row.office = parent.office; row.team = name; }
-        if (level === "L4") { row.hq = parent.hq; row.office = parent.office; row.team = parent.team; row.part = name; }
+        if (!level) return;
+        const row = buildRowForParent(parentKey, name);
+        if (!row) return;
         row.sourceKey = `NEW|${Date.now()}|${Math.random().toString(36).slice(2, 8)}`;
         flowRef.orgDraft.push(row);
       } else if (selected) {
@@ -1665,11 +1772,70 @@
     $("#assignmentFinishBtn", panels.assignment)?.addEventListener("click", () => applyAssignmentFlow(ensureAssignmentFlow()));
     $("#personnelSearchInput", panels.assignment)?.addEventListener("input", (event) => { ensureAssignmentFlow().personnelSearch = event.target.value; renderAssignment(); });
     $$("[data-assignment-history]", panels.assignment).forEach((button) => button.addEventListener("click", () => openAssignmentHistoryDetail(button.dataset.assignmentHistory)));
-    $$("[data-assignment-org-node]", panels.assignment).forEach((button) => button.addEventListener("click", () => { const flow = state.assignmentFlow; const prefix = button.dataset.assignmentOrgPrefix; if (!flow) state.currentOrgNode = button.dataset.assignmentOrgNode; else if (prefix === "before") flow.selectedBeforeOrg = button.dataset.assignmentOrgNode; else if (prefix === "after") flow.selectedAfterOrg = button.dataset.assignmentOrgNode; else if (prefix === "personnel") flow.selectedPersonnelOrg = button.dataset.assignmentOrgNode; expandAssignmentAncestors(prefix, button.dataset.assignmentOrgNode); renderAssignment(); }));
-    $$("[data-org-add-under]", panels.assignment).forEach((button) => button.addEventListener("click", () => openOrgEditModal("add", button.dataset.orgAddUnder)));
-    $$("[data-org-edit]", panels.assignment).forEach((button) => button.addEventListener("click", () => openOrgEditModal("edit", button.dataset.orgEdit)));
-    $$("[data-org-delete]", panels.assignment).forEach((button) => button.addEventListener("click", () => deleteOrgFromDraft(button.dataset.orgDelete)));
-    $$("[data-personnel-enable]", panels.assignment).forEach((input) => input.addEventListener("change", () => { const action = ensureAssignmentFlow().personnelActions.find((item) => item.employeeId === input.dataset.personnelEnable); if (action) action.enabled = input.checked; }));
+     $$("[data-assignment-org-node]", panels.assignment).forEach((button) => button.addEventListener("click", () => { const flow = state.assignmentFlow; const prefix = button.dataset.assignmentOrgPrefix; if (!flow) state.currentOrgNode = button.dataset.assignmentOrgNode; else if (prefix === "before") flow.selectedBeforeOrg = button.dataset.assignmentOrgNode; else if (prefix === "after") flow.selectedAfterOrg = button.dataset.assignmentOrgNode; else if (prefix === "personnel") flow.selectedPersonnelOrg = button.dataset.assignmentOrgNode; expandAssignmentAncestors(prefix, button.dataset.assignmentOrgNode); renderAssignment(); }));
+     $$("[data-org-add-under]", panels.assignment).forEach((button) => button.addEventListener("click", () => openOrgEditModal("add", button.dataset.orgAddUnder)));
+     $$("[data-org-edit]", panels.assignment).forEach((button) => button.addEventListener("click", () => openOrgEditModal("edit", button.dataset.orgEdit)));
+     $$("[data-org-inline-edit]", panels.assignment).forEach((button) => button.addEventListener("click", (event) => {
+       event.stopPropagation();
+       const flow = ensureAssignmentFlow();
+       flow.editingAfterOrgKey = button.dataset.orgInlineEdit;
+       renderAssignment();
+       const input = $(`[data-org-inline-input="${button.dataset.orgInlineEdit}"]`, panels.assignment);
+       input?.focus();
+       input?.select();
+     }));
+     $$("[data-org-inline-input]", panels.assignment).forEach((input) => {
+       input.addEventListener("click", (event) => event.stopPropagation());
+       input.addEventListener("keydown", (event) => {
+         if (event.key === "Enter") {
+           event.preventDefault();
+           renameOrgInDraft(input.dataset.orgInlineInput, input.value.trim());
+           renderAssignment();
+         }
+         if (event.key === "Escape") {
+           ensureAssignmentFlow().editingAfterOrgKey = "";
+           renderAssignment();
+         }
+       });
+       input.addEventListener("blur", () => {
+         const value = input.value.trim();
+         if (value) renameOrgInDraft(input.dataset.orgInlineInput, value);
+         else ensureAssignmentFlow().editingAfterOrgKey = "";
+         renderAssignment();
+       });
+     });
+     $$("[data-org-delete]", panels.assignment).forEach((button) => button.addEventListener("click", () => deleteOrgFromDraft(button.dataset.orgDelete)));
+     $$("[data-org-drag]", panels.assignment).forEach((button) => {
+       button.addEventListener("dragstart", (event) => {
+         const flow = ensureAssignmentFlow();
+         flow.dragAfterOrgKey = button.dataset.orgDrag;
+         event.dataTransfer.effectAllowed = "move";
+         event.dataTransfer.setData("text/plain", button.dataset.orgDrag);
+       });
+       button.addEventListener("dragend", () => {
+         ensureAssignmentFlow().dragAfterOrgKey = "";
+         $$("[data-org-drop]", panels.assignment).forEach((row) => row.classList.remove("is-drop-target"));
+       });
+     });
+     $$("[data-org-drop]", panels.assignment).forEach((row) => {
+       row.addEventListener("dragover", (event) => {
+         const dragKey = ensureAssignmentFlow().dragAfterOrgKey;
+         if (!dragKey) return;
+         event.preventDefault();
+         row.classList.add("is-drop-target");
+       });
+       row.addEventListener("dragleave", () => row.classList.remove("is-drop-target"));
+       row.addEventListener("drop", (event) => {
+         event.preventDefault();
+         row.classList.remove("is-drop-target");
+         const dragKey = ensureAssignmentFlow().dragAfterOrgKey || event.dataTransfer.getData("text/plain");
+         const targetKey = row.dataset.orgDrop;
+         ensureAssignmentFlow().dragAfterOrgKey = "";
+         moveOrgInDraft(dragKey, targetKey);
+         renderAssignment();
+       });
+     });
+     $$("[data-personnel-enable]", panels.assignment).forEach((input) => input.addEventListener("change", () => { const action = ensureAssignmentFlow().personnelActions.find((item) => item.employeeId === input.dataset.personnelEnable); if (action) action.enabled = input.checked; }));
     $$("[data-personnel-type]", panels.assignment).forEach((select) => select.addEventListener("change", () => { const employee = state.employees.find((item) => item.id === select.dataset.personnelType); ensurePersonnelAction(ensureAssignmentFlow(), employee).type = select.value; renderAssignment(); }));
     $$("[data-personnel-org]", panels.assignment).forEach((select) => select.addEventListener("change", () => { const employee = state.employees.find((item) => item.id === select.dataset.personnelOrg); ensurePersonnelAction(ensureAssignmentFlow(), employee).targetOrgKey = select.value; }));
     $$("[data-personnel-title]", panels.assignment).forEach((select) => select.addEventListener("change", () => { const employee = state.employees.find((item) => item.id === select.dataset.personnelTitle); ensurePersonnelAction(ensureAssignmentFlow(), employee).targetTitle = select.value; }));
