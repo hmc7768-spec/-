@@ -387,6 +387,17 @@
   background: #f3f7ff;
 }
 
+.codex-stat-action {
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+.codex-stat-action:hover {
+  transform: translateY(-2px);
+  border-color: #c9d8f2;
+  box-shadow: 0 10px 22px rgba(30, 58, 95, 0.08);
+}
+
 .codex-record-shell {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);

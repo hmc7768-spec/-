@@ -119,7 +119,7 @@
     { id: "L3", name: "팀", parent: "L2", desc: "실 하위 팀 단위" },
     { id: "L4", name: "파트", parent: "L3", desc: "팀 하위 파트 단위" }
   ];
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", hireStatMode: "quarter" };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const refs = { hrSystem: $("#hrSystem"), evalSystem: $("#evalSystem"), pageTitle: $(".hr-page-title"), searchBar: $('[data-region="searchbar"]'), stats: $('[data-region="stats"]'), tableWrap: $('[data-region="emptable"]'), orgWrap: $("#orgChartWrap"), cardWrap: $("#hrCardGrid"), hrContent: $(".hr-content"), hrSidebar: $(".hr-sidebar"), topItems: $$(".hr-top-item"), sideItems: $$(".hr-sidebar-item"), annoList: $("#annoList") };
@@ -129,6 +129,29 @@
   function deepestDept(employee) { return employee.part || employee.team || employee.office || employee.hq; }
   function selectedEmployee() { return state.employees.find((employee) => employee.id === state.selectedId) || state.employees[0]; }
   function statusBadge(status) { return `<span class="status-badge ${status === "재직" ? "status-active" : "status-leave"}">${status}</span>`; }
+  function parseDateParts(value) {
+    const parts = (value || "").split(".");
+    return { year: Number(parts[0] || 0), month: Number(parts[1] || 0), day: Number(parts[2] || 0) };
+  }
+  function getHireStatEmployees(mode) {
+    return state.employees.filter((employee) => {
+      const { year, month } = parseDateParts(employee.hireDate);
+      if (!year || !month) return false;
+      if (mode === "month") return year === 2024 && month === 2;
+      if (mode === "quarter") return year === 2024 && month >= 1 && month <= 3;
+      if (mode === "half") return year === 2024 && month >= 1 && month <= 6;
+      return year === 2024;
+    });
+  }
+  function getHireStatLabel(mode) {
+    if (mode === "month") return "2024년 2월 기준";
+    if (mode === "quarter") return "2024년 1분기 기준";
+    if (mode === "half") return "2024년 상반기 기준";
+    return "2024년 연간 기준";
+  }
+  function renderEmployeeList(items) {
+    return items.length ? `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>직급</th><th>입사일</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${employee.status}</td></tr>`).join("")}</tbody></table>` : `<div class="codex-note-box"><strong>대상자 없음</strong>선택한 조건에 해당하는 대상자가 없습니다.</div>`;
+  }
   function getOrgSummary() {
     const map = new Map();
     state.employees.forEach((employee) => {
@@ -224,6 +247,7 @@
   }
   const createModal = buildModal("codexCreateModal", "신규 사원 등록");
   const editModal = buildModal("codexEditModal", "인사기록카드 수정");
+  const statsModal = buildModal("codexStatsModal", "인원 현황 상세");
   function ensurePanels() {
     if (panels.codes && panels.assignment) return;
     const codeMenu = document.createElement("div");
@@ -247,8 +271,19 @@
     refs.sideItems[3]?.addEventListener("click", () => showHrView("assignment"));
   }
   function renderStats() {
-    const values = [state.employees.length, state.employees.filter((employee) => employee.status === "재직").length, state.employees.filter((employee) => employee.status !== "재직").length, state.employees.filter((employee) => employee.hireDate >= "2024.01.01").length];
+    const values = [state.employees.length, state.employees.filter((employee) => employee.status === "재직").length, state.employees.filter((employee) => employee.status !== "재직").length, getHireStatEmployees(state.hireStatMode).length];
     $$(".hr-stat-value", refs.stats).forEach((node, index) => { if (values[index] !== undefined) node.textContent = String(values[index]); });
+    const subTexts = [
+      `▲ ${Math.max(1, Math.floor(state.employees.length / 20))}명 (이번 달)`,
+      `정규직 ${state.employees.filter((employee) => employee.employeeType === "정규직" && employee.status === "재직").length} · 계약직 ${state.employees.filter((employee) => employee.employeeType === "계약직" && employee.status === "재직").length}`,
+      "육아·병가 포함",
+      getHireStatLabel(state.hireStatMode)
+    ];
+    $$(".hr-stat-sub", refs.stats).forEach((node, index) => { if (subTexts[index] !== undefined) node.textContent = subTexts[index]; });
+    $$(".hr-stat-card", refs.stats).forEach((card, index) => {
+      card.dataset.statType = ["all", "active", "leave", "hire"][index];
+      card.classList.toggle("codex-stat-action", index >= 2);
+    });
   }
   function renderTable() {
     const tbody = $("tbody", refs.tableWrap);
@@ -349,6 +384,32 @@
     target.splice(0, target.length, ...nextValues);
     renderAll();
     renderCodes();
+  }
+  function openStatModal(type) {
+    if (type === "leave") {
+      const items = state.employees.filter((employee) => employee.status !== "재직");
+      statsModal.body.innerHTML = `<div class="codex-stack"><div class="codex-note-box"><strong>휴직 중 대상자</strong>현재 휴직 상태로 분류된 사원 목록입니다. 발령입력 또는 기록카드 수정으로 재직상태가 바뀌면 이 목록도 즉시 갱신됩니다.</div>${renderEmployeeList(items)}</div>`;
+      statsModal.open();
+      return;
+    }
+    if (type === "hire") {
+      const modes = [
+        { id: "month", label: "월별" },
+        { id: "quarter", label: "분기별" },
+        { id: "half", label: "반기별" },
+        { id: "year", label: "년도별" }
+      ];
+      const items = getHireStatEmployees(state.hireStatMode);
+      statsModal.body.innerHTML = `<div class="codex-stack"><div class="codex-secondary-actions">${modes.map((mode) => `<button type="button" class="hr-btn ${state.hireStatMode === mode.id ? "btn-primary" : "btn-outline"}" data-hire-mode="${mode.id}">${mode.label}</button>`).join("")}</div><div class="codex-note-box"><strong>신규 입사 대상자</strong>${getHireStatLabel(state.hireStatMode)} 기준 입사자 목록입니다. 월별 / 분기별 / 반기별 / 연도별 기준으로 확인할 수 있습니다.</div>${renderEmployeeList(items)}</div>`;
+      $$("[data-hire-mode]", statsModal.body).forEach((button) => {
+        button.addEventListener("click", () => {
+          state.hireStatMode = button.dataset.hireMode;
+          renderStats();
+          openStatModal("hire");
+        });
+      });
+      statsModal.open();
+    }
   }
   function renderRecord() {
     const employee = selectedEmployee();
@@ -527,6 +588,12 @@
     const observer = new MutationObserver(() => { recordEditButton.classList.toggle("codex-hidden", state.currentHrView !== "record"); });
     observer.observe(refs.pageTitle, { childList: true, subtree: true });
     recordEditButton.addEventListener("click", () => { fillEditForm(); editModal.open(); });
+    $$(".hr-stat-card", refs.stats).forEach((card) => {
+      card.addEventListener("click", () => {
+        if (card.dataset.statType === "leave") openStatModal("leave");
+        if (card.dataset.statType === "hire") openStatModal("hire");
+      });
+    });
     primaryButton?.addEventListener("click", (event) => { if (state.currentHrView === "directory") { event.preventDefault(); fillCreateForm(); createModal.open(); } else if (state.currentHrView === "assignment") { event.preventDefault(); $("#assignApplyBtn")?.click(); } }, true);
   }
   function renderNotesByView() {
