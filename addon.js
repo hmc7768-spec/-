@@ -2,7 +2,7 @@
   const employeeSeed = [
     { id: "EMP-0024", name: "김지원", hq: "경영관리본부", office: "경영지원실", team: "인사팀", part: "", grade: "대리", hireGrade: "사원", title: "팀장", jobFamily: "관리", employeeType: "정규직", contractPeriod: "", birthDate: "1992.05.14", hireDate: "2021.03.02", phone: "010-4521-7788", education: "한양대학교 컴퓨터공학과", status: "재직", careerMonths: "24", assignmentDate: "2024.01.01", memo: "인사기획 및 제도 운영 담당", history: [["2024.01.01", "인사팀 대리 승진"], ["2022.07.01", "경영기획팀 → 인사팀 이동"], ["2021.03.02", "입사 (인사팀 사원)"]], educationHistory: [["2023.08", "인사관리 실무교육 이수"], ["2022.03", "직무교육 이수 (40h)"]] },
     { id: "EMP-0031", name: "이승훈", hq: "영업본부", office: "영업본부 직속", team: "김포지점", part: "김포지점 판매파트", grade: "과장", hireGrade: "대리", title: "지점장", jobFamily: "영업(판매)", employeeType: "정규직", contractPeriod: "", birthDate: "1988.09.10", hireDate: "2018.07.15", phone: "010-2213-8932", education: "국민대학교 경영학과", status: "재직", careerMonths: "48", assignmentDate: "2023.03.01", memo: "김포지점 판매 운영 총괄", history: [["2023.03.01", "김포지점 판매파트 배치"], ["2021.01.01", "광주지점 → 김포지점 이동"], ["2018.07.15", "입사 (영업본부)"]], educationHistory: [["2024.01", "영업관리 리더십 과정"], ["2022.09", "성과평가 과정 이수"]] },
-    { id: "EMP-0045", name: "박민서", hq: "경영관리본부", office: "디지털사업실", team: "서비스기획팀", part: "UX파트", grade: "사원", hireGrade: "사원", title: "파트장", jobFamily: "관리(성과)", employeeType: "계약직", contractPeriod: "2026.01.01 ~ 2026.12.31", birthDate: "1997.11.21", hireDate: "2023.01.09", phone: "010-7211-4452", education: "서울여자대학교 시각디자인과", status: "휴직", careerMonths: "8", assignmentDate: "2024.06.01", memo: "서비스 UX 개선 프로젝트 참여", history: [["2024.06.01", "UX파트 배치"], ["2023.01.09", "입사 (서비스기획팀)"]], educationHistory: [["2024.02", "UX 리서치 교육"], ["2023.10", "서비스기획 워크숍"]] },
+    { id: "EMP-0045", name: "박민서", hq: "경영관리본부", office: "디지털사업실", team: "서비스기획팀", part: "UX파트", grade: "사원", hireGrade: "사원", title: "파트장", jobFamily: "관리(성과)", employeeType: "계약직", contractPeriod: "2026.01.01 ~ 2026.12.31", birthDate: "1997.11.21", hireDate: "2023.01.09", phone: "010-7211-4452", education: "서울여자대학교 시각디자인과", status: "휴직", leaveType: "육아휴직", leaveStartDate: "2026.02.01", leaveEndDate: "2026.07.31", careerMonths: "8", assignmentDate: "2026.02.01", memo: "서비스 UX 개선 프로젝트 참여", history: [["2026.02.01", "육아휴직 전환"], ["2024.06.01", "UX파트 배치"], ["2023.01.09", "입사 (서비스기획팀)"]], educationHistory: [["2024.02", "UX 리서치 교육"], ["2023.10", "서비스기획 워크숍"]], awardItems: [["인사처리", "육아휴직", "2026.02.01", "육아휴직 승인"]] },
     { id: "EMP-0012", name: "최현우", hq: "서비스본부", office: "오토케어사업실", team: "신차물류팀", part: "용인물류", grade: "차장", hireGrade: "과장", title: "팀장", jobFamily: "물류", employeeType: "정규직", contractPeriod: "", birthDate: "1985.01.03", hireDate: "2015.04.20", phone: "010-8121-1189", education: "인하대학교 물류학과", status: "재직", careerMonths: "60", assignmentDate: "2022.02.01", memo: "수도권 물류센터 운영 담당", history: [["2022.02.01", "용인물류 배치"], ["2019.01.01", "탁송팀 → 신차물류팀 이동"], ["2015.04.20", "입사 (오토케어사업실)"]], educationHistory: [["2023.11", "물류관리사"], ["2021.06", "현장안전교육 이수"]] },
     { id: "EMP-0067", name: "정다은", hq: "BPO사업본부", office: "금융사업실", team: "반납운영팀", part: "", grade: "사원", hireGrade: "사원", title: "팀장", jobFamily: "관리", employeeType: "정규직", contractPeriod: "", birthDate: "1999.07.09", hireDate: "2024.02.26", phone: "010-9831-6721", education: "경희대학교 경제학과", status: "재직", careerMonths: "3", assignmentDate: "2024.02.26", memo: "반납 프로세스 운영 지원", history: [["2024.02.26", "입사 (반납운영팀)"]], educationHistory: [["2024.03", "금융상품 운영교육"]] }
   ];
@@ -78,6 +78,7 @@
     return orgRows.map((row, index) => {
       const grade = inferGrade(row, index);
       const employeeType = inferEmployeeType(index, row);
+      const status = index % 17 === 0 && employeeType !== "임원" ? "휴직" : "재직";
       const hireYear = 2014 + (index % 13);
       const hireMonth = String((index % 12) + 1).padStart(2, "0");
       const hireDay = String((index % 27) + 1).padStart(2, "0");
@@ -86,6 +87,11 @@
       const birthDay = String(((index + 9) % 27) + 1).padStart(2, "0");
       const deepest = row.part || row.team || row.office || row.hq;
       const assignmentDate = `${Math.max(hireYear + 1, 2020)}.${hireMonth}.${hireDay}`;
+      const leaveType = status === "휴직" ? ["육아휴직", "질병휴직", "가사휴직", "학업휴직"][index % 4] : "";
+      const leaveStartDate = status === "휴직" ? `${Math.max(hireYear + 2, 2025)}.${hireMonth}.${hireDay}` : "";
+      const leaveEndMonth = String((((Number(hireMonth) + 5) - 1) % 12) + 1).padStart(2, "0");
+      const leaveEndYear = status === "휴직" ? Math.max(hireYear + 2, 2025) + (Number(hireMonth) + 5 > 12 ? 1 : 0) : "";
+      const leaveEndDate = status === "휴직" ? `${leaveEndYear}.${leaveEndMonth}.28` : "";
       return {
         id: `EMP-${String(index + 1).padStart(4, "0")}`,
         name: `${surnames[index % surnames.length]}${given[index % given.length]}`,
@@ -107,9 +113,12 @@
         hireDate: `${hireYear}.${hireMonth}.${hireDay}`,
         phone: `010-${String(2000 + index * 7).slice(-4)}-${String(3000 + index * 11).slice(-4)}`,
         education: `${schools[index % schools.length]} ${majors[index % majors.length]}`,
-        status: index % 17 === 0 && employeeType !== "임원" ? "휴직" : "재직",
+        status,
+        leaveType,
+        leaveStartDate,
+        leaveEndDate,
         careerMonths: String(6 + (index % 72)),
-        assignmentDate,
+        assignmentDate: status === "휴직" ? leaveStartDate : assignmentDate,
         groupwareId: `${surnames[index % surnames.length].toLowerCase?.() || "user"}${index + 1}`,
         residentNumber: `${String(birthYear).slice(2)}${birthMonth}${birthDay}-${index % 2 === 0 ? "1" : "2"}******`,
         maritalStatus: index % 3 === 0 ? "기혼" : "미혼",
@@ -120,10 +129,15 @@
         companyPhone: `02-6200-${String(index + 1).padStart(4, "0")}`,
         address: `서울특별시 ${row.hq || "오토플러스"} ${deepest} ${String(index + 1).padStart(2, "0")}호`,
         memo: `${deepest} 조직 기준 더미 사원 데이터`,
-        history: [[assignmentDate, `${deepest} 배치`], [`${hireYear}.${hireMonth}.${hireDay}`, `입사 (${deepest})`]],
+        history: [
+          ...(status === "휴직" ? [[leaveStartDate, `${leaveType} 전환`]] : []),
+          [assignmentDate, `${deepest} 배치`],
+          [`${hireYear}.${hireMonth}.${hireDay}`, `입사 (${deepest})`]
+        ],
         educationHistory: [[`${Math.max(hireYear + 1, 2020)}.${hireMonth}`, "직무 기본교육 이수"], [`${Math.max(hireYear + 2, 2021)}.${hireMonth}`, "공통 역량교육 이수"]],
         educationItems: [[`${hireYear - 4}.03 ~ ${hireYear}.02`, `${schools[index % schools.length]} ${majors[index % majors.length]}`], [`${hireYear - 7}.03 ~ ${hireYear - 4}.02`, "고등학교 졸업"]],
-        careerHistory: [[`${hireYear - 2}.01 ~ ${hireYear - 1}.12`, `${inferJobFamily(row)} 유관 경력`], [`${hireYear - 3}.03 ~ ${hireYear - 2}.12`, "프로젝트 참여 및 실무 수행"]]
+        careerHistory: [[`${hireYear - 2}.01 ~ ${hireYear - 1}.12`, `${inferJobFamily(row)} 유관 경력`], [`${hireYear - 3}.03 ~ ${hireYear - 2}.12`, "프로젝트 참여 및 실무 수행"]],
+        awardItems: status === "휴직" ? [["인사처리", leaveType, leaveStartDate, `${leaveType} 승인`]] : []
       };
     });
   }
@@ -185,6 +199,25 @@
     if (employee.maritalStatus) return employee.maritalStatus;
     const numeric = Number(employee.id.replace(/\D/g, "")) || 0;
     return numeric % 3 === 0 ? "기혼" : "미혼";
+  }
+  function getLeaveType(employee) {
+    if (employee.leaveType) return employee.leaveType;
+    const numeric = Number(employee.id.replace(/\D/g, "")) || 0;
+    return ["육아휴직", "질병휴직", "가사휴직", "학업휴직"][numeric % 4];
+  }
+  function getLeaveStartDate(employee) {
+    if (employee.leaveStartDate) return employee.leaveStartDate;
+    if (employee.status !== "휴직") return "";
+    return employee.assignmentDate || employee.hireDate;
+  }
+  function getLeaveEndDate(employee) {
+    if (employee.leaveEndDate) return employee.leaveEndDate;
+    if (employee.status !== "휴직") return "";
+    const { year, month } = parseDateParts(getLeaveStartDate(employee));
+    if (!year || !month) return "";
+    const endMonth = ((month + 5 - 1) % 12) + 1;
+    const carry = month + 5 > 12 ? 1 : 0;
+    return `${year + carry}.${String(endMonth).padStart(2, "0")}.28`;
   }
   function getCareerHistory(employee) {
     if (employee.careerHistory?.length) return employee.careerHistory;
@@ -336,13 +369,14 @@
   }
   function getLeaveStatEvents(employee) {
     const events = [];
+    const leaveStartDate = getLeaveStartDate(employee);
     (employee.awardItems || []).forEach((item) => {
       const date = item?.[2];
       const label = `${item?.[0] || ""} ${item?.[1] || ""} ${item?.[3] || ""}`;
       if (label.includes("휴직")) events.push({ date, label });
     });
-    if (employee.status !== "재직" && employee.assignmentDate) {
-      events.push({ date: employee.assignmentDate, label: "현재 휴직 상태" });
+    if (employee.status !== "재직" && leaveStartDate) {
+      events.push({ date: leaveStartDate, label: `${getLeaveType(employee)} (${getLeaveStartDate(employee)} ~ ${getLeaveEndDate(employee) || "미정"})` });
     }
     return events;
   }
@@ -373,8 +407,12 @@
     if (mode === "half") return `${state.leaveStatYear}년 ${state.leaveStatHalf === 1 ? "상반기" : "하반기"} 기준`;
     return `${state.leaveStatYear}년 연간 기준`;
   }
-  function renderEmployeeList(items) {
-    return items.length ? `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>직급</th><th>입사일</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${employee.status}</td></tr>`).join("")}</tbody></table>` : `<div class="codex-note-box"><strong>대상자 없음</strong>선택한 조건에 해당하는 대상자가 없습니다.</div>`;
+  function renderEmployeeList(items, mode = "default") {
+    if (!items.length) return `<div class="codex-note-box"><strong>대상자 없음</strong>선택한 조건에 해당하는 대상자가 없습니다.</div>`;
+    if (mode === "leave") {
+      return `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>휴직유형</th><th>휴직기간</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${getLeaveType(employee)}</td><td>${getLeaveStartDate(employee) || "-"}${getLeaveEndDate(employee) ? ` ~ ${getLeaveEndDate(employee)}` : ""}</td><td>${employee.status}</td></tr>`).join("")}</tbody></table>`;
+    }
+    return `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>직급</th><th>입사일</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${employee.status}</td></tr>`).join("")}</tbody></table>`;
   }
   function syncViewQuery(view) {
     const url = new URL(window.location.href);
@@ -503,7 +541,7 @@
     const employee = state.employees.find((item) => item.id === employeeId);
     if (!employee) return;
     state.selectedId = employee.id;
-    quickProfileModal.body.innerHTML = `<div class="codex-quick-card"><div class="codex-quick-header"><div class="codex-quick-avatar">${employee.name[0]}</div><div class="codex-quick-header-body"><div class="codex-quick-name-row"><div class="codex-quick-name">${employee.name}</div></div><div class="codex-quick-role">${employee.grade}</div><div class="codex-quick-role">${employee.title || "팀원"}</div></div></div><div class="codex-quick-orgpath">${employeePath(employee)}</div><div class="codex-quick-divider"></div><div class="codex-quick-info-list"><div class="codex-quick-info-row"><div class="codex-quick-info-label">이메일</div><div class="codex-quick-info-value">${getCompanyEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">회사 전화</div><div class="codex-quick-info-value">${getCompanyPhone(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">개인 이메일</div><div class="codex-quick-info-value">${getPersonalEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴대 전화</div><div class="codex-quick-info-value">${employee.phone}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">입사일</div><div class="codex-quick-info-value">${employee.hireDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">사번</div><div class="codex-quick-info-value">${employee.id}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">생년월일</div><div class="codex-quick-info-value">${employee.birthDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">주소</div><div class="codex-quick-info-value">${getAddress(employee)}</div></div></div></div>`;
+    quickProfileModal.body.innerHTML = `<div class="codex-quick-card"><div class="codex-quick-header"><div class="codex-quick-avatar">${employee.name[0]}</div><div class="codex-quick-header-body"><div class="codex-quick-name-row"><div class="codex-quick-name">${employee.name}</div></div><div class="codex-quick-role">${employee.grade}</div><div class="codex-quick-role">${employee.title || "팀원"}</div></div></div><div class="codex-quick-orgpath">${employeePath(employee)}</div><div class="codex-quick-divider"></div><div class="codex-quick-info-list"><div class="codex-quick-info-row"><div class="codex-quick-info-label">이메일</div><div class="codex-quick-info-value">${getCompanyEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">회사 전화</div><div class="codex-quick-info-value">${getCompanyPhone(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">개인 이메일</div><div class="codex-quick-info-value">${getPersonalEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴대 전화</div><div class="codex-quick-info-value">${employee.phone}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">입사일</div><div class="codex-quick-info-value">${employee.hireDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">사번</div><div class="codex-quick-info-value">${employee.id}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">생년월일</div><div class="codex-quick-info-value">${employee.birthDate.replaceAll(".", "-")}</div></div>${employee.status === "휴직" ? `<div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직유형</div><div class="codex-quick-info-value">${getLeaveType(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직기간</div><div class="codex-quick-info-value">${getLeaveStartDate(employee).replaceAll(".", "-")} ~ ${getLeaveEndDate(employee).replaceAll(".", "-")}</div></div>` : ""}<div class="codex-quick-info-row"><div class="codex-quick-info-label">주소</div><div class="codex-quick-info-value">${getAddress(employee)}</div></div></div></div>`;
     const goRecord = () => {
       quickProfileModal.close();
       statsModal.close();
@@ -695,7 +733,7 @@
             : state.leaveStatMode === "year"
               ? `<input value="연간 기준" readonly>`
               : `<input value="현재 휴직자" readonly>`;
-      statsModal.body.innerHTML = `<div class="codex-stack"><div class="codex-secondary-actions">${modes.map((mode) => `<button type="button" class="hr-btn ${state.leaveStatMode === mode.id ? "btn-primary" : "btn-outline"}" data-leave-mode="${mode.id}">${mode.label}</button>`).join("")}</div><div class="codex-form-grid">${state.leaveStatMode === "current" ? `<label class="span-2"><span>조회 기준</span><input value="현재 휴직 상태 기준" readonly></label>` : `<label><span>기준 연도</span><select id="leaveStatYear">${years.map((year) => `<option value="${year}" ${year === state.leaveStatYear ? "selected" : ""}>${year}년</option>`).join("")}</select></label><label><span>세부 기준</span>${periodControl}</label>`}</div><div class="codex-note-box"><strong>휴직 대상자</strong>${getLeaveStatLabel(state.leaveStatMode)} ${state.leaveStatMode === "current" ? "휴직 상태로 분류된 사원 목록입니다." : "휴직 전환 이력 또는 휴직 발령일 기준 대상자 목록입니다."}</div>${renderEmployeeList(items)}</div>`;
+      statsModal.body.innerHTML = `<div class="codex-stack"><div class="codex-secondary-actions">${modes.map((mode) => `<button type="button" class="hr-btn ${state.leaveStatMode === mode.id ? "btn-primary" : "btn-outline"}" data-leave-mode="${mode.id}">${mode.label}</button>`).join("")}</div><div class="codex-form-grid">${state.leaveStatMode === "current" ? `<label class="span-2"><span>조회 기준</span><input value="현재 휴직 상태 기준" readonly></label>` : `<label><span>기준 연도</span><select id="leaveStatYear">${years.map((year) => `<option value="${year}" ${year === state.leaveStatYear ? "selected" : ""}>${year}년</option>`).join("")}</select></label><label><span>세부 기준</span>${periodControl}</label>`}</div><div class="codex-note-box"><strong>휴직 대상자</strong>${getLeaveStatLabel(state.leaveStatMode)} ${state.leaveStatMode === "current" ? "휴직 상태로 분류된 사원 목록입니다." : "휴직 전환 이력 또는 휴직 시작일 기준 대상자 목록입니다."}</div>${renderEmployeeList(items, "leave")}</div>`;
       $$("[data-leave-mode]", statsModal.body).forEach((button) => {
         button.addEventListener("click", () => {
           state.leaveStatMode = button.dataset.leaveMode;
