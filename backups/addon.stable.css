@@ -13,6 +13,17 @@
   z-index: 300;
 }
 
+#hrCardGrid[data-region="hrcard"] {
+  grid-template-columns: minmax(0, 1fr) !important;
+  width: 100%;
+  align-items: start;
+}
+
+#hrCardGrid[data-region="hrcard"] > * {
+  min-width: 0;
+  width: 100%;
+}
+
 .codex-modal-backdrop.open {
   display: flex;
 }
