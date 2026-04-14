@@ -410,7 +410,7 @@
 
 .codex-org-tree-node {
   display: grid;
-  gap: 6px;
+  gap: 2px;
 }
 
 .codex-org-tree-row {
@@ -492,8 +492,23 @@
 
 .codex-org-tree-children {
   display: grid;
-  gap: 6px;
+  gap: 2px;
   padding-left: 22px;
+}
+
+.codex-org-drop-line {
+  height: 8px;
+  margin: 0 0 0 46px;
+  border-top: 2px solid transparent;
+  pointer-events: none;
+}
+
+.codex-org-tree-node.is-after-tree .codex-org-drop-line {
+  pointer-events: auto;
+}
+
+.codex-org-drop-line.is-active {
+  border-top-color: #7c4dff;
 }
 
 .codex-org-tree-btn {

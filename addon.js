@@ -1323,6 +1323,8 @@
       personnelExpandedKeys: ["ROOT"],
       editingAfterOrgKey: "",
       dragAfterOrgKey: "",
+      dragAfterDropMode: "",
+      dragAfterDropTarget: "",
       orgSummary: { created: [], updated: [], deleted: [] },
       personnelActions: [],
       personnelSearch: ""
@@ -1502,7 +1504,7 @@
     flow.selectedAfterOrg = getOrgRowKey(flow.orgDraft.find((item) => (item.sourceKey || getOrgRowKey(item)) === (row.sourceKey || orgKey)) || flow.orgDraft[0] || { hq: "" }) || "ROOT";
     flow.editingAfterOrgKey = "";
   }
-  function moveOrgInDraft(orgKey, targetParentKey) {
+  function moveOrgInDraft(orgKey, targetParentKey, position = "into") {
     const flow = ensureAssignmentFlow();
     if (!orgKey || orgKey === "ROOT" || !targetParentKey || orgKey === targetParentKey) return;
     if (isAncestorOrgKey(orgKey, targetParentKey)) return;
@@ -1511,7 +1513,9 @@
     const targetRow = targetParentKey === "ROOT" ? null : getBlueprintRow(flow.orgDraft, targetParentKey);
     const sourceDepth = getOrgDepthByKey(orgKey);
     const targetDepth = getOrgDepthByKey(targetParentKey);
-    const nextParentKey = targetRow && sourceDepth === targetDepth ? getParentKeyForRow(targetRow) : targetParentKey;
+    const nextParentKey = (position === "before" || position === "after")
+      ? (targetRow ? getParentKeyForRow(targetRow) : "ROOT")
+      : (targetRow && sourceDepth === targetDepth ? getParentKeyForRow(targetRow) : targetParentKey);
     const nextLevel = getNextLevelByParentKey(nextParentKey);
     if (!nextLevel) return;
     const subtreeDepth = getSubtreeDepth(flow.orgDraft, orgKey);
@@ -1535,7 +1539,9 @@
     rebuildNode(orgKey, nextParentKey);
     const movedRoot = rebuilt.find((row) => (row.sourceKey || getOrgRowKey(row)) === (sourceRow.sourceKey || orgKey));
     if (movedRoot) {
-      if (targetRow && sourceDepth === targetDepth) movedRoot.displayOrder = (targetRow.displayOrder ?? 0) + 0.5;
+      if (position === "before" && targetRow) movedRoot.displayOrder = (targetRow.displayOrder ?? 0) - 0.5;
+      else if (position === "after" && targetRow) movedRoot.displayOrder = (targetRow.displayOrder ?? 0) + 0.5;
+      else if (targetRow && sourceDepth === targetDepth) movedRoot.displayOrder = (targetRow.displayOrder ?? 0) + 0.5;
       else movedRoot.displayOrder = getNextSiblingOrder(outsideRows, nextParentKey);
     }
     flow.orgDraft = normalizeBlueprint([...outsideRows, ...rebuilt]);
@@ -1602,7 +1608,7 @@
         ? `<div class="codex-org-tree-btn is-editing-field">${labelHtml}</div>`
         : `<button type="button" class="codex-org-tree-btn" data-assignment-org-node="${key}" data-assignment-org-prefix="${prefix}">${labelHtml}</button>`;
       const dropAttrs = isAfterTree ? ` data-org-drop="${key}"` : "";
-      return `<div class="codex-org-tree-node ${selected ? "selected" : ""} ${expanded ? "is-open" : ""} ${isEditing ? "is-editing" : ""} ${isAfterTree ? "is-after-tree" : ""}"><div class="codex-org-tree-row"${dropAttrs}><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${key}" data-org-toggle-prefix="${prefix}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button>${dragHandle}${buttonHtml}${controls}</div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${children.map((child) => renderNode(getOrgRowKey(child), getOrgRowName(child))).join("")}</div>` : ""}</div>`;
+      return `<div class="codex-org-tree-node ${selected ? "selected" : ""} ${expanded ? "is-open" : ""} ${isEditing ? "is-editing" : ""} ${isAfterTree ? "is-after-tree" : ""}"><div class="codex-org-drop-line" data-org-drop-line="${key}" data-org-drop-position="before"></div><div class="codex-org-tree-row"${dropAttrs}><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${key}" data-org-toggle-prefix="${prefix}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button>${dragHandle}${buttonHtml}${controls}</div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${children.map((child) => renderNode(getOrgRowKey(child), getOrgRowName(child))).join("")}</div>` : ""}<div class="codex-org-drop-line" data-org-drop-line="${key}" data-org-drop-position="after"></div></div>`;
     };
     return renderNode("ROOT", "오토플러스");
   }
@@ -1887,12 +1893,18 @@
        button.addEventListener("dragstart", (event) => {
          const flow = ensureAssignmentFlow();
          flow.dragAfterOrgKey = button.dataset.orgDrag;
+         flow.dragAfterDropMode = "";
+         flow.dragAfterDropTarget = "";
          event.dataTransfer.effectAllowed = "move";
          event.dataTransfer.setData("text/plain", button.dataset.orgDrag);
        });
        button.addEventListener("dragend", () => {
-         ensureAssignmentFlow().dragAfterOrgKey = "";
+         const flow = ensureAssignmentFlow();
+         flow.dragAfterOrgKey = "";
+         flow.dragAfterDropMode = "";
+         flow.dragAfterDropTarget = "";
          $$("[data-org-drop]", panels.assignment).forEach((row) => row.classList.remove("is-drop-target"));
+         $$("[data-org-drop-line]", panels.assignment).forEach((line) => line.classList.remove("is-active"));
        });
      });
      $$("[data-org-drop]", panels.assignment).forEach((row) => {
@@ -1900,16 +1912,51 @@
          const dragKey = ensureAssignmentFlow().dragAfterOrgKey;
          if (!dragKey) return;
          event.preventDefault();
+         const flow = ensureAssignmentFlow();
+         flow.dragAfterDropMode = "into";
+         flow.dragAfterDropTarget = row.dataset.orgDrop;
          row.classList.add("is-drop-target");
+         $$("[data-org-drop-line]", panels.assignment).forEach((line) => line.classList.remove("is-active"));
        });
        row.addEventListener("dragleave", () => row.classList.remove("is-drop-target"));
        row.addEventListener("drop", (event) => {
          event.preventDefault();
          row.classList.remove("is-drop-target");
-         const dragKey = ensureAssignmentFlow().dragAfterOrgKey || event.dataTransfer.getData("text/plain");
-         const targetKey = row.dataset.orgDrop;
-         ensureAssignmentFlow().dragAfterOrgKey = "";
-         moveOrgInDraft(dragKey, targetKey);
+         const flow = ensureAssignmentFlow();
+         const dragKey = flow.dragAfterOrgKey || event.dataTransfer.getData("text/plain");
+         const targetKey = flow.dragAfterDropTarget || row.dataset.orgDrop;
+         const mode = flow.dragAfterDropMode || "into";
+         flow.dragAfterOrgKey = "";
+         flow.dragAfterDropMode = "";
+         flow.dragAfterDropTarget = "";
+         $$("[data-org-drop-line]", panels.assignment).forEach((line) => line.classList.remove("is-active"));
+         moveOrgInDraft(dragKey, targetKey, mode);
+         renderAssignment();
+       });
+     });
+     $$("[data-org-drop-line]", panels.assignment).forEach((line) => {
+       line.addEventListener("dragover", (event) => {
+         const flow = ensureAssignmentFlow();
+         if (!flow.dragAfterOrgKey) return;
+         event.preventDefault();
+         flow.dragAfterDropMode = line.dataset.orgDropPosition;
+         flow.dragAfterDropTarget = line.dataset.orgDropLine;
+         $$("[data-org-drop]", panels.assignment).forEach((row) => row.classList.remove("is-drop-target"));
+         $$("[data-org-drop-line]", panels.assignment).forEach((item) => item.classList.remove("is-active"));
+         line.classList.add("is-active");
+       });
+       line.addEventListener("dragleave", () => line.classList.remove("is-active"));
+       line.addEventListener("drop", (event) => {
+         event.preventDefault();
+         const flow = ensureAssignmentFlow();
+         const dragKey = flow.dragAfterOrgKey || event.dataTransfer.getData("text/plain");
+         const targetKey = line.dataset.orgDropLine;
+         const mode = line.dataset.orgDropPosition;
+         flow.dragAfterOrgKey = "";
+         flow.dragAfterDropMode = "";
+         flow.dragAfterDropTarget = "";
+         $$("[data-org-drop-line]", panels.assignment).forEach((item) => item.classList.remove("is-active"));
+         moveOrgInDraft(dragKey, targetKey, mode);
          renderAssignment();
        });
      });
