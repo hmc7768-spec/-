@@ -1131,6 +1131,7 @@
 .codex-directory-search-advanced label {
   display: grid;
   gap: 6px;
+  align-content: start;
 }
 
 .codex-date-range {
@@ -1149,6 +1150,23 @@
   font-size: 11px;
   font-weight: 700;
   color: #6d7890;
+}
+
+.codex-search-field {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.codex-search-field-multi {
+  grid-template-rows: auto auto minmax(72px, auto);
+}
+
+.codex-search-field-extra {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 72px;
 }
 
 .codex-chip-input-row {
