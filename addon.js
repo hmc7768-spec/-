@@ -1292,6 +1292,9 @@
       selectedBeforeOrg: "ROOT",
       selectedAfterOrg: "ROOT",
       selectedPersonnelOrg: "ROOT",
+      beforeExpandedKeys: ["ROOT"],
+      afterExpandedKeys: ["ROOT"],
+      personnelExpandedKeys: ["ROOT"],
       orgSummary: { created: [], updated: [], deleted: [] },
       personnelActions: [],
       personnelSearch: ""
@@ -1382,8 +1385,44 @@
     }
     return action;
   }
+  function getAssignmentExpandedKeys(prefix) {
+    const flow = state.assignmentFlow;
+    if (!flow) return state.orgExpandedKeys || ["ROOT"];
+    if (prefix === "before") return flow.beforeExpandedKeys || ["ROOT"];
+    if (prefix === "after") return flow.afterExpandedKeys || ["ROOT"];
+    if (prefix === "personnel") return flow.personnelExpandedKeys || ["ROOT"];
+    return state.orgExpandedKeys || ["ROOT"];
+  }
+  function setAssignmentExpanded(prefix, key, expanded) {
+    const flow = state.assignmentFlow;
+    if (!flow || !["before", "after", "personnel"].includes(prefix)) {
+      setOrgExpanded(key, expanded);
+      return;
+    }
+    const prop = prefix === "before" ? "beforeExpandedKeys" : prefix === "after" ? "afterExpandedKeys" : "personnelExpandedKeys";
+    const list = new Set(flow[prop] || ["ROOT"]);
+    if (expanded) list.add(key);
+    else if (key !== "ROOT") list.delete(key);
+    flow[prop] = Array.from(list);
+  }
+  function expandAssignmentAncestors(prefix, key) {
+    if (!["before", "after", "personnel"].includes(prefix)) {
+      expandOrgAncestors(key, false);
+      return;
+    }
+    if (!key || key === "ROOT") {
+      setAssignmentExpanded(prefix, "ROOT", true);
+      return;
+    }
+    const [, hq = "", office = "", team = "", part = ""] = key.split("|");
+    setAssignmentExpanded(prefix, "ROOT", true);
+    if (hq) setAssignmentExpanded(prefix, ["L1", hq, "", "", ""].join("|"), true);
+    if (office) setAssignmentExpanded(prefix, ["L2", hq, office, "", ""].join("|"), true);
+    if (team) setAssignmentExpanded(prefix, ["L3", hq, office, team, ""].join("|"), true);
+    if (part) setAssignmentExpanded(prefix, ["L4", hq, office, team, part].join("|"), true);
+  }
   function buildTreeFromBlueprint(rows, selectedKey, includeControls = false, prefix = "landing") {
-    const expandedKeys = new Set(["ROOT", ...(state.orgExpandedKeys || [])]);
+    const expandedKeys = new Set(["ROOT", ...(getAssignmentExpandedKeys(prefix) || [])]);
     const renderNode = (key, label) => {
       const children = getChildrenRows(rows, key);
       const hasChildren = children.length > 0;
@@ -1392,8 +1431,8 @@
       const selectedRow = key === "ROOT" ? null : getBlueprintRow(rows, key);
       const controls = includeControls && key !== "ROOT"
         ? `<div class="codex-assignment-tree-actions"><button type="button" class="codex-icon-btn" data-org-edit="${key}">✎</button><button type="button" class="codex-icon-btn" data-org-delete="${key}">🗑</button></div>`
-        : includeControls ? `<button type="button" class="hr-btn btn-outline codex-tree-add-btn" data-org-add-under="${key}">＋ 추가</button>` : "";
-      return `<div class="codex-org-tree-node ${selected ? "selected" : ""} ${expanded ? "is-open" : ""}"><div class="codex-org-tree-row"><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${key}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button><button type="button" class="codex-org-tree-btn" data-assignment-org-node="${key}" data-assignment-org-prefix="${prefix}"><span class="codex-org-tree-label">${label}</span>${selectedRow?.code ? `<span class="codex-assignment-tree-code">${selectedRow.code}</span>` : ""}</button>${controls}</div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${children.map((child) => renderNode(getOrgRowKey(child), getOrgRowName(child))).join("")}</div>` : ""}</div>`;
+        : "";
+      return `<div class="codex-org-tree-node ${selected ? "selected" : ""} ${expanded ? "is-open" : ""}"><div class="codex-org-tree-row"><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${key}" data-org-toggle-prefix="${prefix}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button><button type="button" class="codex-org-tree-btn" data-assignment-org-node="${key}" data-assignment-org-prefix="${prefix}"><span class="codex-org-tree-label">${label}</span>${selectedRow?.code ? `<span class="codex-assignment-tree-code">${selectedRow.code}</span>` : ""}</button>${controls}</div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${children.map((child) => renderNode(getOrgRowKey(child), getOrgRowName(child))).join("")}</div>` : ""}</div>`;
     };
     return renderNode("ROOT", "오토플러스");
   }
@@ -1431,7 +1470,7 @@
   }
   function renderAssignmentStepTwo(flow) {
     const selectedAfter = getBlueprintRow(flow.orgDraft, flow.selectedAfterOrg) || null;
-    panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">Before / After 조직을 비교하며 명칭 변경, 이동, 신설, 폐지를 편집합니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="active">2단계</span><span>3단계</span></div></div><div class="codex-assignment-before-after"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>Before</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(state.orgBlueprint, flow.selectedBeforeOrg, false, "before")}</div></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>After</h4><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" data-org-add-under="${flow.selectedAfterOrg || "ROOT"}">추가</button><button type="button" class="hr-btn btn-outline" ${selectedAfter ? `data-org-edit="${flow.selectedAfterOrg}"` : "disabled"}>수정</button><button type="button" class="hr-btn btn-outline" ${selectedAfter ? `data-org-delete="${flow.selectedAfterOrg}"` : "disabled"}>삭제</button></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedAfterOrg, true, "after")}</div></div></div><div style="margin-top:16px">${renderOrgSummaryTable(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentOrgEditDoneBtn">편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentOrgNextStepBtn">다음 단계</button></div></div></div>`;
+    panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">Before / After 조직을 비교하며 명칭 변경, 이동, 신설, 폐지를 편집합니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="active">2단계</span><span>3단계</span></div></div><div class="codex-assignment-before-after"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>Before</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(state.orgBlueprint, flow.selectedBeforeOrg, false, "before")}</div></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>After</h4><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" data-org-add-under="${flow.selectedAfterOrg || "ROOT"}">추가</button><button type="button" class="hr-btn btn-outline" ${selectedAfter ? `data-org-edit="${flow.selectedAfterOrg}"` : "disabled"}>수정</button><button type="button" class="hr-btn btn-outline" ${selectedAfter ? `data-org-delete="${flow.selectedAfterOrg}"` : "disabled"}>삭제</button></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedAfterOrg, false, "after")}</div></div></div><div style="margin-top:16px">${renderOrgSummaryTable(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentOrgEditDoneBtn">편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentOrgNextStepBtn">다음 단계</button></div></div></div>`;
   }
   function renderPersonnelSummary(flow) {
     const actions = flow.personnelActions.filter((item) => item.enabled !== false).map((action) => {
@@ -1599,8 +1638,10 @@
     $$("[data-org-toggle]", panels.assignment).forEach((button) => button.addEventListener("click", (event) => {
       event.stopPropagation();
       const key = button.dataset.orgToggle;
+      const prefix = button.dataset.orgTogglePrefix || "landing";
       if (!key || button.classList.contains("is-leaf")) return;
-      setOrgExpanded(key, !isOrgExpanded(key));
+      const isExpanded = getAssignmentExpandedKeys(prefix).includes(key);
+      setAssignmentExpanded(prefix, key, !isExpanded);
       renderAssignment();
     }));
     $("#startAssignmentWizardBtn", panels.assignment)?.addEventListener("click", () => { state.assignmentFlow = createAssignmentFlow(); renderAssignment(); });
@@ -1624,7 +1665,7 @@
     $("#assignmentFinishBtn", panels.assignment)?.addEventListener("click", () => applyAssignmentFlow(ensureAssignmentFlow()));
     $("#personnelSearchInput", panels.assignment)?.addEventListener("input", (event) => { ensureAssignmentFlow().personnelSearch = event.target.value; renderAssignment(); });
     $$("[data-assignment-history]", panels.assignment).forEach((button) => button.addEventListener("click", () => openAssignmentHistoryDetail(button.dataset.assignmentHistory)));
-    $$("[data-assignment-org-node]", panels.assignment).forEach((button) => button.addEventListener("click", () => { const flow = state.assignmentFlow; const prefix = button.dataset.assignmentOrgPrefix; if (!flow) state.currentOrgNode = button.dataset.assignmentOrgNode; else if (prefix === "before") flow.selectedBeforeOrg = button.dataset.assignmentOrgNode; else if (prefix === "after") flow.selectedAfterOrg = button.dataset.assignmentOrgNode; else if (prefix === "personnel") flow.selectedPersonnelOrg = button.dataset.assignmentOrgNode; renderAssignment(); }));
+    $$("[data-assignment-org-node]", panels.assignment).forEach((button) => button.addEventListener("click", () => { const flow = state.assignmentFlow; const prefix = button.dataset.assignmentOrgPrefix; if (!flow) state.currentOrgNode = button.dataset.assignmentOrgNode; else if (prefix === "before") flow.selectedBeforeOrg = button.dataset.assignmentOrgNode; else if (prefix === "after") flow.selectedAfterOrg = button.dataset.assignmentOrgNode; else if (prefix === "personnel") flow.selectedPersonnelOrg = button.dataset.assignmentOrgNode; expandAssignmentAncestors(prefix, button.dataset.assignmentOrgNode); renderAssignment(); }));
     $$("[data-org-add-under]", panels.assignment).forEach((button) => button.addEventListener("click", () => openOrgEditModal("add", button.dataset.orgAddUnder)));
     $$("[data-org-edit]", panels.assignment).forEach((button) => button.addEventListener("click", () => openOrgEditModal("edit", button.dataset.orgEdit)));
     $$("[data-org-delete]", panels.assignment).forEach((button) => button.addEventListener("click", () => deleteOrgFromDraft(button.dataset.orgDelete)));
