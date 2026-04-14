@@ -1406,8 +1406,82 @@
       }
     };
     const filtered = base.map((item) => ({ ...item, ...(overrides[state.currentHrView]?.[item.region] || {}) }));
+    const extras = {
+      directory: [
+        {
+          num: "08",
+          region: "emptable",
+          title: "성명/사번 클릭 기본정보 팝업",
+          desc: "사원명부에서 성명 또는 사번 클릭 시 전체 화면 이동 없이 기본정보 팝업이 열려야 한다.",
+          detail: [
+            ["주요 기능", "작은 상세 팝업에서 연락처, 이메일, 입사일, 사번, 주소, 휴직정보 조회"],
+            ["연계", "우측 상단 인사기록카드 버튼으로 전체 기록카드 이동"],
+            ["검토 포인트", "상세보기 버튼과 동작이 달라야 하며, 명부 화면 작업 흐름이 끊기지 않아야 함"]
+          ],
+          tag: "action",
+          tagLabel: "팝업/연계"
+        },
+        {
+          num: "09",
+          region: "stats",
+          title: "통계 상세 대상자 팝업",
+          desc: "휴직 중, 신규 입사 카드를 누르면 대상자 목록 팝업이 열리고 대상자 클릭 시 기본정보 팝업으로 이어져야 한다.",
+          detail: [
+            ["주요 기능", "현재기준/기간기준 대상자 목록 조회, 대상자 선택"],
+            ["연계", "기본정보 팝업, 인사기록카드, 휴직/입사 기간 필터"],
+            ["검토 포인트", "카드 숫자와 팝업 대상자 수가 일치해야 함"]
+          ],
+          tag: "action",
+          tagLabel: "팝업/연계"
+        }
+      ],
+      record: [
+        {
+          num: "06",
+          region: "hrcard",
+          title: "이력 항목 상세보기 팝업",
+          desc: "학력, 경력, 가족, 자격, 상벌, 승급, 발령, 교육 구역의 상세보기는 별도 팝업으로 전체 이력을 보여줘야 한다.",
+          detail: [
+            ["주요 기능", "본문은 요약/스크롤, 팝업은 전체 행 확인"],
+            ["연계", "기록카드 수정 팝업의 동일 데이터셋 사용"],
+            ["검토 포인트", "본문 요약과 상세 팝업 내용이 불일치하면 안 됨"]
+          ],
+          tag: "view",
+          tagLabel: "상세 팝업"
+        },
+        {
+          num: "07",
+          region: "pagetitle",
+          title: "기록카드 수정 팝업",
+          desc: "기록카드 수정 버튼 클릭 시 기본정보와 이력성 데이터를 수정하는 팝업이 열려야 한다.",
+          detail: [
+            ["주요 기능", "기본정보 수정, 다건 이력 행 추가/삭제, 저장"],
+            ["연계", "사원명부, 조직도, 통계, 발령 이력"],
+            ["검토 포인트", "신규등록에서 비워야 하는 항목과 수정에서만 관리하는 항목 구분"]
+          ],
+          tag: "input",
+          tagLabel: "수정 팝업"
+        }
+      ],
+      org: [
+        {
+          num: "06",
+          region: "orgchart",
+          title: "조직도 인원 카드 기본정보 팝업",
+          desc: "조직도 우측 인원 카드 클릭 시 현재 화면을 유지한 채 기본정보 팝업이 열려야 한다.",
+          detail: [
+            ["주요 기능", "조직 배치 인원의 기본 프로필 조회"],
+            ["연계", "기본정보 팝업, 인사기록카드 버튼"],
+            ["검토 포인트", "조직 탐색 상태를 유지한 채 팝업만 열려야 함"]
+          ],
+          tag: "action",
+          tagLabel: "팝업/연계"
+        }
+      ]
+    };
+    const combined = [...filtered, ...((extras[state.currentHrView] || []))];
     refs.annoList.innerHTML = "";
-    filtered.forEach((item) => {
+    combined.forEach((item) => {
       const div = document.createElement("div");
       div.className = "anno-item";
       div.dataset.region = item.region;
