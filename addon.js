@@ -450,6 +450,12 @@
   function suggestionListHtml(items, type) {
     return items.length ? `<div class="codex-search-suggestions">${items.map((item) => `<button type="button" class="codex-search-suggestion" data-suggestion-type="${type}" data-suggestion-value="${item}">${item}</button>`).join("")}</div>` : "";
   }
+  function formatDateInput(value) {
+    const digits = (value || "").replace(/\D/g, "").slice(0, 8);
+    if (digits.length <= 4) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 4)}.${digits.slice(4)}`;
+    return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8)}`;
+  }
   function getDeptSuggestions() {
     const query = state.directoryDeptQuery.trim().toLowerCase();
     if (!query) return [];
@@ -473,48 +479,7 @@
     }
     renderDirectorySearchBar();
   }
-  function renderDirectorySearchBar() {
-    const deptSuggestions = getDeptSuggestions();
-    const gradeSuggestions = getGradeSuggestions();
-    refs.searchBar.innerHTML = `<div class="codex-directory-search-main"><input id="directorySearchInput" class="hr-search-input" placeholder="사원번호, 성명, 부서, 직급, 이메일, 연락처 검색" value="${state.directorySearchText}" style="flex:1"><button type="button" class="hr-btn btn-outline codex-search-toggle ${state.directoryAdvancedOpen ? "is-open" : ""}" id="directoryDetailToggle">상세검색</button><button type="button" class="hr-btn btn-primary" id="directorySearchSubmit">검색</button><button type="button" class="hr-btn btn-outline" id="directorySearchReset">검색 초기화</button></div>${state.directoryAdvancedOpen ? `<div class="codex-directory-search-advanced"><label><span>입사일</span><div class="codex-date-range"><input id="directoryHireDateFrom" class="hr-search-input" placeholder="YYYY.MM.DD" value="${state.directoryHireDateFrom}"><span>~</span><input id="directoryHireDateTo" class="hr-search-input" placeholder="YYYY.MM.DD" value="${state.directoryHireDateTo}"></div></label><label><span>부서</span>${chipHtml(state.directoryDept, "dept")}<input id="directoryDeptInput" class="hr-search-input" placeholder="부서명 입력 후 Enter" value="${state.directoryDeptQuery}">${suggestionListHtml(deptSuggestions, "dept")}</label><label><span>직급</span>${chipHtml(state.directoryGrade, "grade")}<input id="directoryGradeInput" class="hr-search-input" placeholder="직급 입력 후 Enter" value="${state.directoryGradeQuery}">${suggestionListHtml(gradeSuggestions, "grade")}</label><label><span>재직상태</span><select id="directoryStatusFilter" class="hr-filter-select"><option value="">전체</option><option value="재직" ${state.directoryStatus === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${state.directoryStatus === "휴직" ? "selected" : ""}>휴직</option></select></label></div>` : ""}`;
-    $("#directoryDetailToggle", refs.searchBar)?.addEventListener("click", () => {
-      state.directoryAdvancedOpen = !state.directoryAdvancedOpen;
-      renderDirectorySearchBar();
-    });
-    $("#directorySearchInput", refs.searchBar)?.addEventListener("input", (event) => {
-      state.directorySearchText = event.target.value;
-    });
-    $("#directorySearchInput", refs.searchBar)?.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter") return;
-      renderTable();
-    });
-    $("#directoryHireDateFrom", refs.searchBar)?.addEventListener("input", (event) => {
-      state.directoryHireDateFrom = event.target.value;
-    });
-    $("#directoryHireDateTo", refs.searchBar)?.addEventListener("input", (event) => {
-      state.directoryHireDateTo = event.target.value;
-    });
-    $("#directoryDeptInput", refs.searchBar)?.addEventListener("input", (event) => {
-      state.directoryDeptQuery = event.target.value;
-      renderDirectorySearchBar();
-    });
-    $("#directoryDeptInput", refs.searchBar)?.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter") return;
-      event.preventDefault();
-      addSearchChip("dept", getDeptSuggestions()[0] || state.directoryDeptQuery);
-    });
-    $("#directoryGradeInput", refs.searchBar)?.addEventListener("input", (event) => {
-      state.directoryGradeQuery = event.target.value;
-      renderDirectorySearchBar();
-    });
-    $("#directoryGradeInput", refs.searchBar)?.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter") return;
-      event.preventDefault();
-      addSearchChip("grade", getGradeSuggestions()[0] || state.directoryGradeQuery);
-    });
-    $("#directoryStatusFilter", refs.searchBar)?.addEventListener("change", (event) => {
-      state.directoryStatus = event.target.value;
-    });
+  function bindSuggestionButtons() {
     $$("[data-suggestion-type]", refs.searchBar).forEach((button) => {
       button.addEventListener("click", () => addSearchChip(button.dataset.suggestionType, button.dataset.suggestionValue));
     });
@@ -527,6 +492,59 @@
         renderDirectorySearchBar();
       });
     });
+  }
+  function updateSearchSuggestions(type) {
+    const target = type === "dept" ? $("#directoryDeptSuggestions", refs.searchBar) : $("#directoryGradeSuggestions", refs.searchBar);
+    if (!target) return;
+    const items = type === "dept" ? getDeptSuggestions() : getGradeSuggestions();
+    target.innerHTML = suggestionListHtml(items, type);
+    bindSuggestionButtons();
+  }
+  function renderDirectorySearchBar() {
+    const deptSuggestions = getDeptSuggestions();
+    const gradeSuggestions = getGradeSuggestions();
+    refs.searchBar.innerHTML = `<div class="codex-directory-search-main"><input id="directorySearchInput" class="hr-search-input" placeholder="사원번호, 성명, 부서, 직급, 이메일, 연락처 검색" value="${state.directorySearchText}" style="flex:1"><button type="button" class="hr-btn btn-outline codex-search-toggle ${state.directoryAdvancedOpen ? "is-open" : ""}" id="directoryDetailToggle">상세검색</button><button type="button" class="hr-btn btn-primary" id="directorySearchSubmit">검색</button><button type="button" class="hr-btn btn-outline" id="directorySearchReset">검색 초기화</button></div>${state.directoryAdvancedOpen ? `<div class="codex-directory-search-advanced"><label><span>입사일</span><div class="codex-date-range"><input id="directoryHireDateFrom" class="hr-search-input" placeholder="YYYY.MM.DD" value="${state.directoryHireDateFrom}"><span>~</span><input id="directoryHireDateTo" class="hr-search-input" placeholder="YYYY.MM.DD" value="${state.directoryHireDateTo}"></div></label><label><span>부서</span>${chipHtml(state.directoryDept, "dept")}<input id="directoryDeptInput" class="hr-search-input" placeholder="부서명 입력 후 Enter" value="${state.directoryDeptQuery}"><div id="directoryDeptSuggestions">${suggestionListHtml(deptSuggestions, "dept")}</div></label><label><span>직급</span>${chipHtml(state.directoryGrade, "grade")}<input id="directoryGradeInput" class="hr-search-input" placeholder="직급 입력 후 Enter" value="${state.directoryGradeQuery}"><div id="directoryGradeSuggestions">${suggestionListHtml(gradeSuggestions, "grade")}</div></label><label><span>재직상태</span><select id="directoryStatusFilter" class="hr-filter-select"><option value="">전체</option><option value="재직" ${state.directoryStatus === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${state.directoryStatus === "휴직" ? "selected" : ""}>휴직</option></select></label></div>` : ""}`;
+    $("#directoryDetailToggle", refs.searchBar)?.addEventListener("click", () => {
+      state.directoryAdvancedOpen = !state.directoryAdvancedOpen;
+      renderDirectorySearchBar();
+    });
+    $("#directorySearchInput", refs.searchBar)?.addEventListener("input", (event) => {
+      state.directorySearchText = event.target.value;
+    });
+    $("#directorySearchInput", refs.searchBar)?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      renderTable();
+    });
+    $("#directoryHireDateFrom", refs.searchBar)?.addEventListener("input", (event) => {
+      state.directoryHireDateFrom = formatDateInput(event.target.value);
+      event.target.value = state.directoryHireDateFrom;
+    });
+    $("#directoryHireDateTo", refs.searchBar)?.addEventListener("input", (event) => {
+      state.directoryHireDateTo = formatDateInput(event.target.value);
+      event.target.value = state.directoryHireDateTo;
+    });
+    $("#directoryDeptInput", refs.searchBar)?.addEventListener("input", (event) => {
+      state.directoryDeptQuery = event.target.value;
+      updateSearchSuggestions("dept");
+    });
+    $("#directoryDeptInput", refs.searchBar)?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      addSearchChip("dept", getDeptSuggestions()[0] || state.directoryDeptQuery);
+    });
+    $("#directoryGradeInput", refs.searchBar)?.addEventListener("input", (event) => {
+      state.directoryGradeQuery = event.target.value;
+      updateSearchSuggestions("grade");
+    });
+    $("#directoryGradeInput", refs.searchBar)?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      addSearchChip("grade", getGradeSuggestions()[0] || state.directoryGradeQuery);
+    });
+    $("#directoryStatusFilter", refs.searchBar)?.addEventListener("change", (event) => {
+      state.directoryStatus = event.target.value;
+    });
+    bindSuggestionButtons();
     $("#directorySearchSubmit", refs.searchBar)?.addEventListener("click", () => {
       renderTable();
     });
