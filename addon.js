@@ -16,7 +16,7 @@
     { id: "L3", name: "팀", parent: "L2", desc: "실 하위 팀 단위" },
     { id: "L4", name: "파트", parent: "L3", desc: "팀 하위 파트 단위" }
   ];
-  const state = { employees: employeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0024", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade" };
+  const state = { employees: employeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0024", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "" };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const refs = { hrSystem: $("#hrSystem"), evalSystem: $("#evalSystem"), pageTitle: $(".hr-page-title"), searchBar: $('[data-region="searchbar"]'), stats: $('[data-region="stats"]'), tableWrap: $('[data-region="emptable"]'), orgWrap: $("#orgChartWrap"), cardWrap: $("#hrCardGrid"), hrContent: $(".hr-content"), hrSidebar: $(".hr-sidebar"), topItems: $$(".hr-top-item"), sideItems: $$(".hr-sidebar-item"), annoList: $("#annoList") };
@@ -45,34 +45,65 @@
     });
     return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key, "ko"));
   }
+  function getEmployeeNodeKey(employee) {
+    if (employee.part) return ["L4", employee.hq, employee.office, employee.team, employee.part].join("|");
+    if (employee.team) return ["L3", employee.hq, employee.office, employee.team, ""].join("|");
+    if (employee.office) return ["L2", employee.hq, employee.office, "", ""].join("|");
+    if (employee.hq) return ["L1", employee.hq, "", "", ""].join("|");
+    return "ROOT";
+  }
+  function buildOrgExplorerData() {
+    const root = { key: "ROOT", label: "오토플러스", level: "ROOT", path: ["오토플러스"], children: [], members: [] };
+    const nodeMap = new Map([["ROOT", root]]);
+    const ensureNode = (parent, key, label, level) => {
+      if (!nodeMap.has(key)) {
+        const node = { key, label, level, path: [...parent.path, label], children: [], members: [] };
+        nodeMap.set(key, node);
+        parent.children.push(node);
+      }
+      return nodeMap.get(key);
+    };
+    state.employees.forEach((employee) => {
+      let parent = root;
+      if (employee.hq) parent = ensureNode(parent, ["L1", employee.hq, "", "", ""].join("|"), employee.hq, "L1");
+      if (employee.office) parent = ensureNode(parent, ["L2", employee.hq, employee.office, "", ""].join("|"), employee.office, "L2");
+      if (employee.team) parent = ensureNode(parent, ["L3", employee.hq, employee.office, employee.team, ""].join("|"), employee.team, "L3");
+      if (employee.part) parent = ensureNode(parent, ["L4", employee.hq, employee.office, employee.team, employee.part].join("|"), employee.part, "L4");
+      nodeMap.get(getEmployeeNodeKey(employee))?.members.push(employee);
+    });
+    return { root, nodeMap };
+  }
+  function collectOrgDescendants(node) {
+    const results = [];
+    node.children.forEach((child) => {
+      results.push(child);
+      results.push(...collectOrgDescendants(child));
+    });
+    return results;
+  }
   function renderOrgBoard(hqFilter = "") {
-    const root = new Map();
-    state.employees
-      .filter((employee) => !hqFilter || employee.hq === hqFilter)
-      .forEach((employee) => {
-        const hqKey = employee.hq || "미지정 본부";
-        if (!root.has(hqKey)) root.set(hqKey, { employees: [], offices: new Map() });
-        const hqNode = root.get(hqKey);
-        hqNode.employees.push(employee);
-        const officeKey = employee.office || "직속";
-        if (!hqNode.offices.has(officeKey)) hqNode.offices.set(officeKey, { employees: [], teams: new Map() });
-        const officeNode = hqNode.offices.get(officeKey);
-        officeNode.employees.push(employee);
-        const teamKey = employee.team || "직속";
-        if (!officeNode.teams.has(teamKey)) officeNode.teams.set(teamKey, { employees: [], parts: new Map() });
-        const teamNode = officeNode.teams.get(teamKey);
-        teamNode.employees.push(employee);
-        if (employee.part) {
-          if (!teamNode.parts.has(employee.part)) teamNode.parts.set(employee.part, []);
-          teamNode.parts.get(employee.part).push(employee);
-        }
-      });
-    const peopleRow = (members) => members.length ? `<div class="codex-org-people">${members.map((employee) => `<span class="codex-org-person"><strong>${employee.name}</strong><span>${employee.grade}</span></span>`).join("")}</div>` : "";
-    const renderPart = (part, members) => `<div class="codex-org-card" data-level="part"><div class="codex-org-header"><div class="codex-org-title"><strong>${part}</strong></div><div class="codex-org-meta">파트 · ${members.length}명</div></div>${peopleRow(members)}</div>`;
-    const renderTeam = (team, teamNode) => `<div class="codex-org-card" data-level="team"><div class="codex-org-header"><div class="codex-org-title"><strong>${team}</strong></div><div class="codex-org-meta">팀 · ${teamNode.employees.length}명</div></div>${peopleRow(teamNode.employees.filter((employee) => !employee.part))}${teamNode.parts.size ? `<div class="codex-org-children">${Array.from(teamNode.parts.entries()).map(([part, members]) => renderPart(part, members)).join("")}</div>` : ""}</div>`;
-    const renderOffice = (office, officeNode) => `<div class="codex-org-card" data-level="office"><div class="codex-org-header"><div class="codex-org-title"><strong>${office}</strong></div><div class="codex-org-meta">실 · ${officeNode.employees.length}명</div></div>${peopleRow(officeNode.employees.filter((employee) => !employee.team))}<div class="codex-org-children">${Array.from(officeNode.teams.entries()).map(([team, teamNode]) => renderTeam(team, teamNode)).join("")}</div></div>`;
-    const renderHq = (hq, hqNode) => `<div class="codex-org-card" data-level="hq"><div class="codex-org-header"><div class="codex-org-title"><strong>${hq}</strong></div><div class="codex-org-meta">본부 · ${hqNode.employees.length}명</div></div>${peopleRow(hqNode.employees.filter((employee) => !employee.office))}<div class="codex-org-children">${Array.from(hqNode.offices.entries()).map(([office, officeNode]) => renderOffice(office, officeNode)).join("")}</div></div>`;
-    return `<div class="codex-org-board"><div class="codex-org-root">오토플러스 <span style="opacity:.75;font-weight:500">${state.employees.filter((employee) => !hqFilter || employee.hq === hqFilter).length}명</span></div><div class="codex-org-level">${Array.from(root.entries()).map(([hq, hqNode]) => renderHq(hq, hqNode)).join("")}</div></div>`;
+    const { root, nodeMap } = buildOrgExplorerData();
+    const selected = nodeMap.get(state.currentOrgNode) || root;
+    const keyword = state.orgSearch.trim().toLowerCase();
+    const matchesEmployee = (employee) => {
+      if (!keyword) return true;
+      return [employee.name, employee.id, employeePath(employee), employee.grade, employee.title].filter(Boolean).join(" ").toLowerCase().includes(keyword);
+    };
+    const nodes = state.orgIncludeChildren ? [selected, ...collectOrgDescendants(selected)] : [selected];
+    const scopedNodes = nodes.filter((node) => !hqFilter || node.path.includes(hqFilter) || node.key === "ROOT");
+    const sections = scopedNodes
+      .map((node) => {
+        const members = node.members.filter(matchesEmployee);
+        if (!members.length) return "";
+        return `<div class="codex-org-section"><div class="codex-org-section-head"><div><div class="codex-org-section-title">${node.label} <span>${members.length}</span></div><div class="codex-org-section-path">${node.path.join(" > ")}</div></div></div><div class="codex-org-card-grid">${members.map((employee) => `<div class="codex-org-employee"><div class="codex-org-avatar">${employee.name[0]}</div><div class="codex-org-emp-name">${employee.name}</div><div class="codex-org-emp-meta">${employee.grade}</div><div class="codex-org-emp-meta">${employee.title}</div></div>`).join("")}</div></div>`;
+      })
+      .filter(Boolean)
+      .join("");
+    const renderTreeNode = (node) => {
+      const selectedClass = node.key === state.currentOrgNode ? " selected" : "";
+      return `<div class="codex-org-tree-node level-${node.level.toLowerCase()}${selectedClass}"><button type="button" class="codex-org-tree-btn" data-org-node="${node.key}"><span class="codex-org-tree-toggle">${node.children.length ? "⊕" : "•"}</span><span class="codex-org-tree-label">${node.label}</span></button>${node.children.length ? `<div class="codex-org-tree-children">${node.children.map(renderTreeNode).join("")}</div>` : ""}</div>`;
+    };
+    return `<div class="codex-org-explorer"><div class="codex-org-side"><div class="codex-org-side-head"><div class="codex-org-side-title">조직도</div><div class="codex-org-side-sub">내 정보</div></div><div class="codex-org-tree">${renderTreeNode(root)}</div></div><div class="codex-org-main"><div class="codex-org-toolbar"><input class="codex-org-search" id="orgSearchInput" placeholder="이름, ID, 소속명, 이메일, 연락처 검색" value="${state.orgSearch}"><label class="codex-org-toggle"><input type="checkbox" id="orgIncludeChildren" ${state.orgIncludeChildren ? "checked" : ""}><span>하위조직</span></label></div><div class="codex-org-content">${sections || `<div class="codex-note-box"><strong>검색 결과 없음</strong>선택 조직 또는 하위조직에서 검색 조건에 맞는 인원이 없습니다.</div>`}</div></div></div>`;
   }
   function buildModal(id, title) {
     const backdrop = document.createElement("div");
@@ -119,7 +150,24 @@
     $(".hr-table-header div", refs.tableWrap).textContent = `총 ${state.employees.length}명 · 1-${state.employees.length} 표시`;
   }
   function renderOrg() {
+    if (state.currentOrgNode === "ROOT") {
+      state.currentOrgNode = getEmployeeNodeKey(selectedEmployee());
+    }
     refs.orgWrap.innerHTML = renderOrgBoard();
+    $$("[data-org-node]", refs.orgWrap).forEach((button) => {
+      button.addEventListener("click", () => {
+        state.currentOrgNode = button.dataset.orgNode;
+        renderOrg();
+      });
+    });
+    $("#orgSearchInput", refs.orgWrap)?.addEventListener("input", (event) => {
+      state.orgSearch = event.target.value;
+      renderOrg();
+    });
+    $("#orgIncludeChildren", refs.orgWrap)?.addEventListener("change", (event) => {
+      state.orgIncludeChildren = event.target.checked;
+      renderOrg();
+    });
   }
   function uniqueValues(items) {
     return Array.from(new Set(items.filter(Boolean)));

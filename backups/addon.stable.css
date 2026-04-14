@@ -145,104 +145,200 @@
   gap: 10px;
 }
 
-.codex-org-board {
+.codex-org-explorer {
   display: grid;
-  gap: 14px;
+  grid-template-columns: 260px minmax(0, 1fr);
+  min-height: 640px;
+  border: 1px solid #dde1ec;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
 }
 
-.codex-org-root {
+.codex-org-side {
+  border-right: 1px solid #e8ecf4;
+  background: #fff;
+}
+
+.codex-org-side-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.codex-org-side-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1c2435;
+}
+
+.codex-org-side-sub {
+  font-size: 12px;
+  color: #8d97aa;
+}
+
+.codex-org-tree {
+  padding: 16px 12px 20px;
+  overflow: auto;
+  max-height: 720px;
+}
+
+.codex-org-tree-node {
+  display: grid;
+  gap: 6px;
+}
+
+.codex-org-tree-children {
+  display: grid;
+  gap: 6px;
+  padding-left: 20px;
+}
+
+.codex-org-tree-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 6px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.codex-org-tree-btn:hover {
+  background: #f5f8fe;
+}
+
+.codex-org-tree-node.selected > .codex-org-tree-btn {
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+.codex-org-tree-toggle {
+  width: 14px;
+  color: #7f8aa0;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.codex-org-tree-label {
+  font-size: 13px;
+  color: #334155;
+}
+
+.codex-org-main {
+  background: #fff;
+  min-width: 0;
+}
+
+.codex-org-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.codex-org-search {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #dde1ec;
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-size: 12px;
+  color: #334155;
+}
+
+.codex-org-toggle {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: #1e3a5f;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  color: #475569;
+  white-space: nowrap;
 }
 
-.codex-org-level {
+.codex-org-content {
+  padding: 18px;
   display: grid;
-  gap: 12px;
+  gap: 18px;
 }
 
-.codex-org-card {
-  border: 1px solid #dde7f2;
-  border-radius: 12px;
-  background: #fbfcfe;
-  padding: 14px;
+.codex-org-section {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #edf1f6;
 }
 
-.codex-org-card[data-level="hq"] {
-  background: #f7faff;
-  border-color: #ceddf5;
+.codex-org-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
-.codex-org-card[data-level="office"] {
-  margin-left: 18px;
-}
-
-.codex-org-card[data-level="team"] {
-  margin-left: 36px;
-}
-
-.codex-org-card[data-level="part"] {
-  margin-left: 54px;
-}
-
-.codex-org-header {
+.codex-org-section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
 }
 
-.codex-org-title {
+.codex-org-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2a37;
+}
+
+.codex-org-section-title span {
+  color: #2563eb;
+}
+
+.codex-org-section-path {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #8a94a7;
+}
+
+.codex-org-card-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 22px;
+  justify-content: flex-start;
+}
+
+.codex-org-employee {
+  width: 102px;
+  text-align: center;
+}
+
+.codex-org-avatar {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dce7f8, #c8d7f0);
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  justify-content: center;
+  color: #355070;
+  font-size: 18px;
+  font-weight: 700;
 }
 
-.codex-org-title strong {
+.codex-org-emp-name {
   font-size: 13px;
-  color: #1e3a5f;
-}
-
-.codex-org-meta {
-  font-size: 11px;
-  color: #7d8799;
   font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 4px;
 }
 
-.codex-org-children {
-  display: grid;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.codex-org-people {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.codex-org-person {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #fff;
-  border: 1px solid #e3ebf5;
-  font-size: 11px;
-  color: #496079;
-}
-
-.codex-org-person strong {
-  color: #1e3a5f;
+.codex-org-emp-meta {
+  font-size: 12px;
+  color: #7b8798;
+  line-height: 1.5;
 }
 
 .codex-tree-section {
@@ -452,7 +548,13 @@
   }
 
   .codex-record-shell,
-  .codex-record-grid {
+  .codex-record-grid,
+  .codex-org-explorer {
     grid-template-columns: 1fr;
+  }
+
+  .codex-org-side {
+    border-right: none;
+    border-bottom: 1px solid #e8ecf4;
   }
 }
