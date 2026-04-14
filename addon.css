@@ -474,6 +474,22 @@
   border-radius: 8px;
 }
 
+.codex-summary-action {
+  width: 40px;
+  text-align: right;
+}
+
+.codex-summary-trash {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .16s ease;
+}
+
+.codex-summary-group tbody tr:hover .codex-summary-trash {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .codex-org-tree-children {
   display: grid;
   gap: 6px;

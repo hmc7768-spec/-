@@ -154,6 +154,9 @@
     if (row.office) return "L2";
     return "L1";
   }
+  function isRootOrgRow(row) {
+    return row?.hq === "오토플러스" && !row?.office && !row?.team && !row?.part;
+  }
   function getOrgRowName(row) {
     return row.part || row.team || row.office || row.hq || "오토플러스";
   }
@@ -172,13 +175,14 @@
   function completeBlueprintHierarchy(rows) {
     const map = new Map();
     const pushRow = (row, preferred = {}) => {
-      if (!row.hq) return;
+      if (!row.hq || isRootOrgRow(row)) return;
       const normalized = {
         hq: row.hq || "",
         office: row.office || "",
         team: row.team || "",
         part: row.part || "",
         sourceKey: preferred.sourceKey || row.sourceKey || getOrgRowKey(row),
+        displayOrder: preferred.displayOrder ?? row.displayOrder ?? 0,
         createdAt: preferred.createdAt || row.createdAt || "2023.08.16 00:00",
         updatedAt: preferred.updatedAt || row.updatedAt || "2026.04.14 09:00"
       };
@@ -186,23 +190,45 @@
     };
     rows.forEach((row) => {
       pushRow(row);
-      if (row.hq) pushRow({ hq: row.hq, office: "", team: "", part: "" }, { sourceKey: getOrgRowKey({ hq: row.hq, office: "", team: "", part: "" }) });
-      if (row.office) pushRow({ hq: row.hq, office: row.office, team: "", part: "" }, { sourceKey: getOrgRowKey({ hq: row.hq, office: row.office, team: "", part: "" }) });
-      if (row.team) pushRow({ hq: row.hq, office: row.office, team: row.team, part: "" }, { sourceKey: getOrgRowKey({ hq: row.hq, office: row.office, team: row.team, part: "" }) });
+      if (row.hq && row.hq !== "오토플러스") pushRow({ hq: row.hq, office: "", team: "", part: "" }, { sourceKey: getOrgRowKey({ hq: row.hq, office: "", team: "", part: "" }), displayOrder: row.displayOrder ?? 0 });
+      if (row.office) pushRow({ hq: row.hq, office: row.office, team: "", part: "" }, { sourceKey: getOrgRowKey({ hq: row.hq, office: row.office, team: "", part: "" }), displayOrder: row.displayOrder ?? 0 });
+      if (row.team) pushRow({ hq: row.hq, office: row.office, team: row.team, part: "" }, { sourceKey: getOrgRowKey({ hq: row.hq, office: row.office, team: row.team, part: "" }), displayOrder: row.displayOrder ?? 0 });
     });
-    return Array.from(map.values()).sort((a, b) => getOrgRowKey(a).localeCompare(getOrgRowKey(b), "ko"));
+    return Array.from(map.values());
+  }
+  function getParentKeyForRow(row) {
+    if (!row) return "ROOT";
+    if (row.part) return ["L3", row.hq, row.office, row.team, ""].join("|");
+    if (row.team) return ["L2", row.hq, row.office, "", ""].join("|");
+    if (row.office) return ["L1", row.hq, "", "", ""].join("|");
+    return "ROOT";
+  }
+  function normalizeSiblingOrders(rows) {
+    const groups = new Map();
+    rows.forEach((row) => {
+      const parentKey = getParentKeyForRow(row);
+      if (!groups.has(parentKey)) groups.set(parentKey, []);
+      groups.get(parentKey).push(row);
+    });
+    groups.forEach((items) => {
+      items
+        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || getOrgRowName(a).localeCompare(getOrgRowName(b), "ko"))
+        .forEach((row, index) => { row.displayOrder = index + 1; });
+    });
+    return rows;
   }
   function createOrgBlueprint(rows) {
-    return completeBlueprintHierarchy(rows.map((row, index) => ({
+    return normalizeSiblingOrders(completeBlueprintHierarchy(rows.map((row, index) => ({
       hq: row.hq,
       office: row.office,
       team: row.team,
       part: row.part,
       sourceKey: getOrgRowKey(row),
+      displayOrder: index + 1,
       code: `${getOrgRowLevel(row)}-${String(index + 1).padStart(3, "0")}`,
       createdAt: "2023.08.16 00:00",
       updatedAt: "2026.04.14 09:00"
-    }))).map((row, index) => ({ ...row, code: `${getOrgRowLevel(row)}-${String(index + 1).padStart(3, "0")}` }));
+    }))).map((row, index) => ({ ...row, code: `${getOrgRowLevel(row)}-${String(index + 1).padStart(3, "0")}` })));
   }
   function cloneOrgBlueprint(rows) {
     return rows.map((row) => ({ ...row }));
@@ -1312,25 +1338,26 @@
     return { level, hq, office, team, part };
   }
   function normalizeBlueprint(rows) {
-    return completeBlueprintHierarchy(rows
-      .filter((row) => row.hq)
-      .map((row) => {
-        const normalized = { ...row, hq: row.hq || "", office: row.office || "", team: row.team || "", part: row.part || "" };
-        normalized.sourceKey = row.sourceKey || getOrgRowKey(normalized);
-        return normalized;
-      }))
-      .sort((a, b) => getOrgRowKey(a).localeCompare(getOrgRowKey(b), "ko"))
-      .map((row, index) => ({ ...row, code: `${getOrgRowLevel(row)}-${String(index + 1).padStart(3, "0")}`, createdAt: row.createdAt || "2023.08.16 00:00", updatedAt: "2026.04.14 09:00" }));
+    return normalizeSiblingOrders(completeBlueprintHierarchy(rows
+        .filter((row) => row.hq)
+        .map((row) => {
+          const normalized = { ...row, hq: row.hq || "", office: row.office || "", team: row.team || "", part: row.part || "" };
+          normalized.sourceKey = row.sourceKey || getOrgRowKey(normalized);
+          normalized.displayOrder = row.displayOrder ?? 0;
+          return normalized;
+        }))
+        .map((row, index) => ({ ...row, code: `${getOrgRowLevel(row)}-${String(index + 1).padStart(3, "0")}`, createdAt: row.createdAt || "2023.08.16 00:00", updatedAt: "2026.04.14 09:00" })));
   }
   function getBlueprintRow(rows, key) {
     return rows.find((row) => getOrgRowKey(row) === key);
   }
   function getChildrenRows(rows, parentKey) {
-    if (parentKey === "ROOT") return rows.filter((row) => row.hq && !row.office);
+    const sorter = (a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || getOrgRowName(a).localeCompare(getOrgRowName(b), "ko");
+    if (parentKey === "ROOT") return rows.filter((row) => row.hq && !row.office).sort(sorter);
     const parent = parseOrgKey(parentKey);
-    if (parent.level === "L1") return rows.filter((row) => row.hq === parent.hq && row.office && !row.team);
-    if (parent.level === "L2") return rows.filter((row) => row.hq === parent.hq && row.office === parent.office && row.team && !row.part);
-    if (parent.level === "L3") return rows.filter((row) => row.hq === parent.hq && row.office === parent.office && row.team === parent.team && row.part);
+    if (parent.level === "L1") return rows.filter((row) => row.hq === parent.hq && row.office && !row.team).sort(sorter);
+    if (parent.level === "L2") return rows.filter((row) => row.hq === parent.hq && row.office === parent.office && row.team && !row.part).sort(sorter);
+    if (parent.level === "L3") return rows.filter((row) => row.hq === parent.hq && row.office === parent.office && row.team === parent.team && row.part).sort(sorter);
     return [];
   }
   function getDescendantKeys(rows, key) {
@@ -1450,6 +1477,10 @@
     if (!children.length) return 1;
     return 1 + Math.max(...children.map((child) => getSubtreeDepth(rows, getOrgRowKey(child))));
   }
+  function getNextSiblingOrder(rows, parentKey) {
+    const siblings = getChildrenRows(rows, parentKey);
+    return siblings.length ? Math.max(...siblings.map((row) => row.displayOrder ?? 0)) + 1 : 1;
+  }
   function renameOrgInDraft(orgKey, nextName) {
     const flow = ensureAssignmentFlow();
     const row = getBlueprintRow(flow.orgDraft, orgKey);
@@ -1477,10 +1508,14 @@
     if (isAncestorOrgKey(orgKey, targetParentKey)) return;
     const sourceRow = getBlueprintRow(flow.orgDraft, orgKey);
     if (!sourceRow) return;
-    const nextLevel = getNextLevelByParentKey(targetParentKey);
+    const targetRow = targetParentKey === "ROOT" ? null : getBlueprintRow(flow.orgDraft, targetParentKey);
+    const sourceDepth = getOrgDepthByKey(orgKey);
+    const targetDepth = getOrgDepthByKey(targetParentKey);
+    const nextParentKey = targetRow && sourceDepth === targetDepth ? getParentKeyForRow(targetRow) : targetParentKey;
+    const nextLevel = getNextLevelByParentKey(nextParentKey);
     if (!nextLevel) return;
     const subtreeDepth = getSubtreeDepth(flow.orgDraft, orgKey);
-    if ((getOrgDepthByKey(targetParentKey) + subtreeDepth) > 4) return;
+    if ((getOrgDepthByKey(nextParentKey) + subtreeDepth) > 4) return;
     const subtreeKeys = [orgKey, ...getDescendantKeys(flow.orgDraft, orgKey)];
     const subtreeRows = flow.orgDraft.filter((row) => subtreeKeys.includes(getOrgRowKey(row))).map((row) => ({ ...row }));
     const outsideRows = flow.orgDraft.filter((row) => !subtreeKeys.includes(getOrgRowKey(row))).map((row) => ({ ...row }));
@@ -1492,16 +1527,56 @@
       const nextRow = buildRowForParent(parentKey, getOrgRowName(current));
       if (!nextRow) return;
       nextRow.sourceKey = current.sourceKey || currentKey;
+      nextRow.displayOrder = current.displayOrder ?? 0;
       rebuilt.push(nextRow);
       const childParentKey = getOrgRowKey(nextRow);
       getChildrenRows(subtreeRows, currentKey).forEach((child) => rebuildNode(getOrgRowKey(child), childParentKey));
     };
-    rebuildNode(orgKey, targetParentKey);
+    rebuildNode(orgKey, nextParentKey);
+    const movedRoot = rebuilt.find((row) => (row.sourceKey || getOrgRowKey(row)) === (sourceRow.sourceKey || orgKey));
+    if (movedRoot) {
+      if (targetRow && sourceDepth === targetDepth) movedRoot.displayOrder = (targetRow.displayOrder ?? 0) + 0.5;
+      else movedRoot.displayOrder = getNextSiblingOrder(outsideRows, nextParentKey);
+    }
     flow.orgDraft = normalizeBlueprint([...outsideRows, ...rebuilt]);
     flow.orgSummary = summarizeOrgChanges(state.orgBlueprint, flow.orgDraft);
     const moved = flow.orgDraft.find((row) => (row.sourceKey || getOrgRowKey(row)) === (sourceRow.sourceKey || orgKey));
     flow.selectedAfterOrg = moved ? getOrgRowKey(moved) : "ROOT";
     expandAssignmentAncestors("after", flow.selectedAfterOrg);
+  }
+  function cancelOrgChange(type, sourceKey) {
+    const flow = ensureAssignmentFlow();
+    if (!sourceKey) return;
+    if (type === "created") {
+      const current = flow.orgDraft.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
+      if (!current) return;
+      const deleteKeys = [getOrgRowKey(current), ...getDescendantKeys(flow.orgDraft, getOrgRowKey(current))];
+      flow.orgDraft = normalizeBlueprint(flow.orgDraft.filter((row) => !deleteKeys.includes(getOrgRowKey(row))));
+    } else if (type === "deleted") {
+      const base = state.orgBlueprint.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
+      if (!base) return;
+      flow.orgDraft = normalizeBlueprint([...flow.orgDraft, { ...base }]);
+    } else if (type === "updated") {
+      const base = state.orgBlueprint.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
+      const current = flow.orgDraft.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
+      if (!base || !current) return;
+      const previous = { ...current };
+      current.hq = base.hq;
+      current.office = base.office;
+      current.team = base.team;
+      current.part = base.part;
+      current.displayOrder = base.displayOrder ?? current.displayOrder;
+      flow.orgDraft.forEach((row) => {
+        if (row === current) return;
+        if (previous.hq && row.hq === previous.hq) row.hq = base.hq;
+        if (previous.office && row.office === previous.office) row.office = base.office || row.office;
+        if (previous.team && row.team === previous.team) row.team = base.team || row.team;
+        if (previous.part && row.part === previous.part) row.part = base.part || row.part;
+      });
+      flow.orgDraft = normalizeBlueprint(flow.orgDraft);
+    }
+    flow.orgSummary = summarizeOrgChanges(state.orgBlueprint, flow.orgDraft);
+    renderAssignment();
   }
   function buildTreeFromBlueprint(rows, selectedKey, includeControls = false, prefix = "landing") {
     const expandedKeys = new Set(["ROOT", ...(getAssignmentExpandedKeys(prefix) || [])]);
@@ -1558,10 +1633,11 @@
     panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">조직개편 및 인사발령일과 처리 방식을 입력합니다.</div></div><div class="codex-stepper"><span class="active">1단계</span><span>2단계</span><span>3단계</span></div></div><div class="codex-panel" style="margin-top:16px"><div class="codex-form-grid"><label><span>조직개편 및 인사발령일</span><input id="wizardChangeDate" value="${flow.changeDate}" placeholder="YYYY.MM.DD"></label><label><span>처리 방식</span><div class="codex-inline-radio"><label><input type="radio" name="wizardMode" value="auto" ${flow.mode === "auto" ? "checked" : ""}>자동</label><label><input type="radio" name="wizardMode" value="manual" ${flow.mode === "manual" ? "checked" : ""}>수동</label></div></label><div class="codex-note-box span-2"><strong>자동</strong>입력한 날짜에 조직도와 임직원 정보가 자동 업데이트됩니다.</div><div class="codex-note-box span-2"><strong>수동</strong>관리자가 완료 시점에 직접 확정합니다.</div></div></div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="cancelAssignmentWizardBtn">취소</button><button type="button" class="hr-btn btn-primary" id="assignmentNextStepBtn">다음 단계</button></div></div>`;
   }
   function renderOrgSummaryTable(flow) {
-    const createdRows = flow.orgSummary.created.map((row) => `<tr><td>${getOrgRowPath(row)}</td></tr>`).join("");
-    const updatedRows = flow.orgSummary.updated.map((item) => `<tr><td>${getOrgRowPath(item.before)}</td><td>${getOrgRowPath(item.after)}</td></tr>`).join("");
-    const deletedRows = flow.orgSummary.deleted.map((row) => `<tr><td>${getOrgRowPath(row)}</td></tr>`).join("");
-    return `<div class="codex-panel"><h4>조직개편</h4><div class="codex-summary-group"><h5>신설</h5><table><thead><tr><th>조직명</th></tr></thead><tbody>${createdRows || `<tr><td>신설 없음</td></tr>`}</tbody></table></div><div class="codex-summary-group"><h5>변경</h5><table><thead><tr><th>변경 전</th><th>변경 후</th></tr></thead><tbody>${updatedRows || `<tr><td colspan="2">변경 없음</td></tr>`}</tbody></table></div><div class="codex-summary-group"><h5>폐지</h5><table><thead><tr><th>조직명</th></tr></thead><tbody>${deletedRows || `<tr><td>폐지 없음</td></tr>`}</tbody></table></div></div>`;
+    const cancelCell = (type, sourceKey) => `<td class="codex-summary-action"><button type="button" class="codex-icon-btn codex-summary-trash" data-cancel-org-change="${type}" data-cancel-source="${sourceKey}" title="이 변경 취소">🗑</button></td>`;
+    const createdRows = flow.orgSummary.created.map((row) => `<tr><td>${getOrgRowPath(row)}</td>${cancelCell("created", row.sourceKey || getOrgRowKey(row))}</tr>`).join("");
+    const updatedRows = flow.orgSummary.updated.map((item) => `<tr><td>${getOrgRowPath(item.before)}</td><td>${getOrgRowPath(item.after)}</td>${cancelCell("updated", item.before.sourceKey || getOrgRowKey(item.before))}</tr>`).join("");
+    const deletedRows = flow.orgSummary.deleted.map((row) => `<tr><td>${getOrgRowPath(row)}</td>${cancelCell("deleted", row.sourceKey || getOrgRowKey(row))}</tr>`).join("");
+    return `<div class="codex-panel"><h4>조직개편</h4><div class="codex-summary-group"><h5>신설</h5><table><thead><tr><th>조직명</th><th></th></tr></thead><tbody>${createdRows || `<tr><td colspan="2">신설 없음</td></tr>`}</tbody></table></div><div class="codex-summary-group"><h5>변경</h5><table><thead><tr><th>변경 전</th><th>변경 후</th><th></th></tr></thead><tbody>${updatedRows || `<tr><td colspan="3">변경 없음</td></tr>`}</tbody></table></div><div class="codex-summary-group"><h5>폐지</h5><table><thead><tr><th>조직명</th><th></th></tr></thead><tbody>${deletedRows || `<tr><td colspan="2">폐지 없음</td></tr>`}</tbody></table></div></div>`;
   }
   function renderAssignmentStepTwo(flow) {
     const selectedAfter = getBlueprintRow(flow.orgDraft, flow.selectedAfterOrg) || null;
@@ -1654,6 +1730,7 @@
         const row = buildRowForParent(parentKey, name);
         if (!row) return;
         row.sourceKey = `NEW|${Date.now()}|${Math.random().toString(36).slice(2, 8)}`;
+        row.displayOrder = getNextSiblingOrder(flowRef.orgDraft, parentKey);
         flowRef.orgDraft.push(row);
       } else if (selected) {
         const previous = { ...selected };
@@ -1805,6 +1882,7 @@
        });
      });
      $$("[data-org-delete]", panels.assignment).forEach((button) => button.addEventListener("click", () => deleteOrgFromDraft(button.dataset.orgDelete)));
+     $$("[data-cancel-org-change]", panels.assignment).forEach((button) => button.addEventListener("click", () => cancelOrgChange(button.dataset.cancelOrgChange, button.dataset.cancelSource)));
      $$("[data-org-drag]", panels.assignment).forEach((button) => {
        button.addEventListener("dragstart", (event) => {
          const flow = ensureAssignmentFlow();
