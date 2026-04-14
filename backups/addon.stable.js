@@ -797,7 +797,7 @@
       const hasChildren = node.children.length > 0;
       return `<div class="codex-org-tree-node level-${node.level.toLowerCase()}${selectedClass}${expanded ? " is-open" : ""}" data-tree-node="${node.key}"><div class="codex-org-tree-row"><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${node.key}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button><button type="button" class="codex-org-tree-btn" data-org-node="${node.key}"><span class="codex-org-tree-label">${node.label}</span></button></div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${node.children.map(renderTreeNode).join("")}</div>` : ""}</div>`;
     };
-    return `<div class="codex-org-explorer"><div class="codex-org-side"><div class="codex-org-side-head"><div class="codex-org-side-title">조직도</div><div class="codex-org-side-sub">내 정보</div></div><div class="codex-org-tree">${renderTreeNode(root)}</div></div><div class="codex-org-main"><div class="codex-org-toolbar"><input class="codex-org-search" id="orgSearchInput" placeholder="이름, ID, 소속명, 이메일, 연락처 검색" value="${state.orgSearch}"><label class="codex-org-toggle"><input type="checkbox" id="orgIncludeChildren" ${state.orgIncludeChildren ? "checked" : ""}><span>하위조직</span></label></div><div class="codex-org-content">${sections || `<div class="codex-note-box"><strong>검색 결과 없음</strong>선택 조직 또는 하위조직에서 검색 조건에 맞는 인원이 없습니다.</div>`}</div></div></div>`;
+    return `<div class="codex-org-explorer"><div class="codex-org-side"><div class="codex-org-side-head"><div class="codex-org-side-title">조직도</div><div class="codex-org-side-sub">내 정보</div></div><div class="codex-org-tree">${renderTreeNode(root)}</div></div><div class="codex-org-main"><div class="codex-org-toolbar"><input class="codex-org-search" id="orgSearchInput" placeholder="이름, ID, 소속명, 이메일, 연락처 검색" value="${state.orgSearch}"><button type="button" class="codex-org-toggle-btn2 ${state.orgIncludeChildren ? "active" : ""}" id="orgIncludeChildrenToggle" aria-pressed="${state.orgIncludeChildren}">하위조직 ${state.orgIncludeChildren ? "ON" : "OFF"}</button></div><div class="codex-org-content">${sections || `<div class="codex-note-box"><strong>검색 결과 없음</strong>선택 조직 또는 하위조직에서 검색 조건에 맞는 인원이 없습니다.</div>`}</div></div></div>`;
   }
   function buildModal(id, title) {
     const backdrop = document.createElement("div");
@@ -922,8 +922,9 @@
       state.orgSearch = event.target.value;
       renderOrg();
     });
-    $("#orgIncludeChildren", refs.orgWrap)?.addEventListener("change", (event) => {
-      state.orgIncludeChildren = event.target.checked;
+    $("#orgIncludeChildrenToggle", refs.orgWrap)?.addEventListener("click", (event) => {
+      event.preventDefault();
+      state.orgIncludeChildren = !state.orgIncludeChildren;
       renderOrg();
     });
     const treeWrap = $(".codex-org-tree", refs.orgWrap);
