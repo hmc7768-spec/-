@@ -240,6 +240,20 @@
   function sheetFieldTable(rows) {
     return `<div class="codex-sheet-focus"><table><tbody>${rows.map((row) => `<tr><th>${row[0] || ""}</th><td>${row[1] || ""}</td><th>${row[2] || ""}</th><td>${row[3] || ""}</td></tr>`).join("")}</tbody></table></div>`;
   }
+  function serializeRows(rows) {
+    return (rows || []).map((row) => (row || []).join(" | ")).join("\n");
+  }
+  function parseRows(text, columns) {
+    return (text || "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const parts = line.split("|").map((part) => part.trim());
+        while (parts.length < columns) parts.push("");
+        return parts.slice(0, columns);
+      });
+  }
   function getHireStatEmployees(mode) {
     return state.employees.filter((employee) => {
       const { year, month } = parseDateParts(employee.hireDate);
@@ -632,10 +646,8 @@
       ]),
       hire: sheetFieldTable([
         ["입사일", employee.hireDate, "입사시 직급", employee.hireGrade],
-        ["입사시 직원유형", employee.hireEmployeeType || employee.employeeType, "입사시 직군", employee.hireJobFamily || employee.jobFamily],
-        ["입사시 부서", hireEmployeePath(employee), "초기 배치일", employee.assignmentDate],
-        ["인정경력", `${employee.careerMonths}개월`, "계약기간", employee.employeeType === "계약직" ? employee.contractPeriod || "-" : "-"],
-        ["그룹웨어 ID", employee.groupwareId || getGroupwareId(employee), "", ""]
+        ["인정경력", `${employee.careerMonths}개월`, "초기 배치일", employee.assignmentDate],
+        ["계약기간", employee.employeeType === "계약직" ? employee.contractPeriod || "-" : "-", "그룹웨어 ID", employee.groupwareId || getGroupwareId(employee)]
       ]),
       personal: sheetFieldTable([
         ["주민등록번호", employee.residentNumber || getResidentNumber(employee), "결혼여부", employee.maritalStatus || getMaritalStatus(employee)],
@@ -649,8 +661,21 @@
       training: previewGrid(["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""])),
       memo: `<div class="codex-sheet-memo">${employee.memo}</div>`
     };
-    const infoPreview = `<div class="codex-sheet-top"><div class="codex-sheet-logo">AUTOPLUS</div><div class="codex-sheet-top-main"><table><tbody><tr><th>부서</th><td>${employeePath(employee)}</td><th>성명</th><td>${employee.name}</td></tr><tr><th>직급</th><td>${employee.grade}</td><th>직책</th><td>${employee.title}</td></tr><tr><th>주민등록번호</th><td>${employee.residentNumber || getResidentNumber(employee)}</td><th>입사일</th><td>${employee.hireDate}</td></tr><tr><th>생년월일</th><td>${employee.birthDate}</td><th>입사시 직원유형</th><td>${employee.hireEmployeeType || employee.employeeType}</td></tr><tr><th>입사시 부서</th><td>${hireEmployeePath(employee)}</td><th>입사시 직군</th><td>${employee.hireJobFamily || employee.jobFamily}</td></tr><tr><th>직전승급일</th><td>${employee.assignmentDate}</td><th>근속년수</th><td>${Math.floor(Number(employee.careerMonths || 0) / 12)}년 ${Number(employee.careerMonths || 0) % 12}개월</td></tr><tr><th>내선번호</th><td>${getCompanyPhone(employee)}</td><th>결혼여부</th><td>${employee.maritalStatus || getMaritalStatus(employee)}</td></tr><tr><th>연락처</th><td>${employee.phone}</td><th>E-Mail</th><td>${getCompanyEmail(employee)}</td></tr><tr><th>그룹웨어 ID</th><td>${employee.groupwareId || getGroupwareId(employee)}</td><th>개인 이메일</th><td>${getPersonalEmail(employee)}</td></tr><tr><th>주소</th><td colspan="3">${getAddress(employee)}</td></tr></tbody></table></div></div>`;
-    const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"><div class="codex-record-sheet-head"><div class="codex-record-sheet-title">인사정보카드</div></div>${infoPreview}${buildSheetSection("학력사항", "education", ["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""]), tab === "education")}${buildSheetSection("경력사항", "career", ["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""]), tab === "career")}${buildSheetSection("가족사항", "personal", ["관계", "성명", "생년월일"], getFamilyEntries(employee), tab === "personal")}${buildSheetSection("자격증", "training", ["자격증명", "발급기관", "취득일"], getCertificateEntries(employee).map((item) => [item[1], item[2], item[3]]), tab === "training")}${buildSheetSection("상벌사항", "memo", ["상벌구분", "상벌명", "발생일", "사유"], getAwardEntries(employee), tab === "memo")}${buildSheetSection("승급사항", "hire", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], getPromotionEntries(employee), tab === "hire")}${buildSheetSection("발령사항", "assignment", ["발령구분", "발령일", "발령부서", "직급", "직책", "비고"], employee.history.map((item, index) => [index === employee.history.length - 1 ? "입사" : "발령", item[0], deepestDept(employee), employee.grade, employee.title, item[1]]), tab === "assignment")}${buildSheetSection("교육사항", "training", ["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""]), tab === "training")}</div></div>`;
+    const assignmentRows = employee.history.map((item, index) => {
+      const hireRow = index === employee.history.length - 1;
+      return [
+        hireRow ? "입사" : "발령",
+        item[0],
+        hireRow ? hireEmployeePath(employee) : employeePath(employee),
+        hireRow ? employee.hireJobFamily || employee.jobFamily : employee.jobFamily,
+        hireRow ? employee.hireEmployeeType || employee.employeeType : employee.employeeType,
+        hireRow ? employee.hireGrade : employee.grade,
+        employee.title,
+        item[1]
+      ];
+    });
+    const infoPreview = `<div class="codex-sheet-top"><div class="codex-sheet-logo">AUTOPLUS</div><div class="codex-sheet-top-main"><table><tbody><tr><th>부서</th><td>${employeePath(employee)}</td><th>성명</th><td>${employee.name}</td></tr><tr><th>직급</th><td>${employee.grade}</td><th>직책</th><td>${employee.title}</td></tr><tr><th>주민등록번호</th><td>${employee.residentNumber || getResidentNumber(employee)}</td><th>입사일</th><td>${employee.hireDate}</td></tr><tr><th>생년월일</th><td>${employee.birthDate}</td><th>직군</th><td>${employee.jobFamily}</td></tr><tr><th>직전승급일</th><td>${employee.assignmentDate}</td><th>근속년수</th><td>${Math.floor(Number(employee.careerMonths || 0) / 12)}년 ${Number(employee.careerMonths || 0) % 12}개월</td></tr><tr><th>내선번호</th><td>${getCompanyPhone(employee)}</td><th>결혼여부</th><td>${employee.maritalStatus || getMaritalStatus(employee)}</td></tr><tr><th>연락처</th><td>${employee.phone}</td><th>E-Mail</th><td>${getCompanyEmail(employee)}</td></tr><tr><th>그룹웨어 ID</th><td>${employee.groupwareId || getGroupwareId(employee)}</td><th>개인 이메일</th><td>${getPersonalEmail(employee)}</td></tr><tr><th>주소</th><td colspan="3">${getAddress(employee)}</td></tr></tbody></table></div></div>`;
+    const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"><div class="codex-record-sheet-head"><div class="codex-record-sheet-title">인사정보카드</div></div>${infoPreview}${buildSheetSection("학력사항", "education", ["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""]), tab === "education")}${buildSheetSection("경력사항", "career", ["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""]), tab === "career")}${buildSheetSection("가족사항", "family", ["관계", "성명", "생년월일"], getFamilyEntries(employee), tab === "family")}${buildSheetSection("자격증", "certificate", ["자격증명", "발급기관", "취득일"], getCertificateEntries(employee).map((item) => [item[1], item[2], item[3]]), tab === "certificate")}${buildSheetSection("상벌사항", "award", ["상벌구분", "상벌명", "발생일", "사유"], getAwardEntries(employee), tab === "award")}${buildSheetSection("승급사항", "promotion", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], getPromotionEntries(employee), tab === "promotion")}${buildSheetSection("발령사항", "assignment", ["발령구분", "발령일", "발령부서", "직군", "직원유형", "직급", "직책", "비고"], assignmentRows, tab === "assignment")}${buildSheetSection("교육사항", "training", ["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""]), tab === "training")}</div></div>`;
     refs.cardWrap.innerHTML = `<div class="codex-record-shell" style="grid-template-columns:minmax(0,1fr)">${detail}</div>`;
   }
   function renderQuickRecord() {
@@ -667,6 +692,10 @@
       personal: "신상정보 상세",
       education: "학력사항 상세",
       career: "경력사항 상세",
+      family: "가족사항 상세",
+      certificate: "자격증 상세",
+      award: "상벌사항 상세",
+      promotion: "승급사항 상세",
       assignment: "발령사항 상세",
       training: "교육사항 상세",
       memo: "메모 상세"
@@ -681,9 +710,8 @@
       ]),
       hire: sheetFieldTable([
         ["입사일", employee.hireDate, "입사시 직급", employee.hireGrade],
-        ["입사시 직원유형", employee.hireEmployeeType || employee.employeeType, "입사시 직군", employee.hireJobFamily || employee.jobFamily],
         ["인정경력", `${employee.careerMonths}개월`, "초기 배치일", employee.assignmentDate],
-        ["계약기간", employee.employeeType === "계약직" ? employee.contractPeriod || "-" : "-", "", ""]
+        ["계약기간", employee.employeeType === "계약직" ? employee.contractPeriod || "-" : "-", "그룹웨어 ID", employee.groupwareId || getGroupwareId(employee)]
       ]),
       personal: sheetFieldTable([
         ["주민등록번호", employee.residentNumber || getResidentNumber(employee), "결혼여부", employee.maritalStatus || getMaritalStatus(employee)],
@@ -693,7 +721,14 @@
       ]),
       education: previewGrid(["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""])),
       career: previewGrid(["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""])),
-      assignment: previewGrid(["발령구분", "발령일", "발령부서", "직급", "직책", "비고"], employee.history.map((item, index) => [index === employee.history.length - 1 ? "입사" : "발령", item[0], deepestDept(employee), employee.grade, employee.title, item[1]])),
+      family: previewGrid(["관계", "성명", "생년월일"], getFamilyEntries(employee)),
+      certificate: previewGrid(["자격증명", "발급기관", "취득일"], getCertificateEntries(employee).map((item) => [item[1], item[2], item[3]])),
+      award: previewGrid(["상벌구분", "상벌명", "발생일", "사유"], getAwardEntries(employee)),
+      promotion: previewGrid(["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], getPromotionEntries(employee)),
+      assignment: previewGrid(["발령구분", "발령일", "발령부서", "직군", "직원유형", "직급", "직책", "비고"], employee.history.map((item, index) => {
+        const hireRow = index === employee.history.length - 1;
+        return [hireRow ? "입사" : "발령", item[0], hireRow ? hireEmployeePath(employee) : employeePath(employee), hireRow ? employee.hireJobFamily || employee.jobFamily : employee.jobFamily, hireRow ? employee.hireEmployeeType || employee.employeeType : employee.employeeType, hireRow ? employee.hireGrade : employee.grade, employee.title, item[1]];
+      })),
       training: previewGrid(["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""])),
       memo: `<div class="codex-sheet-memo">${employee.memo}</div>`
     };
@@ -793,7 +828,7 @@
   }
   function fillEditForm() {
     const employee = selectedEmployee();
-    editModal.body.innerHTML = `<div class="codex-form-grid"><label><span>사원번호</span><input value="${employee.id}" readonly></label><label><span>사원명</span><input id="editName" value="${employee.name}"></label><label><span>그룹웨어 ID</span><input id="editGroupwareId" value="${employee.groupwareId || getGroupwareId(employee)}"></label><label><span>주민등록번호</span><input id="editResidentNumber" value="${employee.residentNumber || getResidentNumber(employee)}"></label><label><span>본부</span><input id="editHq" value="${employee.hq || ""}"></label><label><span>실</span><input id="editOffice" value="${employee.office || ""}"></label><label><span>팀</span><input id="editTeam" value="${employee.team || ""}"></label><label><span>파트</span><input id="editPart" value="${employee.part || ""}"></label><label><span>직급</span><select id="editGrade">${gradeCodes.map((item) => `<option value="${item}" ${item === employee.grade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직책</span><select id="editTitle">${titleCodes.map((item) => `<option value="${item}" ${item === employee.title ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직군</span><select id="editFamily">${familyCodes.map((item) => `<option value="${item}" ${item === employee.jobFamily ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직원유형</span><select id="editEmployeeType">${employeeTypes.map((item) => `<option value="${item}" ${item === employee.employeeType ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>계약기간</span><input id="editContractPeriod" value="${employee.contractPeriod || ""}"></label><label><span>재직상태</span><select id="editStatus"><option ${employee.status === "재직" ? "selected" : ""}>재직</option><option ${employee.status === "휴직" ? "selected" : ""}>휴직</option></select></label><label><span>생년월일</span><input id="editBirthDate" value="${employee.birthDate}"></label><label><span>입사일</span><input id="editHireDate" value="${employee.hireDate}"></label><label><span>결혼여부</span><select id="editMaritalStatus"><option ${((employee.maritalStatus || getMaritalStatus(employee)) === "미혼") ? "selected" : ""}>미혼</option><option ${((employee.maritalStatus || getMaritalStatus(employee)) === "기혼") ? "selected" : ""}>기혼</option></select></label><label><span>연락처</span><input id="editPhone" value="${employee.phone}"></label><label><span>회사 전화</span><input id="editCompanyPhone" value="${getCompanyPhone(employee)}"></label><label><span>회사 이메일</span><input id="editCompanyEmail" value="${getCompanyEmail(employee)}"></label><label><span>개인 이메일</span><input id="editPersonalEmail" value="${getPersonalEmail(employee)}"></label><label class="span-2"><span>주소</span><input id="editAddress" value="${getAddress(employee)}"></label><label><span>최종학력</span><input id="editEducation" value="${employee.education}"></label><label><span>입사시 직급</span><select id="editHireGrade">${gradeCodes.map((item) => `<option value="${item}" ${item === employee.hireGrade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>입사시 직원유형</span><select id="editHireEmployeeType">${employeeTypes.map((item) => `<option value="${item}" ${(item === (employee.hireEmployeeType || employee.employeeType)) ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>입사시 직군</span><select id="editHireFamily">${familyCodes.map((item) => `<option value="${item}" ${(item === (employee.hireJobFamily || employee.jobFamily)) ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>입사시 본부</span><input id="editHireHq" value="${employee.hireHq || employee.hq || ""}"></label><label><span>입사시 실</span><input id="editHireOffice" value="${employee.hireOffice || employee.office || ""}"></label><label><span>입사시 팀</span><input id="editHireTeam" value="${employee.hireTeam || employee.team || ""}"></label><label><span>입사시 파트</span><input id="editHirePart" value="${employee.hirePart || employee.part || ""}"></label><label><span>인정경력(개월)</span><input id="editCareerMonths" value="${employee.careerMonths}"></label><label><span>부서배정일</span><input id="editAssignmentDate" value="${employee.assignmentDate}"></label><label class="span-2"><span>인사 메모</span><textarea id="editMemo" rows="3">${employee.memo}</textarea></label></div>`;
+    editModal.body.innerHTML = `<div class="codex-form-grid"><label><span>사원번호</span><input value="${employee.id}" readonly></label><label><span>사원명</span><input id="editName" value="${employee.name}"></label><label><span>그룹웨어 ID</span><input id="editGroupwareId" value="${employee.groupwareId || getGroupwareId(employee)}"></label><label><span>주민등록번호</span><input id="editResidentNumber" value="${employee.residentNumber || getResidentNumber(employee)}"></label><label><span>본부</span><input id="editHq" value="${employee.hq || ""}"></label><label><span>실</span><input id="editOffice" value="${employee.office || ""}"></label><label><span>팀</span><input id="editTeam" value="${employee.team || ""}"></label><label><span>파트</span><input id="editPart" value="${employee.part || ""}"></label><label><span>직급</span><select id="editGrade">${gradeCodes.map((item) => `<option value="${item}" ${item === employee.grade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직책</span><select id="editTitle">${titleCodes.map((item) => `<option value="${item}" ${item === employee.title ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직군</span><select id="editFamily">${familyCodes.map((item) => `<option value="${item}" ${item === employee.jobFamily ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직원유형</span><select id="editEmployeeType">${employeeTypes.map((item) => `<option value="${item}" ${item === employee.employeeType ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>계약기간</span><input id="editContractPeriod" value="${employee.contractPeriod || ""}"></label><label><span>재직상태</span><select id="editStatus"><option ${employee.status === "재직" ? "selected" : ""}>재직</option><option ${employee.status === "휴직" ? "selected" : ""}>휴직</option></select></label><label><span>생년월일</span><input id="editBirthDate" value="${employee.birthDate}"></label><label><span>입사일</span><input id="editHireDate" value="${employee.hireDate}"></label><label><span>결혼여부</span><select id="editMaritalStatus"><option ${((employee.maritalStatus || getMaritalStatus(employee)) === "미혼") ? "selected" : ""}>미혼</option><option ${((employee.maritalStatus || getMaritalStatus(employee)) === "기혼") ? "selected" : ""}>기혼</option></select></label><label><span>연락처</span><input id="editPhone" value="${employee.phone}"></label><label><span>회사 전화</span><input id="editCompanyPhone" value="${getCompanyPhone(employee)}"></label><label><span>회사 이메일</span><input id="editCompanyEmail" value="${getCompanyEmail(employee)}"></label><label><span>개인 이메일</span><input id="editPersonalEmail" value="${getPersonalEmail(employee)}"></label><label class="span-2"><span>주소</span><input id="editAddress" value="${getAddress(employee)}"></label><label><span>최종학력</span><input id="editEducation" value="${employee.education}"></label><label><span>입사시 직급</span><select id="editHireGrade">${gradeCodes.map((item) => `<option value="${item}" ${item === employee.hireGrade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>입사시 직원유형</span><select id="editHireEmployeeType">${employeeTypes.map((item) => `<option value="${item}" ${(item === (employee.hireEmployeeType || employee.employeeType)) ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>입사시 직군</span><select id="editHireFamily">${familyCodes.map((item) => `<option value="${item}" ${(item === (employee.hireJobFamily || employee.jobFamily)) ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>입사시 본부</span><input id="editHireHq" value="${employee.hireHq || employee.hq || ""}"></label><label><span>입사시 실</span><input id="editHireOffice" value="${employee.hireOffice || employee.office || ""}"></label><label><span>입사시 팀</span><input id="editHireTeam" value="${employee.hireTeam || employee.team || ""}"></label><label><span>입사시 파트</span><input id="editHirePart" value="${employee.hirePart || employee.part || ""}"></label><label><span>인정경력(개월)</span><input id="editCareerMonths" value="${employee.careerMonths}"></label><label><span>부서배정일</span><input id="editAssignmentDate" value="${employee.assignmentDate}"></label><label class="span-2"><span>인사 메모</span><textarea id="editMemo" rows="3">${employee.memo}</textarea></label><label class="span-2"><span>학력사항 입력</span><textarea id="editEducationItems" rows="4" placeholder="학교명 | 재학기간 | 전공 | 비고&#10;예: 한양대학교 | 2012.03 ~ 2016.02 | 경영학과 | 졸업">${serializeRows(getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""]))}</textarea></label><label class="span-2"><span>경력사항 입력</span><textarea id="editCareerItems" rows="4" placeholder="회사명 | 기간 | 담당업무 | 비고&#10;예: 오토플러스 | 2020.01 ~ 2021.12 | 영업관리 | 인정경력">${serializeRows(getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""]))}</textarea></label><label class="span-2"><span>가족사항 입력</span><textarea id="editFamilyItems" rows="3" placeholder="관계 | 성명 | 생년월일&#10;예: 배우자 | 김서연 | 1990.05.12">${serializeRows(getFamilyEntries(employee))}</textarea></label><label class="span-2"><span>자격증 입력</span><textarea id="editCertificateItems" rows="3" placeholder="자격증명 | 발급기관 | 취득일&#10;예: 직무 자격 | 한국산업인력공단 | 2022.06.01">${serializeRows(getCertificateEntries(employee).map((item) => [item[1], item[2], item[3]]))}</textarea></label><label class="span-2"><span>상벌사항 입력</span><textarea id="editAwardItems" rows="3" placeholder="상벌구분 | 상벌명 | 발생일 | 사유&#10;예: 포상 | 우수사원 | 2024.12.31 | 성과 기여">${serializeRows(getAwardEntries(employee))}</textarea></label><label class="span-2"><span>승급사항 입력</span><textarea id="editPromotionItems" rows="3" placeholder="승급구분 | 승급일 | 소속부서 | 직급 | 직책 | 비고">${serializeRows(getPromotionEntries(employee))}</textarea></label><label class="span-2"><span>발령사항 입력</span><textarea id="editHistoryItems" rows="4" placeholder="발령일 | 비고&#10;예: 2026.04.13 | 신규 등록">${serializeRows(employee.history)}</textarea></label><label class="span-2"><span>교육사항 입력</span><textarea id="editTrainingItems" rows="3" placeholder="교육명 | 시작일 | 종료일 | 교육기관 | 비고">${serializeRows(employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""]))}</textarea></label><div class="codex-note-box span-2"><strong>여러 줄 입력 방법</strong>한 줄이 1건입니다. 각 값은 `|` 로 구분해 입력하면 되고, 줄을 추가할수록 인사기록카드 상세보기와 표 영역에 그대로 반영됩니다.</div></div>`;
     bindContractToggle("#editEmployeeType", "#editContractPeriod");
   }
   function saveCreate() {
@@ -876,6 +911,14 @@
     employee.hirePart = $("#editHirePart").value.trim();
     employee.careerMonths = $("#editCareerMonths").value;
     employee.assignmentDate = $("#editAssignmentDate").value;
+    employee.educationItems = parseRows($("#editEducationItems").value, 4).map((row) => [row[1], `${row[0]} ${row[2]}`.trim()]);
+    employee.careerHistory = parseRows($("#editCareerItems").value, 4).map((row) => [row[1], row[2] || row[3] || ""]);
+    employee.familyItems = parseRows($("#editFamilyItems").value, 3);
+    employee.certificateItems = parseRows($("#editCertificateItems").value, 3).map((row) => ["자격증", row[0], row[1], row[2]]);
+    employee.awardItems = parseRows($("#editAwardItems").value, 4);
+    employee.promotionItems = parseRows($("#editPromotionItems").value, 6);
+    employee.history = parseRows($("#editHistoryItems").value, 2);
+    employee.educationHistory = parseRows($("#editTrainingItems").value, 5).map((row) => [row[1], row[0]]);
     employee.memo = $("#editMemo").value;
     employee.history.unshift(["2026.04.13", "인사기록카드 수정"]);
     editModal.close();
