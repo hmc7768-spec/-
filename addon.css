@@ -312,6 +312,10 @@
 .codex-org-employee {
   width: 102px;
   text-align: center;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
 }
 
 .codex-org-avatar {
@@ -339,6 +343,21 @@
   font-size: 12px;
   color: #7b8798;
   line-height: 1.5;
+}
+
+.codex-link-button {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.codex-link-button:hover {
+  text-decoration: underline;
+}
+
+.codex-id-button:hover {
+  color: #4f8ef7 !important;
 }
 
 .codex-tree-section {

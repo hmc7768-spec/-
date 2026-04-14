@@ -252,7 +252,7 @@
       .map((node) => {
         const members = node.members.filter(matchesEmployee);
         if (!members.length) return "";
-        return `<div class="codex-org-section"><div class="codex-org-section-head"><div><div class="codex-org-section-title">${node.label} <span>${members.length}</span></div><div class="codex-org-section-path">${node.path.join(" > ")}</div></div></div><div class="codex-org-card-grid">${members.map((employee) => `<div class="codex-org-employee"><div class="codex-org-avatar">${employee.name[0]}</div><div class="codex-org-emp-name">${employee.name}</div><div class="codex-org-emp-meta">${employee.grade}</div><div class="codex-org-emp-meta">${employee.title}</div></div>`).join("")}</div></div>`;
+        return `<div class="codex-org-section"><div class="codex-org-section-head"><div><div class="codex-org-section-title">${node.label} <span>${members.length}</span></div><div class="codex-org-section-path">${node.path.join(" > ")}</div></div></div><div class="codex-org-card-grid">${members.map((employee) => `<button type="button" class="codex-org-employee" data-quick-profile="${employee.id}"><div class="codex-org-avatar">${employee.name[0]}</div><div class="codex-org-emp-name">${employee.name}</div><div class="codex-org-emp-meta">${employee.grade}</div><div class="codex-org-emp-meta">${employee.title}</div></button>`).join("")}</div></div>`;
       })
       .filter(Boolean)
       .join("");
@@ -345,7 +345,7 @@
   }
   function renderTable() {
     const tbody = $("tbody", refs.tableWrap);
-    tbody.innerHTML = state.employees.map((employee) => `<tr data-employee-id="${employee.id}"><td><input type="checkbox"></td><td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">${employee.id}</td><td><span class="emp-name">${employee.name}</span></td><td>${deepestDept(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${statusBadge(employee.status)}</td><td><a href="#" data-action="detail" style="font-size:11px;color:#4f8ef7;text-decoration:none">상세보기</a></td></tr>`).join("");
+    tbody.innerHTML = state.employees.map((employee) => `<tr data-employee-id="${employee.id}"><td><input type="checkbox"></td><td><button type="button" class="codex-link-button codex-id-button" data-quick-profile="${employee.id}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">${employee.id}</button></td><td><button type="button" class="codex-link-button emp-name" data-quick-profile="${employee.id}">${employee.name}</button></td><td>${deepestDept(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${statusBadge(employee.status)}</td><td><a href="#" data-action="detail" style="font-size:11px;color:#4f8ef7;text-decoration:none">상세보기</a></td></tr>`).join("");
     $(".hr-table-header div", refs.tableWrap).textContent = `총 ${state.employees.length}명 · 1-${state.employees.length} 표시`;
   }
   function renderOrg() {
@@ -688,6 +688,12 @@
     refs.sideItems[1]?.addEventListener("click", () => showHrView("record"));
     refs.sideItems[2]?.addEventListener("click", () => showHrView("org"));
     document.addEventListener("click", (event) => { const detail = event.target.closest('[data-action="detail"]'); if (detail) { event.preventDefault(); const row = detail.closest("tr"); const id = row?.dataset.employeeId; if (id) { state.selectedId = id; renderRecord(); showHrView("record"); } } });
+    document.addEventListener("click", (event) => {
+      const quickTrigger = event.target.closest("[data-quick-profile]");
+      if (!quickTrigger) return;
+      event.preventDefault();
+      openQuickProfileModal(quickTrigger.dataset.quickProfile);
+    });
     const primaryButton = $(".btn-primary", refs.pageTitle);
     const recordEditButton = document.createElement("button");
     recordEditButton.className = "hr-btn btn-outline codex-hidden";
