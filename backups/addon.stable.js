@@ -277,6 +277,7 @@
   const editModal = buildModal("codexEditModal", "인사기록카드 수정");
   const statsModal = buildModal("codexStatsModal", "인원 현황 상세");
   const quickProfileModal = buildModal("codexQuickProfileModal", "사원 기본정보");
+  const modalStack = [createModal, editModal, statsModal, quickProfileModal];
   quickProfileModal.root.classList.add("codex-quick-modal-wrap");
   quickProfileModal.root.querySelector(".codex-modal").classList.add("codex-quick-modal");
   quickProfileModal.save.textContent = "확인";
@@ -305,6 +306,13 @@
     if (!row) return;
     state.statModalSelection = row.dataset.statEmployee;
     openQuickProfileModal(state.statModalSelection);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const opened = modalStack.filter((modal) => modal.root.classList.contains("open"));
+    const target = opened[opened.length - 1];
+    if (!target) return;
+    target.close();
   });
   function ensurePanels() {
     if (panels.codes && panels.assignment) return;
