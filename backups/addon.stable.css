@@ -610,6 +610,113 @@
   background: #25a18e !important;
 }
 
+.codex-record-sheet {
+  background: #fff;
+  border: 1px solid #dde1ec;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.codex-record-sheet-title {
+  padding: 16px 18px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1e3a5f;
+  border-bottom: 1px solid #dfe6f1;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.codex-sheet-top {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  border-bottom: 1px solid #dfe6f1;
+}
+
+.codex-sheet-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  font-size: 28px;
+  font-weight: 800;
+  color: #2f80ed;
+  border-right: 1px solid #dfe6f1;
+  background: #fbfdff;
+}
+
+.codex-sheet-top-main table,
+.codex-sheet-preview table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.codex-sheet-top-main th,
+.codex-sheet-top-main td,
+.codex-sheet-preview th,
+.codex-sheet-preview td {
+  padding: 10px 12px;
+  border: 1px solid #e3e8f1;
+  font-size: 12px;
+  line-height: 1.5;
+  vertical-align: top;
+}
+
+.codex-sheet-top-main th,
+.codex-sheet-preview th {
+  background: #f5f8fc;
+  font-weight: 700;
+  color: #38506e;
+}
+
+.codex-sheet-top-main td,
+.codex-sheet-preview td {
+  color: #2d3748;
+  background: #fff;
+}
+
+.codex-sheet-section {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  border-top: 1px solid #dfe6f1;
+}
+
+.codex-sheet-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px 10px;
+  background: #f7faff;
+  border-right: 1px solid #dfe6f1;
+  font-size: 15px;
+  font-weight: 700;
+  color: #38506e;
+  text-align: center;
+}
+
+.codex-sheet-detail-btn {
+  border: none;
+  background: transparent;
+  color: #2f80ed;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.codex-sheet-detail-btn:hover {
+  text-decoration: underline;
+}
+
+.codex-sheet-main {
+  min-width: 0;
+}
+
+.codex-sheet-preview {
+  max-height: 132px;
+  overflow: auto;
+}
+
 .codex-quick-profile-hero {
   padding: 18px 20px;
   border: 1px solid #dbe5f2;
@@ -783,6 +890,17 @@
 @media (max-width: 900px) {
   .codex-record-shell-wide {
     grid-template-columns: 1fr;
+  }
+
+  .codex-sheet-top,
+  .codex-sheet-section {
+    grid-template-columns: 1fr;
+  }
+
+  .codex-sheet-logo,
+  .codex-sheet-side {
+    border-right: none;
+    border-bottom: 1px solid #dfe6f1;
   }
 
   .codex-form-grid,
