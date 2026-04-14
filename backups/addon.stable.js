@@ -119,7 +119,7 @@
     { id: "L3", name: "팀", parent: "L2", desc: "실 하위 팀 단위" },
     { id: "L4", name: "파트", parent: "L3", desc: "팀 하위 파트 단위" }
   ];
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", hireStatMode: "quarter" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1 };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const refs = { hrSystem: $("#hrSystem"), evalSystem: $("#evalSystem"), pageTitle: $(".hr-page-title"), searchBar: $('[data-region="searchbar"]'), stats: $('[data-region="stats"]'), tableWrap: $('[data-region="emptable"]'), orgWrap: $("#orgChartWrap"), cardWrap: $("#hrCardGrid"), hrContent: $(".hr-content"), hrSidebar: $(".hr-sidebar"), topItems: $$(".hr-top-item"), sideItems: $$(".hr-sidebar-item"), annoList: $("#annoList") };
@@ -137,20 +137,20 @@
     return state.employees.filter((employee) => {
       const { year, month } = parseDateParts(employee.hireDate);
       if (!year || !month) return false;
-      if (mode === "month") return year === 2024 && month === 2;
-      if (mode === "quarter") return year === 2024 && month >= 1 && month <= 3;
-      if (mode === "half") return year === 2024 && month >= 1 && month <= 6;
-      return year === 2024;
+      if (mode === "month") return year === state.hireStatYear && month === state.hireStatMonth;
+      if (mode === "quarter") return year === state.hireStatYear && month >= ((state.hireStatQuarter - 1) * 3 + 1) && month <= (state.hireStatQuarter * 3);
+      if (mode === "half") return year === state.hireStatYear && month >= (state.hireStatHalf === 1 ? 1 : 7) && month <= (state.hireStatHalf === 1 ? 6 : 12);
+      return year === state.hireStatYear;
     });
   }
   function getHireStatLabel(mode) {
-    if (mode === "month") return "2024년 2월 기준";
-    if (mode === "quarter") return "2024년 1분기 기준";
-    if (mode === "half") return "2024년 상반기 기준";
-    return "2024년 연간 기준";
+    if (mode === "month") return `${state.hireStatYear}년 ${state.hireStatMonth}월 기준`;
+    if (mode === "quarter") return `${state.hireStatYear}년 ${state.hireStatQuarter}분기 기준`;
+    if (mode === "half") return `${state.hireStatYear}년 ${state.hireStatHalf === 1 ? "상반기" : "하반기"} 기준`;
+    return `${state.hireStatYear}년 연간 기준`;
   }
   function renderEmployeeList(items) {
-    return items.length ? `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>직급</th><th>입사일</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${employee.status}</td></tr>`).join("")}</tbody></table>` : `<div class="codex-note-box"><strong>대상자 없음</strong>선택한 조건에 해당하는 대상자가 없습니다.</div>`;
+    return items.length ? `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>직급</th><th>입사일</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${employee.status}</td></tr>`).join("")}</tbody></table>` : `<div class="codex-note-box"><strong>대상자 없음</strong>선택한 조건에 해당하는 대상자가 없습니다.</div>`;
   }
   function getOrgSummary() {
     const map = new Map();
@@ -389,6 +389,14 @@
     if (type === "leave") {
       const items = state.employees.filter((employee) => employee.status !== "재직");
       statsModal.body.innerHTML = `<div class="codex-stack"><div class="codex-note-box"><strong>휴직 중 대상자</strong>현재 휴직 상태로 분류된 사원 목록입니다. 발령입력 또는 기록카드 수정으로 재직상태가 바뀌면 이 목록도 즉시 갱신됩니다.</div>${renderEmployeeList(items)}</div>`;
+      $$("[data-stat-employee]", statsModal.body).forEach((row) => {
+        row.addEventListener("click", () => {
+          state.selectedId = row.dataset.statEmployee;
+          statsModal.close();
+          renderRecord();
+          showHrView("record");
+        });
+      });
       statsModal.open();
       return;
     }
@@ -399,13 +407,49 @@
         { id: "half", label: "반기별" },
         { id: "year", label: "년도별" }
       ];
+      const years = uniqueValues(state.employees.map((employee) => parseDateParts(employee.hireDate).year)).sort((a, b) => b - a);
       const items = getHireStatEmployees(state.hireStatMode);
-      statsModal.body.innerHTML = `<div class="codex-stack"><div class="codex-secondary-actions">${modes.map((mode) => `<button type="button" class="hr-btn ${state.hireStatMode === mode.id ? "btn-primary" : "btn-outline"}" data-hire-mode="${mode.id}">${mode.label}</button>`).join("")}</div><div class="codex-note-box"><strong>신규 입사 대상자</strong>${getHireStatLabel(state.hireStatMode)} 기준 입사자 목록입니다. 월별 / 분기별 / 반기별 / 연도별 기준으로 확인할 수 있습니다.</div>${renderEmployeeList(items)}</div>`;
+      const periodControl = state.hireStatMode === "month"
+        ? `<select id="hireStatMonth">${Array.from({ length: 12 }, (_, index) => index + 1).map((month) => `<option value="${month}" ${month === state.hireStatMonth ? "selected" : ""}>${month}월</option>`).join("")}</select>`
+        : state.hireStatMode === "quarter"
+          ? `<select id="hireStatQuarter">${[1, 2, 3, 4].map((quarter) => `<option value="${quarter}" ${quarter === state.hireStatQuarter ? "selected" : ""}>${quarter}분기</option>`).join("")}</select>`
+          : state.hireStatMode === "half"
+            ? `<select id="hireStatHalf"><option value="1" ${state.hireStatHalf === 1 ? "selected" : ""}>상반기</option><option value="2" ${state.hireStatHalf === 2 ? "selected" : ""}>하반기</option></select>`
+            : "";
+      statsModal.body.innerHTML = `<div class="codex-stack"><div class="codex-secondary-actions">${modes.map((mode) => `<button type="button" class="hr-btn ${state.hireStatMode === mode.id ? "btn-primary" : "btn-outline"}" data-hire-mode="${mode.id}">${mode.label}</button>`).join("")}</div><div class="codex-form-grid"><label><span>기준 연도</span><select id="hireStatYear">${years.map((year) => `<option value="${year}" ${year === state.hireStatYear ? "selected" : ""}>${year}년</option>`).join("")}</select></label><label><span>세부 기준</span>${periodControl || `<input value="연간 기준" readonly>`}</label></div><div class="codex-note-box"><strong>신규 입사 대상자</strong>${getHireStatLabel(state.hireStatMode)} 기준 입사자 목록입니다. 월별 / 분기별 / 반기별 / 년도별 기준으로 직접 선택해 확인할 수 있습니다.</div>${renderEmployeeList(items)}</div>`;
       $$("[data-hire-mode]", statsModal.body).forEach((button) => {
         button.addEventListener("click", () => {
           state.hireStatMode = button.dataset.hireMode;
           renderStats();
           openStatModal("hire");
+        });
+      });
+      $("#hireStatYear", statsModal.body)?.addEventListener("change", (event) => {
+        state.hireStatYear = Number(event.target.value);
+        renderStats();
+        openStatModal("hire");
+      });
+      $("#hireStatMonth", statsModal.body)?.addEventListener("change", (event) => {
+        state.hireStatMonth = Number(event.target.value);
+        renderStats();
+        openStatModal("hire");
+      });
+      $("#hireStatQuarter", statsModal.body)?.addEventListener("change", (event) => {
+        state.hireStatQuarter = Number(event.target.value);
+        renderStats();
+        openStatModal("hire");
+      });
+      $("#hireStatHalf", statsModal.body)?.addEventListener("change", (event) => {
+        state.hireStatHalf = Number(event.target.value);
+        renderStats();
+        openStatModal("hire");
+      });
+      $$("[data-stat-employee]", statsModal.body).forEach((row) => {
+        row.addEventListener("click", () => {
+          state.selectedId = row.dataset.statEmployee;
+          statsModal.close();
+          renderRecord();
+          showHrView("record");
         });
       });
       statsModal.open();
