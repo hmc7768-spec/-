@@ -315,6 +315,15 @@
     });
     syncCreateHireFields();
   }
+  function appendAssignmentDrivenHistory(employee, payload) {
+    const { type, assignDate, reason, nextDept, nextGrade, nextTitle, nextStatus } = payload;
+    employee.history = employee.history || [];
+    employee.promotionItems = employee.promotionItems || [];
+    employee.awardItems = employee.awardItems || [];
+    employee.history.unshift([assignDate, `${type} 반영 - ${reason}`]);
+    employee.promotionItems.unshift([type === "승진" ? "승진" : "인사변동", assignDate, nextDept, nextGrade, nextTitle, reason]);
+    employee.awardItems.unshift([type === "승진" ? "포상" : "인사처리", `${type}${nextStatus === "휴직" ? " / 휴직전환" : ""}`, assignDate, reason]);
+  }
   function getHireStatEmployees(mode) {
     return state.employees.filter((employee) => {
       const { year, month } = parseDateParts(employee.hireDate);
@@ -881,18 +890,34 @@
     $("#assignNextTeam")?.addEventListener("change", () => { syncAssignmentOrgFields(selectedEmployee()); renderAssignmentPreview(); });
     ["#assignNextPart", "#assignNextGrade", "#assignNextTitle", "#assignStatus", "#assignReason", "#assignDate"].forEach((selector) => { $(selector)?.addEventListener("input", renderAssignmentPreview); $(selector)?.addEventListener("change", renderAssignmentPreview); });
     $("#assignPreviewBtn")?.addEventListener("click", renderAssignmentPreview);
-    $("#assignApplyBtn")?.addEventListener("click", () => { const employee = selectedEmployee(); employee.hq = $("#assignNextHq").value || employee.hq; employee.office = $("#assignNextOffice").value || ""; employee.team = $("#assignNextTeam").value || ""; employee.part = $("#assignNextPart").value || ""; employee.grade = $("#assignNextGrade").value; employee.title = $("#assignNextTitle").value; employee.status = $("#assignStatus").value; employee.assignmentDate = $("#assignDate").value || "2026.04.14"; employee.history.unshift([employee.assignmentDate, `${$("#assignType").value} 반영 - ${$("#assignReason").value}`]); renderAll(); showHrView("org"); });
+    $("#assignApplyBtn")?.addEventListener("click", () => {
+      const employee = selectedEmployee();
+      const nextDept = [$("#assignNextHq").value || employee.hq, $("#assignNextOffice").value || "", $("#assignNextTeam").value || "", $("#assignNextPart").value || ""].filter(Boolean).join(" > ");
+      const nextGrade = $("#assignNextGrade").value;
+      const nextTitle = $("#assignNextTitle").value;
+      const nextStatus = $("#assignStatus").value;
+      const assignDate = $("#assignDate").value || "2026.04.14";
+      const assignType = $("#assignType").value;
+      const assignReason = $("#assignReason").value || "조직 운영상 이동";
+      employee.hq = $("#assignNextHq").value || employee.hq;
+      employee.office = $("#assignNextOffice").value || "";
+      employee.team = $("#assignNextTeam").value || "";
+      employee.part = $("#assignNextPart").value || "";
+      employee.grade = nextGrade;
+      employee.title = nextTitle;
+      employee.status = nextStatus;
+      employee.assignmentDate = assignDate;
+      appendAssignmentDrivenHistory(employee, { type: assignType, assignDate, reason: assignReason, nextDept, nextGrade, nextTitle, nextStatus });
+      renderAll();
+      showHrView("org");
+    });
   }
   function fillCreateForm() {
     const educationRows = [["", "", "", ""]];
     const careerRows = [["", "", "", ""]];
     const familyRows = [["", "", ""]];
     const certificateRows = [["", "", ""]];
-    const awardRows = [["", "", "", ""]];
-    const promotionRows = [["", "", "", "", "", ""]];
-    const historyRows = [["2026.04.13", "신규 등록"]];
-    const trainingRows = [["", "", "", "", ""]];
-    createModal.body.innerHTML = `<div class="codex-form-grid"><label><span>사원번호</span><input value="자동생성" readonly></label><label><span>사원명</span><input id="createName"></label><label><span>그룹웨어 ID</span><input id="createGroupwareId" placeholder="예: hong.gildong"></label><label><span>주민등록번호</span><input id="createResidentNumber" placeholder="예: 950101-1******"></label><label><span>본부</span><input id="createHq" value="경영관리본부"></label><label><span>실</span><input id="createOffice" value="경영지원실"></label><label><span>팀</span><input id="createTeam" value="인사팀"></label><label><span>파트</span><input id="createPart"></label><label><span>직급</span><select id="createGrade">${gradeCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>직책</span><select id="createTitle">${titleCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>직군</span><select id="createFamily">${familyCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>직원유형</span><select id="createEmployeeType">${employeeTypes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>입사일</span><input id="createHireDate" value="2026.04.13"></label><label><span>생년월일</span><input id="createBirthDate" value="1995.01.01"></label><label><span>결혼여부</span><select id="createMaritalStatus"><option>미혼</option><option>기혼</option></select></label><label><span>연락처</span><input id="createPhone" value="010-0000-0000"></label><label><span>회사 전화</span><input id="createCompanyPhone" value="02-6200-0000"></label><label><span>회사 이메일</span><input id="createCompanyEmail" placeholder="example@autoplus.co.kr"></label><label><span>개인 이메일</span><input id="createPersonalEmail" placeholder="example@gmail.com"></label><label class="span-2"><span>주소</span><input id="createAddress" value="서울특별시"></label><label><span>최종학력</span><input id="createEducation" value="미입력"></label><label class="codex-disabled-field"><span>입사시 직급</span><input id="createHireGrade" readonly></label><label class="codex-disabled-field"><span>입사시 직원유형</span><input id="createHireEmployeeType" readonly></label><label class="codex-disabled-field"><span>입사시 직군</span><input id="createHireFamily" readonly></label><label class="codex-disabled-field"><span>입사시 본부</span><input id="createHireHq" readonly></label><label class="codex-disabled-field"><span>입사시 실</span><input id="createHireOffice" readonly></label><label class="codex-disabled-field"><span>입사시 팀</span><input id="createHireTeam" readonly></label><label class="codex-disabled-field"><span>입사시 파트</span><input id="createHirePart" readonly></label><label><span>계약기간</span><input id="createContractPeriod" placeholder="계약직인 경우 입력"></label><label><span>인정경력(개월)</span><input id="createCareerMonths" value="0"></label><label><span>부서배정일</span><input id="createAssignmentDate" value="2026.04.13"></label><label class="span-2"><span>인사 메모</span><textarea id="createMemo" rows="3">신규 등록 사원</textarea></label><div class="codex-note-box span-2"><strong>신규입사 기준</strong>입사시 정보는 신규 등록 시 현재 입력한 인사정보를 자동 상속합니다. 별도 수정이 필요하면 저장 후 인사기록카드 수정에서 변경합니다.</div>${repeatableEditorHtml("학력사항", "createEducation", ["학교명", "재학기간", "전공", "비고"], educationRows)}${repeatableEditorHtml("경력사항", "createCareer", ["회사명", "기간", "담당업무", "비고"], careerRows)}${repeatableEditorHtml("가족사항", "createFamilyRows", ["관계", "성명", "생년월일"], familyRows)}${repeatableEditorHtml("자격증", "createCertificate", ["자격증명", "발급기관", "취득일"], certificateRows)}${repeatableEditorHtml("상벌사항", "createAward", ["상벌구분", "상벌명", "발생일", "사유"], awardRows)}${repeatableEditorHtml("승급사항", "createPromotion", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], promotionRows)}${repeatableEditorHtml("발령사항", "createHistory", ["발령일", "비고"], historyRows)}${repeatableEditorHtml("교육사항", "createTraining", ["교육명", "시작일", "종료일", "교육기관", "비고"], trainingRows)}</div>`;
+    createModal.body.innerHTML = `<div class="codex-form-grid"><label><span>사원번호</span><input value="자동생성" readonly></label><label><span>사원명</span><input id="createName"></label><label><span>그룹웨어 ID</span><input id="createGroupwareId" placeholder="예: hong.gildong"></label><label><span>주민등록번호</span><input id="createResidentNumber" placeholder="예: 950101-1******"></label><label><span>본부</span><input id="createHq" value="경영관리본부"></label><label><span>실</span><input id="createOffice" value="경영지원실"></label><label><span>팀</span><input id="createTeam" value="인사팀"></label><label><span>파트</span><input id="createPart"></label><label><span>직급</span><select id="createGrade">${gradeCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>직책</span><select id="createTitle">${titleCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>직군</span><select id="createFamily">${familyCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>직원유형</span><select id="createEmployeeType">${employeeTypes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>입사일</span><input id="createHireDate" value="2026.04.13"></label><label><span>생년월일</span><input id="createBirthDate" value="1995.01.01"></label><label><span>결혼여부</span><select id="createMaritalStatus"><option>미혼</option><option>기혼</option></select></label><label><span>연락처</span><input id="createPhone" value="010-0000-0000"></label><label><span>회사 전화</span><input id="createCompanyPhone" value="02-6200-0000"></label><label><span>회사 이메일</span><input id="createCompanyEmail" placeholder="example@autoplus.co.kr"></label><label><span>개인 이메일</span><input id="createPersonalEmail" placeholder="example@gmail.com"></label><label class="span-2"><span>주소</span><input id="createAddress" value="서울특별시"></label><label><span>최종학력</span><input id="createEducation" value="미입력"></label><label class="codex-disabled-field"><span>입사시 직급</span><input id="createHireGrade" readonly></label><label class="codex-disabled-field"><span>입사시 직원유형</span><input id="createHireEmployeeType" readonly></label><label class="codex-disabled-field"><span>입사시 직군</span><input id="createHireFamily" readonly></label><label class="codex-disabled-field"><span>입사시 본부</span><input id="createHireHq" readonly></label><label class="codex-disabled-field"><span>입사시 실</span><input id="createHireOffice" readonly></label><label class="codex-disabled-field"><span>입사시 팀</span><input id="createHireTeam" readonly></label><label class="codex-disabled-field"><span>입사시 파트</span><input id="createHirePart" readonly></label><label><span>계약기간</span><input id="createContractPeriod" placeholder="계약직인 경우 입력"></label><label><span>인정경력(개월)</span><input id="createCareerMonths" value="0"></label><label><span>부서배정일</span><input id="createAssignmentDate" value="2026.04.13"></label><label class="span-2"><span>인사 메모</span><textarea id="createMemo" rows="3">신규 등록 사원</textarea></label><div class="codex-note-box span-2"><strong>신규입사 기준</strong>입사시 정보는 신규 등록 시 현재 입력한 인사정보를 자동 상속합니다. 별도 수정이 필요하면 저장 후 인사기록카드 수정에서 변경합니다.</div>${repeatableEditorHtml("학력사항", "createEducation", ["학교명", "재학기간", "전공", "비고"], educationRows)}${repeatableEditorHtml("경력사항", "createCareer", ["회사명", "기간", "담당업무", "비고"], careerRows)}${repeatableEditorHtml("가족사항", "createFamilyRows", ["관계", "성명", "생년월일"], familyRows)}${repeatableEditorHtml("자격증", "createCertificate", ["자격증명", "발급기관", "취득일"], certificateRows)}</div>`;
     bindContractToggle("#createEmployeeType", "#createContractPeriod");
     bindRepeatableEditors(createModal.body);
     bindCreateAutoSync();
@@ -947,17 +972,16 @@
       maritalStatus: $("#createMaritalStatus").value,
       hireEmployeeType: $("#createHireEmployeeType").value || $("#createEmployeeType").value,
       hireJobFamily: $("#createHireFamily").value || $("#createFamily").value,
-      history: collectRepeatableRows(createModal.body, "createHistory", 2),
-      educationHistory: collectRepeatableRows(createModal.body, "createTraining", 5).map((row) => [row[1], row[0]]),
+      history: [["2026.04.13", "신규 등록"]],
+      educationHistory: [],
       educationItems: collectRepeatableRows(createModal.body, "createEducation", 4).map((row) => [row[1], `${row[0]} ${row[2]}`.trim()]),
       careerHistory: collectRepeatableRows(createModal.body, "createCareer", 4).map((row) => [row[1], row[2] || row[3] || ""]),
       familyItems: collectRepeatableRows(createModal.body, "createFamilyRows", 3),
       certificateItems: collectRepeatableRows(createModal.body, "createCertificate", 3).map((row) => ["자격증", row[0], row[1], row[2]]),
-      awardItems: collectRepeatableRows(createModal.body, "createAward", 4),
-      promotionItems: collectRepeatableRows(createModal.body, "createPromotion", 6)
+      awardItems: [],
+      promotionItems: [["입사", $("#createHireDate").value || "2026.04.13", [$("#createHireHq").value || $("#createHq").value, $("#createHireOffice").value || $("#createOffice").value, $("#createHireTeam").value || $("#createTeam").value, $("#createHirePart").value || $("#createPart").value].filter(Boolean).join(" > "), $("#createHireGrade").value || $("#createGrade").value, $("#createTitle").value, "신규 입사"]]
     };
     if (!employee.history.length) employee.history = [["2026.04.13", "신규 등록"]];
-    if (!employee.educationHistory.length) employee.educationHistory = [["2026.04", "초기 데이터 생성"]];
     if (!employee.educationItems.length) employee.educationItems = [["2015.03 ~ 2019.02", $("#createEducation").value || "학력 정보 미입력"]];
     if (!employee.careerHistory.length) employee.careerHistory = [["2024.01 ~ 2026.03", "인정경력 산정 전 기본값"]];
     state.employees.unshift(employee);
