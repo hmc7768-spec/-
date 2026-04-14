@@ -16,7 +16,7 @@
     { id: "L3", name: "팀", parent: "L2", desc: "실 하위 팀 단위" },
     { id: "L4", name: "파트", parent: "L3", desc: "팀 하위 파트 단위" }
   ];
-  const state = { employees: employeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0024", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "" };
+  const state = { employees: employeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0024", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade" };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const refs = { hrSystem: $("#hrSystem"), evalSystem: $("#evalSystem"), pageTitle: $(".hr-page-title"), searchBar: $('[data-region="searchbar"]'), stats: $('[data-region="stats"]'), tableWrap: $('[data-region="emptable"]'), orgWrap: $("#orgChartWrap"), cardWrap: $("#hrCardGrid"), hrContent: $(".hr-content"), hrSidebar: $(".hr-sidebar"), topItems: $$(".hr-top-item"), sideItems: $$(".hr-sidebar-item"), annoList: $("#annoList") };
@@ -136,6 +136,37 @@
     renderAll();
     renderCodes();
   }
+  function saveLevelCode() {
+    const level = levelDefs.find((item) => item.id === state.currentLevelSelection);
+    if (!level) return;
+    level.name = $("#levelName")?.value?.trim() || level.name;
+    level.parent = $("#levelParent")?.value?.trim() || level.parent;
+    level.desc = $("#levelDesc")?.value?.trim() || level.desc;
+    renderCodes();
+  }
+  function currentMetaArray() {
+    if (state.currentMetaSelection === "grade") return gradeCodes;
+    if (state.currentMetaSelection === "title") return titleCodes;
+    if (state.currentMetaSelection === "family") return familyCodes;
+    return employeeTypes;
+  }
+  function currentMetaLabel() {
+    if (state.currentMetaSelection === "grade") return "직급";
+    if (state.currentMetaSelection === "title") return "직책";
+    if (state.currentMetaSelection === "family") return "직군";
+    return "직원유형";
+  }
+  function saveMetaCode() {
+    const nextValues = ($("#metaValues")?.value || "")
+      .split(/\r?\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (!nextValues.length) return;
+    const target = currentMetaArray();
+    target.splice(0, target.length, ...nextValues);
+    renderAll();
+    renderCodes();
+  }
   function renderRecord() {
     const employee = selectedEmployee();
     refs.cardWrap.innerHTML = `<div class="codex-record-shell"><div class="codex-record-summary"><div class="codex-record-card"><div class="codex-record-head"><div class="hr-profile-avatar">${employee.name[0]}</div><div class="hr-card-name">${employee.name}</div><div class="codex-record-subtitle">${employee.id} · ${employee.grade} · ${employee.title}</div><div class="codex-record-subtitle">${employeePath(employee)}</div></div><div class="codex-record-block"><h5>기본 정보</h5><div class="codex-record-list"><div class="codex-record-item"><div class="label">생년월일</div><div class="value">${employee.birthDate}</div></div><div class="codex-record-item"><div class="label">입사일</div><div class="value">${employee.hireDate}</div></div><div class="codex-record-item"><div class="label">연락처</div><div class="value">${employee.phone}</div></div><div class="codex-record-item"><div class="label">최종학력</div><div class="value">${employee.education}</div></div></div></div><div class="codex-record-block"><h5>조직 정보</h5><div class="codex-record-list"><div class="codex-record-item"><div class="label">본부</div><div class="value">${employee.hq || "-"}</div></div><div class="codex-record-item"><div class="label">실</div><div class="value">${employee.office || "-"}</div></div><div class="codex-record-item"><div class="label">팀</div><div class="value">${employee.team || "-"}</div></div><div class="codex-record-item"><div class="label">파트</div><div class="value">${employee.part || "-"}</div></div></div></div><div class="codex-record-block"><h5>인사 속성</h5><div class="codex-record-list"><div class="codex-record-item"><div class="label">직군</div><div class="value">${employee.jobFamily}</div></div><div class="codex-record-item"><div class="label">직원유형</div><div class="value">${employee.employeeType}</div></div><div class="codex-record-item"><div class="label">재직상태</div><div class="value">${statusBadge(employee.status)}</div></div><div class="codex-record-item"><div class="label">계약기간</div><div class="value">${employee.employeeType === "계약직" ? employee.contractPeriod || "-" : "-"}</div></div></div></div></div><div class="codex-record-detail"><div class="codex-record-section"><h4>인사기본정보</h4><div class="codex-record-grid"><div class="codex-record-field"><span class="label">사원번호</span><span class="value">${employee.id}</span></div><div class="codex-record-field"><span class="label">직급</span><span class="value">${employee.grade}</span></div><div class="codex-record-field"><span class="label">직책</span><span class="value">${employee.title}</span></div><div class="codex-record-field"><span class="label">입사시 직급</span><span class="value">${employee.hireGrade}</span></div><div class="codex-record-field"><span class="label">인정경력</span><span class="value">${employee.careerMonths}개월</span></div><div class="codex-record-field"><span class="label">부서배정일</span><span class="value">${employee.assignmentDate}</span></div></div></div><div class="codex-record-section"><h4>발령이력</h4><div class="hr-timeline">${employee.history.map((item, index) => `<div class="hr-timeline-item"><div class="hr-timeline-dot" style="${index === 1 ? "background:#7c5cfc" : index === 2 ? "background:#38d9a9" : ""}"></div><div class="hr-timeline-date">${item[0]}</div><div class="hr-timeline-text">${item[1]}</div></div>`).join("")}</div></div><div class="codex-record-section"><h4>자격/교육이력</h4><div class="hr-timeline">${employee.educationHistory.map((item) => `<div class="hr-timeline-item"><div class="hr-timeline-dot" style="background:#f5a623"></div><div class="hr-timeline-date">${item[0]}</div><div class="hr-timeline-text">${item[1]}</div></div>`).join("")}</div></div><div class="codex-record-section"><h4>인사 메모</h4><div class="codex-record-note">${employee.memo}</div></div></div></div>`;
@@ -151,9 +182,10 @@
       if (selected && selected.key !== state.currentCodeSelection) state.currentCodeSelection = selected.key;
       panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>조직코드 수정</h3><div style="font-size:11px;color:#9095b0">현황 화면에서 진입한 후 조직 구조를 검토하고 수정하는 화면</div></div>${codeActions}</div><div class="codex-grid-2" style="margin-top:16px"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">조직코드 목록</h4><table><thead><tr><th>선택</th><th>레벨</th><th>조직</th><th>상위조직</th><th>인원수</th></tr></thead><tbody>${orgSummary.map((item) => `<tr class="${item.key === state.currentCodeSelection ? "codex-table-selected" : ""}"><td><button type="button" class="hr-btn btn-outline" data-org-select="${item.key}">선택</button></td><td>${item.level}</td><td>${item.name}</td><td>${item.parent}</td><td>${item.count}명</td></tr>`).join("")}</tbody></table></div><div class="codex-stack"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">조직코드 편집</h4>${selected ? `<div class="codex-form-grid"><label><span>레벨</span><input value="${selected.level}" readonly></label><label><span>상위조직</span><input value="${selected.parent}" readonly></label><label class="span-2"><span>조직명</span><input id="codeOrgName" value="${selected.name}"></label><label><span>본부</span><input value="${selected.hq || "-"}" readonly></label><label><span>실</span><input value="${selected.office || "-"}" readonly></label><label><span>팀</span><input value="${selected.team || "-"}" readonly></label><label><span>파트</span><input value="${selected.part || "-"}" readonly></label></div><div class="codex-modal-actions"><button type="button" class="hr-btn btn-primary" id="codeOrgSaveBtn">코드 저장</button></div>` : `<div class="codex-note-box">수정할 조직을 선택하세요.</div>`}</div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">본부 기준 조직도 미리보기</h4>${selected ? renderOrgBoard(selected.hq) : `<div class="codex-note-box">선택된 조직이 없습니다.</div>`}</div></div></div>`;
     } else if (state.currentCodeView === "level-edit") {
-      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>레벨관리</h3><div style="font-size:11px;color:#9095b0">조직 레벨 정의와 상하위 관계를 관리하는 화면</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">레벨 목록</h4>${levelDefs.map((level) => `<div class="codex-note-box"><strong>${level.id} · ${level.name}</strong>상위레벨: ${level.parent} · ${level.desc}</div>`).join("")}</div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">수정 화면 안내</h4><div class="codex-note-box"><strong>향후 편집 항목</strong>레벨명, 조직구분명, 상위레벨, 설명, 사용여부</div><div class="codex-note-box"><strong>적용 영향</strong>조직도 표시, 조직코드 유효성, 신규등록/발령입력 선택 구조에 공통 반영</div></div></div>`;
+      const selectedLevel = levelDefs.find((item) => item.id === state.currentLevelSelection) || levelDefs[0];
+      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>레벨관리</h3><div style="font-size:11px;color:#9095b0">조직 레벨 정의와 상하위 관계를 관리하는 화면</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">레벨 목록</h4>${levelDefs.map((level) => `<div class="codex-note-box ${level.id === state.currentLevelSelection ? "codex-note-selected" : ""}"><strong>${level.id} · ${level.name}</strong>상위레벨: ${level.parent} · ${level.desc}<div style="margin-top:8px"><button type="button" class="hr-btn btn-outline" data-level-select="${level.id}">선택</button></div></div>`).join("")}</div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">레벨 편집</h4><div class="codex-form-grid"><label><span>레벨 ID</span><input value="${selectedLevel.id}" readonly></label><label><span>상위레벨</span><input id="levelParent" value="${selectedLevel.parent}"></label><label><span>레벨명</span><input id="levelName" value="${selectedLevel.name}"></label><label><span>설명</span><input id="levelDesc" value="${selectedLevel.desc}"></label></div><div class="codex-modal-actions"><button type="button" class="hr-btn btn-primary" id="levelSaveBtn">레벨 저장</button></div><div class="codex-note-box"><strong>적용 영향</strong>조직도 표시, 조직코드 유효성, 신규등록/발령입력 선택 구조에 공통 반영</div></div></div>`;
     } else {
-      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>기준코드 수정</h3><div style="font-size:11px;color:#9095b0">직급 / 직책 / 직군 / 직원유형 기준을 관리하는 화면</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-stack"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">직급 코드</h4><div class="codex-note-box">${gradeCodes.join(" / ")}</div></div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">직책 코드</h4><div class="codex-note-box">${titleCodes.join(" / ")}</div></div></div><div class="codex-stack"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">직군 코드</h4><div class="codex-note-box">${familyCodes.join(" / ")}</div></div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">직원유형 코드</h4><div class="codex-note-box">${employeeTypes.join(" / ")}</div></div></div></div>`;
+      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>기준코드 수정</h3><div style="font-size:11px;color:#9095b0">직급 / 직책 / 직군 / 직원유형 기준을 관리하는 화면</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">기준코드 분류</h4><div class="codex-stack"><button type="button" class="hr-btn ${state.currentMetaSelection === "grade" ? "btn-primary" : "btn-outline"}" data-meta-select="grade">직급 코드</button><button type="button" class="hr-btn ${state.currentMetaSelection === "title" ? "btn-primary" : "btn-outline"}" data-meta-select="title">직책 코드</button><button type="button" class="hr-btn ${state.currentMetaSelection === "family" ? "btn-primary" : "btn-outline"}" data-meta-select="family">직군 코드</button><button type="button" class="hr-btn ${state.currentMetaSelection === "type" ? "btn-primary" : "btn-outline"}" data-meta-select="type">직원유형 코드</button></div><div class="codex-note-box" style="margin-top:12px"><strong>현재 코드</strong>${currentMetaArray().join(" / ")}</div></div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">${currentMetaLabel()} 편집</h4><label style="display:grid;gap:6px;font-size:12px;color:#6f7e93"><span>한 줄에 하나씩 입력</span><textarea id="metaValues" rows="10">${currentMetaArray().join("\n")}</textarea></label><div class="codex-modal-actions"><button type="button" class="hr-btn btn-primary" id="metaSaveBtn">기준코드 저장</button></div><div class="codex-note-box"><strong>적용 영향</strong>신규등록, 인사기록카드, 발령입력 드롭다운에 즉시 반영</div></div></div>`;
     }
     $$("[data-code-view]", panels.codes).forEach((button) => {
       button.classList.toggle("btn-primary", button.dataset.codeView === state.currentCodeView);
@@ -170,7 +202,21 @@
         renderCodes();
       });
     });
+    $$("[data-level-select]", panels.codes).forEach((button) => {
+      button.addEventListener("click", () => {
+        state.currentLevelSelection = button.dataset.levelSelect;
+        renderCodes();
+      });
+    });
+    $$("[data-meta-select]", panels.codes).forEach((button) => {
+      button.addEventListener("click", () => {
+        state.currentMetaSelection = button.dataset.metaSelect;
+        renderCodes();
+      });
+    });
     $("#codeOrgSaveBtn", panels.codes)?.addEventListener("click", saveOrgCode);
+    $("#levelSaveBtn", panels.codes)?.addEventListener("click", saveLevelCode);
+    $("#metaSaveBtn", panels.codes)?.addEventListener("click", saveMetaCode);
   }
   function renderAssignment() {
     const employee = selectedEmployee();
