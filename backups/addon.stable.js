@@ -158,12 +158,6 @@
     url.searchParams.set("employeeId", state.selectedId);
     window.history.replaceState({}, "", url.toString());
   }
-  function openQuickProfileInNewTab(employeeId) {
-    const url = new URL(window.location.href);
-    url.searchParams.set("view", "quick");
-    url.searchParams.set("employeeId", employeeId);
-    window.open(url.toString(), "_blank");
-  }
   function openRecordInNewTab(employeeId) {
     const url = new URL(window.location.href);
     url.searchParams.set("view", "record");
@@ -266,11 +260,33 @@
   const createModal = buildModal("codexCreateModal", "신규 사원 등록");
   const editModal = buildModal("codexEditModal", "인사기록카드 수정");
   const statsModal = buildModal("codexStatsModal", "인원 현황 상세");
+  const quickProfileModal = buildModal("codexQuickProfileModal", "사원 기본정보");
+  quickProfileModal.save.textContent = "인사기록카드 보기";
+  quickProfileModal.root.querySelector('[data-role="cancel"]').textContent = "닫기";
+  const quickHeadButton = document.createElement("button");
+  quickHeadButton.type = "button";
+  quickHeadButton.className = "hr-btn btn-primary";
+  quickHeadButton.textContent = "인사기록카드 보기";
+  quickProfileModal.root.querySelector(".codex-modal-head").insertBefore(quickHeadButton, quickProfileModal.root.querySelector('[data-role="close"]'));
+  function openQuickProfileModal(employeeId) {
+    const employee = state.employees.find((item) => item.id === employeeId);
+    if (!employee) return;
+    state.selectedId = employee.id;
+    quickProfileModal.body.innerHTML = `<div class="codex-stack"><div class="codex-note-box"><strong>기본 프로필</strong>${employee.name} (${employee.id}) · ${employee.grade} · ${employee.title}<br>${employeePath(employee)}</div><div class="codex-record-section"><h4>기본 인사정보</h4><div class="codex-record-grid"><div class="codex-record-field"><span class="label">직군</span><span class="value">${employee.jobFamily}</span></div><div class="codex-record-field"><span class="label">직원유형</span><span class="value">${employee.employeeType}</span></div><div class="codex-record-field"><span class="label">입사일</span><span class="value">${employee.hireDate}</span></div><div class="codex-record-field"><span class="label">생년월일</span><span class="value">${employee.birthDate}</span></div><div class="codex-record-field"><span class="label">연락처</span><span class="value">${employee.phone}</span></div><div class="codex-record-field"><span class="label">재직상태</span><span class="value">${statusBadge(employee.status)}</span></div><div class="codex-record-field full"><span class="label">최종학력</span><span class="value">${employee.education}</span></div></div></div><div class="codex-note-box"><strong>안내</strong>이 창은 통계 상세에서 빠르게 확인하는 기본정보 전용 팝업입니다. 경력, 발령이력, 교육이력 등 전체 내용은 우측 상단의 인사기록카드 보기 버튼을 통해 확인합니다.</div></div>`;
+    const goRecord = () => {
+      quickProfileModal.close();
+      statsModal.close();
+      showHrView("record");
+    };
+    quickProfileModal.save.onclick = goRecord;
+    quickHeadButton.onclick = goRecord;
+    quickProfileModal.open();
+  }
   statsModal.body.addEventListener("click", (event) => {
     const row = event.target.closest("[data-stat-employee]");
     if (!row) return;
     state.statModalSelection = row.dataset.statEmployee;
-    openQuickProfileInNewTab(state.statModalSelection);
+    openQuickProfileModal(state.statModalSelection);
   });
   function ensurePanels() {
     if (panels.codes && panels.assignment) return;
@@ -410,10 +426,10 @@
     renderCodes();
   }
   function openStatModal(type) {
-    statsModal.save.textContent = "상세 탭 열기";
+    statsModal.save.textContent = "기본정보 상세";
     statsModal.save.onclick = () => {
       if (!state.statModalSelection) return;
-      openQuickProfileInNewTab(state.statModalSelection);
+      openQuickProfileModal(state.statModalSelection);
     };
     if (type === "leave") {
       const items = state.employees.filter((employee) => employee.status !== "재직");
