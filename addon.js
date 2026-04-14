@@ -494,7 +494,7 @@
     }
     state.orgExpandedKeys = state.orgExpandedKeys.filter((item) => item !== key || item === "ROOT");
   }
-  function expandOrgAncestors(key) {
+  function expandOrgAncestors(key, includeSelf = false) {
     if (!key || key === "ROOT") {
       setOrgExpanded("ROOT", true);
       return;
@@ -504,7 +504,7 @@
     if (hq) setOrgExpanded(["L1", hq, "", "", ""].join("|"), true);
     if (office) setOrgExpanded(["L2", hq, office, "", ""].join("|"), true);
     if (team) setOrgExpanded(["L3", hq, office, team, ""].join("|"), true);
-    if (part) setOrgExpanded(["L4", hq, office, team, part].join("|"), true);
+    if (includeSelf && part) setOrgExpanded(["L4", hq, office, team, part].join("|"), true);
   }
   function renderOrgBoard(hqFilter = "") {
     const { root, nodeMap } = buildOrgExplorerData();
@@ -524,7 +524,7 @@
       })
       .filter(Boolean)
       .join("");
-    expandOrgAncestors(selected.key);
+    expandOrgAncestors(selected.key, false);
     const renderTreeNode = (node) => {
       const selectedClass = node.key === state.currentOrgNode ? " selected" : "";
       const expanded = isOrgExpanded(node.key);
@@ -636,7 +636,7 @@
     if (state.currentOrgNode === "ROOT") {
       state.currentOrgNode = getEmployeeNodeKey(selectedEmployee());
     }
-    expandOrgAncestors(state.currentOrgNode);
+    expandOrgAncestors(state.currentOrgNode, false);
     refs.orgWrap.innerHTML = renderOrgBoard();
     $$("[data-org-toggle]", refs.orgWrap).forEach((button) => {
       button.addEventListener("click", (event) => {
@@ -650,7 +650,7 @@
     $$("[data-org-node]", refs.orgWrap).forEach((button) => {
       button.addEventListener("click", () => {
         state.currentOrgNode = button.dataset.orgNode;
-        expandOrgAncestors(state.currentOrgNode);
+        expandOrgAncestors(state.currentOrgNode, true);
         renderOrg();
       });
     });
