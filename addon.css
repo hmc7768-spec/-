@@ -1065,6 +1065,36 @@
   opacity: 0.45;
 }
 
+.codex-anno-detail {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.codex-anno-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.codex-anno-key {
+  font-size: 10px;
+  line-height: 1.5;
+  color: #9db0d8;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.codex-anno-value {
+  font-size: 11px;
+  line-height: 1.6;
+  color: #d6ddee;
+  word-break: keep-all;
+}
+
 @media (max-width: 900px) {
   .codex-record-shell-wide {
     grid-template-columns: 1fr;
