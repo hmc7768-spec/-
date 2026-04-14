@@ -1,7 +1,7 @@
 ﻿(function () {
   const employeeSeed = [
     { id: "EMP-0024", name: "김지원", hq: "경영관리본부", office: "경영지원실", team: "인사팀", part: "", grade: "대리", hireGrade: "사원", title: "팀장", jobFamily: "관리", employeeType: "정규직", contractPeriod: "", birthDate: "1992.05.14", hireDate: "2021.03.02", phone: "010-4521-7788", education: "한양대학교 컴퓨터공학과", status: "재직", careerMonths: "24", assignmentDate: "2024.01.01", memo: "인사기획 및 제도 운영 담당", history: [["2024.01.01", "인사팀 대리 승진"], ["2022.07.01", "경영기획팀 → 인사팀 이동"], ["2021.03.02", "입사 (인사팀 사원)"]], educationHistory: [["2023.08", "인사관리 실무교육 이수"], ["2022.03", "직무교육 이수 (40h)"]] },
-    { id: "EMP-0031", name: "이승훈", hq: "영업본부", office: "영업본부 직속", team: "김포지점", part: "김포지점 판매파트", grade: "과장", hireGrade: "대리", title: "지점장", jobFamily: "영업(판매)", employeeType: "정규직", contractPeriod: "", birthDate: "1988.09.10", hireDate: "2018.07.15", phone: "010-2213-8932", education: "국민대학교 경영학과", status: "재직", careerMonths: "48", assignmentDate: "2023.03.01", memo: "김포지점 판매 운영 총괄", history: [["2023.03.01", "김포지점 판매파트 배치"], ["2021.01.01", "광주지점 → 김포지점 이동"], ["2018.07.15", "입사 (영업본부)"]], educationHistory: [["2024.01", "영업관리 리더십 과정"], ["2022.09", "성과평가 과정 이수"]] },
+    { id: "EMP-0031", name: "이승훈", hq: "영업본부", office: "영업본부 직속", team: "김포지점", part: "김포지점 판매파트", grade: "과장", hireGrade: "대리", title: "지점장", jobFamily: "영업(판매)", employeeType: "정규직", contractPeriod: "", birthDate: "1988.09.10", hireDate: "2018.07.15", retireDate: "2025.02.28", phone: "010-2213-8932", education: "국민대학교 경영학과", status: "퇴직", careerMonths: "48", assignmentDate: "2023.03.01", memo: "김포지점 판매 운영 총괄", history: [["2025.02.28", "퇴직 처리"], ["2023.03.01", "김포지점 판매파트 배치"], ["2021.01.01", "광주지점 → 김포지점 이동"], ["2018.07.15", "입사 (영업본부)"]], educationHistory: [["2024.01", "영업관리 리더십 과정"], ["2022.09", "성과평가 과정 이수"]] },
     { id: "EMP-0045", name: "박민서", hq: "경영관리본부", office: "디지털사업실", team: "서비스기획팀", part: "UX파트", grade: "사원", hireGrade: "사원", title: "파트장", jobFamily: "관리(성과)", employeeType: "계약직", contractPeriod: "2026.01.01 ~ 2026.12.31", birthDate: "1997.11.21", hireDate: "2023.01.09", phone: "010-7211-4452", education: "서울여자대학교 시각디자인과", status: "휴직", leaveType: "육아휴직", leaveStartDate: "2026.02.01", leaveEndDate: "2026.07.31", careerMonths: "8", assignmentDate: "2026.02.01", memo: "서비스 UX 개선 프로젝트 참여", history: [["2026.02.01", "육아휴직 전환"], ["2024.06.01", "UX파트 배치"], ["2023.01.09", "입사 (서비스기획팀)"]], educationHistory: [["2024.02", "UX 리서치 교육"], ["2023.10", "서비스기획 워크숍"]], awardItems: [["인사처리", "육아휴직", "2026.02.01", "육아휴직 승인"]] },
     { id: "EMP-0012", name: "최현우", hq: "서비스본부", office: "오토케어사업실", team: "신차물류팀", part: "용인물류", grade: "차장", hireGrade: "과장", title: "팀장", jobFamily: "물류", employeeType: "정규직", contractPeriod: "", birthDate: "1985.01.03", hireDate: "2015.04.20", phone: "010-8121-1189", education: "인하대학교 물류학과", status: "재직", careerMonths: "60", assignmentDate: "2022.02.01", memo: "수도권 물류센터 운영 담당", history: [["2022.02.01", "용인물류 배치"], ["2019.01.01", "탁송팀 → 신차물류팀 이동"], ["2015.04.20", "입사 (오토케어사업실)"]], educationHistory: [["2023.11", "물류관리사"], ["2021.06", "현장안전교육 이수"]] },
     { id: "EMP-0067", name: "정다은", hq: "BPO사업본부", office: "금융사업실", team: "반납운영팀", part: "", grade: "사원", hireGrade: "사원", title: "팀장", jobFamily: "관리", employeeType: "정규직", contractPeriod: "", birthDate: "1999.07.09", hireDate: "2024.02.26", phone: "010-9831-6721", education: "경희대학교 경제학과", status: "재직", careerMonths: "3", assignmentDate: "2024.02.26", memo: "반납 프로세스 운영 지원", history: [["2024.02.26", "입사 (반납운영팀)"]], educationHistory: [["2024.03", "금융상품 운영교육"]] }
@@ -148,7 +148,7 @@
     { id: "L3", name: "팀", parent: "L2", desc: "실 하위 팀 단위" },
     { id: "L4", name: "파트", parent: "L3", desc: "팀 하위 파트 단위" }
   ];
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", directoryRetireDateFrom: "", directoryRetireDateTo: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const refs = { hrSystem: $("#hrSystem"), evalSystem: $("#evalSystem"), pageTitle: $(".hr-page-title"), searchBar: $('[data-region="searchbar"]'), stats: $('[data-region="stats"]'), tableWrap: $('[data-region="emptable"]'), orgWrap: $("#orgChartWrap"), cardWrap: $("#hrCardGrid"), hrContent: $(".hr-content"), hrSidebar: $(".hr-sidebar"), topItems: $$(".hr-top-item"), sideItems: $$(".hr-sidebar-item"), annoList: $("#annoList") };
@@ -429,19 +429,25 @@
   }
   function getDirectoryFilteredEmployees() {
     const keyword = state.directorySearchText.trim().toLowerCase();
-    return state.employees.filter((employee) => {
+    const scopedEmployees = state.directoryStatus === "퇴직" ? state.employees.filter((employee) => employee.status === "퇴직") : state.employees.filter((employee) => employee.status !== "퇴직");
+    return scopedEmployees.filter((employee) => {
       const dept = deepestDept(employee);
       const deptPath = employeePath(employee);
       const hireDateValue = Number((employee.hireDate || "").replace(/\D/g, ""));
       const hireDateFrom = Number((state.directoryHireDateFrom || "").replace(/\D/g, ""));
       const hireDateTo = Number((state.directoryHireDateTo || "").replace(/\D/g, ""));
+      const retireDateValue = Number((employee.retireDate || "").replace(/\D/g, ""));
+      const retireDateFrom = Number((state.directoryRetireDateFrom || "").replace(/\D/g, ""));
+      const retireDateTo = Number((state.directoryRetireDateTo || "").replace(/\D/g, ""));
       const textMatched = !keyword || [employee.id, employee.name, dept, deptPath, employee.grade, employee.title, getCompanyEmail(employee), employee.phone].filter(Boolean).join(" ").toLowerCase().includes(keyword);
       const deptMatched = !state.directoryDept.length || state.directoryDept.some((item) => deptPath.includes(item) || dept === item || employee.hq === item || employee.office === item || employee.team === item || employee.part === item);
       const gradeMatched = !state.directoryGrade.length || state.directoryGrade.includes(employee.grade);
       const statusMatched = !state.directoryStatus || employee.status === state.directoryStatus;
       const hireDateFromMatched = !hireDateFrom || (hireDateValue && hireDateValue >= hireDateFrom);
       const hireDateToMatched = !hireDateTo || (hireDateValue && hireDateValue <= hireDateTo);
-      return textMatched && deptMatched && gradeMatched && statusMatched && hireDateFromMatched && hireDateToMatched;
+      const retireDateFromMatched = !retireDateFrom || (retireDateValue && retireDateValue >= retireDateFrom);
+      const retireDateToMatched = !retireDateTo || (retireDateValue && retireDateValue <= retireDateTo);
+      return textMatched && deptMatched && gradeMatched && statusMatched && hireDateFromMatched && hireDateToMatched && retireDateFromMatched && retireDateToMatched;
     });
   }
   function chipHtml(items, type) {
@@ -455,6 +461,13 @@
     if (digits.length <= 4) return digits;
     if (digits.length <= 6) return `${digits.slice(0, 4)}.${digits.slice(4)}`;
     return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8)}`;
+  }
+  function completeDateInput(value) {
+    const digits = (value || "").replace(/\D/g, "").slice(0, 8);
+    if (!digits) return "";
+    if (digits.length <= 4) return `${digits.slice(0, 4)}.01.01`;
+    if (digits.length <= 6) return `${digits.slice(0, 4)}.${digits.slice(4, 6).padEnd(2, "0")}.01`;
+    return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8).padEnd(2, "0")}`;
   }
   function getDeptSuggestions() {
     const query = state.directoryDeptQuery.trim().toLowerCase();
@@ -503,7 +516,7 @@
   function renderDirectorySearchBar(focusField = "") {
     const deptSuggestions = getDeptSuggestions();
     const gradeSuggestions = getGradeSuggestions();
-    refs.searchBar.innerHTML = `<div class="codex-directory-search-main"><input id="directorySearchInput" class="hr-search-input" placeholder="사원번호, 성명, 부서, 직급, 이메일, 연락처 검색" value="${state.directorySearchText}" style="flex:1"><button type="button" class="hr-btn btn-outline codex-search-toggle ${state.directoryAdvancedOpen ? "is-open" : ""}" id="directoryDetailToggle">상세검색</button><button type="button" class="hr-btn btn-primary" id="directorySearchSubmit">검색</button><button type="button" class="hr-btn btn-outline" id="directorySearchReset">검색 초기화</button></div>${state.directoryAdvancedOpen ? `<div class="codex-directory-search-advanced"><label class="codex-search-field"><span>입사일</span><div class="codex-date-range"><input id="directoryHireDateFrom" class="hr-search-input" placeholder="YYYY.MM.DD" value="${state.directoryHireDateFrom}"><span>~</span><input id="directoryHireDateTo" class="hr-search-input" placeholder="YYYY.MM.DD" value="${state.directoryHireDateTo}"></div></label><label class="codex-search-field codex-search-field-multi"><span>부서</span><div class="codex-search-input-wrap"><input id="directoryDeptInput" class="hr-search-input" placeholder="부서명 입력 후 Enter" value="${state.directoryDeptQuery}"><div id="directoryDeptSuggestions" class="codex-search-overlay">${suggestionListHtml(deptSuggestions, "dept")}</div></div>${chipHtml(state.directoryDept, "dept")}</label><label class="codex-search-field codex-search-field-multi"><span>직급</span><div class="codex-search-input-wrap"><input id="directoryGradeInput" class="hr-search-input" placeholder="직급 입력 후 Enter" value="${state.directoryGradeQuery}"><div id="directoryGradeSuggestions" class="codex-search-overlay">${suggestionListHtml(gradeSuggestions, "grade")}</div></div>${chipHtml(state.directoryGrade, "grade")}</label><label class="codex-search-field"><span>재직상태</span><select id="directoryStatusFilter" class="hr-filter-select"><option value="">전체</option><option value="재직" ${state.directoryStatus === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${state.directoryStatus === "휴직" ? "selected" : ""}>휴직</option></select></label></div>` : ""}`;
+    refs.searchBar.innerHTML = `<div class="codex-directory-search-main"><input id="directorySearchInput" class="hr-search-input" placeholder="사원번호, 성명, 부서, 직급, 이메일, 연락처 검색" value="${state.directorySearchText}" style="flex:1"><button type="button" class="hr-btn btn-outline codex-search-toggle ${state.directoryAdvancedOpen ? "is-open" : ""}" id="directoryDetailToggle">상세검색</button><button type="button" class="hr-btn btn-primary" id="directorySearchSubmit">검색</button><button type="button" class="hr-btn btn-outline" id="directorySearchReset">검색 초기화</button></div>${state.directoryAdvancedOpen ? `<div class="codex-directory-search-advanced"><label class="codex-search-field"><span>입사일</span><div class="codex-date-range"><input id="directoryHireDateFrom" class="hr-search-input" placeholder="YYYYMMDD" value="${state.directoryHireDateFrom}"><span>~</span><input id="directoryHireDateTo" class="hr-search-input" placeholder="YYYYMMDD" value="${state.directoryHireDateTo}"></div></label><label class="codex-search-field"><span>퇴사일</span><div class="codex-date-range"><input id="directoryRetireDateFrom" class="hr-search-input" placeholder="YYYYMMDD" value="${state.directoryRetireDateFrom || ""}"><span>~</span><input id="directoryRetireDateTo" class="hr-search-input" placeholder="YYYYMMDD" value="${state.directoryRetireDateTo || ""}"></div></label><label class="codex-search-field codex-search-field-multi"><span>부서</span><div class="codex-search-input-wrap"><input id="directoryDeptInput" class="hr-search-input" placeholder="부서명 입력 후 Enter" value="${state.directoryDeptQuery}"><div id="directoryDeptSuggestions" class="codex-search-overlay">${suggestionListHtml(deptSuggestions, "dept")}</div></div>${chipHtml(state.directoryDept, "dept")}</label><label class="codex-search-field codex-search-field-multi"><span>직급</span><div class="codex-search-input-wrap"><input id="directoryGradeInput" class="hr-search-input" placeholder="직급 입력 후 Enter" value="${state.directoryGradeQuery}"><div id="directoryGradeSuggestions" class="codex-search-overlay">${suggestionListHtml(gradeSuggestions, "grade")}</div></div>${chipHtml(state.directoryGrade, "grade")}</label><label class="codex-search-field"><span>재직상태</span><select id="directoryStatusFilter" class="hr-filter-select"><option value="">전체</option><option value="재직" ${state.directoryStatus === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${state.directoryStatus === "휴직" ? "selected" : ""}>휴직</option><option value="퇴직" ${state.directoryStatus === "퇴직" ? "selected" : ""}>퇴직</option></select></label></div>` : ""}`;
     $("#directoryDetailToggle", refs.searchBar)?.addEventListener("click", () => {
       state.directoryAdvancedOpen = !state.directoryAdvancedOpen;
       renderDirectorySearchBar();
@@ -519,9 +532,33 @@
       state.directoryHireDateFrom = formatDateInput(event.target.value);
       event.target.value = state.directoryHireDateFrom;
     });
+    $("#directoryHireDateFrom", refs.searchBar)?.addEventListener("blur", (event) => {
+      state.directoryHireDateFrom = completeDateInput(event.target.value);
+      event.target.value = state.directoryHireDateFrom;
+    });
     $("#directoryHireDateTo", refs.searchBar)?.addEventListener("input", (event) => {
       state.directoryHireDateTo = formatDateInput(event.target.value);
       event.target.value = state.directoryHireDateTo;
+    });
+    $("#directoryHireDateTo", refs.searchBar)?.addEventListener("blur", (event) => {
+      state.directoryHireDateTo = completeDateInput(event.target.value);
+      event.target.value = state.directoryHireDateTo;
+    });
+    $("#directoryRetireDateFrom", refs.searchBar)?.addEventListener("input", (event) => {
+      state.directoryRetireDateFrom = formatDateInput(event.target.value);
+      event.target.value = state.directoryRetireDateFrom;
+    });
+    $("#directoryRetireDateFrom", refs.searchBar)?.addEventListener("blur", (event) => {
+      state.directoryRetireDateFrom = completeDateInput(event.target.value);
+      event.target.value = state.directoryRetireDateFrom;
+    });
+    $("#directoryRetireDateTo", refs.searchBar)?.addEventListener("input", (event) => {
+      state.directoryRetireDateTo = formatDateInput(event.target.value);
+      event.target.value = state.directoryRetireDateTo;
+    });
+    $("#directoryRetireDateTo", refs.searchBar)?.addEventListener("blur", (event) => {
+      state.directoryRetireDateTo = completeDateInput(event.target.value);
+      event.target.value = state.directoryRetireDateTo;
     });
     $("#directoryDeptInput", refs.searchBar)?.addEventListener("input", (event) => {
       state.directoryDeptQuery = event.target.value;
@@ -546,6 +583,11 @@
     });
     bindSuggestionButtons();
     $("#directorySearchSubmit", refs.searchBar)?.addEventListener("click", () => {
+      state.directoryHireDateFrom = completeDateInput(state.directoryHireDateFrom);
+      state.directoryHireDateTo = completeDateInput(state.directoryHireDateTo);
+      state.directoryRetireDateFrom = completeDateInput(state.directoryRetireDateFrom || "");
+      state.directoryRetireDateTo = completeDateInput(state.directoryRetireDateTo || "");
+      renderDirectorySearchBar();
       renderTable();
     });
     $("#directorySearchReset", refs.searchBar)?.addEventListener("click", () => {
@@ -557,6 +599,8 @@
       state.directoryStatus = "";
       state.directoryHireDateFrom = "";
       state.directoryHireDateTo = "";
+      state.directoryRetireDateFrom = "";
+      state.directoryRetireDateTo = "";
       state.directoryAdvancedOpen = false;
       renderDirectorySearchBar();
       renderTable();
@@ -1454,7 +1498,7 @@
         searchbar: {
           title: "사원 검색 및 조건 필터",
           desc: "사원명부 조회 조건 입력 영역으로 검색어와 조건값에 따라 하단 목록이 즉시 갱신된다.",
-          detail: [["입력 데이터", "사번, 성명, 조직명, 직급, 재직상태 등"], ["처리 로직", "조회 실행 시 목록, 총 건수, 통계 하위 조건을 함께 재계산"], ["연계", "사원명부 테이블, 통계 카드, 기본정보 팝업"], ["검토 포인트", "검색어와 조직 변경 후 행 수/총건수가 일치해야 함"]]
+          detail: [["입력 데이터", "통합검색어, 입사일/퇴사일 기간, 부서 다중토큰, 직급 다중토큰, 재직상태"], ["처리 로직", "기본 목록은 퇴직 제외, 재직상태를 퇴직으로 선택한 경우에만 퇴직자 검색 포함, 날짜는 불완전 입력값 자동완성"], ["연계", "사원명부 테이블, 통계 카드, 기본정보 팝업"], ["검토 포인트", "토큰 입력/추천검색어/퇴직상태 선택 후 결과 건수가 정확해야 함"]]
         },
         stats: {
           title: "인사 현황 요약 통계",
