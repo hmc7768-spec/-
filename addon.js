@@ -163,6 +163,7 @@
   }
   function deepestDept(employee) { return employee.part || employee.team || employee.office || employee.hq; }
   function selectedEmployee() { return state.employees.find((employee) => employee.id === state.selectedId) || state.employees[0]; }
+  if (state.currentOrgNode === "ROOT") state.currentOrgNode = getEmployeeNodeKey(selectedEmployee());
   function statusBadge(status) { return `<span class="status-badge ${status === "재직" ? "status-active" : "status-leave"}">${status}</span>`; }
   function parseDateParts(value) {
     const parts = (value || "").split(".");
@@ -633,9 +634,6 @@
     $(".hr-table-header div", refs.tableWrap).textContent = `총 ${state.employees.length}명 · 1-${state.employees.length} 표시`;
   }
   function renderOrg() {
-    if (state.currentOrgNode === "ROOT") {
-      state.currentOrgNode = getEmployeeNodeKey(selectedEmployee());
-    }
     expandOrgAncestors(state.currentOrgNode, false);
     refs.orgWrap.innerHTML = renderOrgBoard();
     $$("[data-org-toggle]", refs.orgWrap).forEach((button) => {
