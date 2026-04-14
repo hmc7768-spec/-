@@ -477,7 +477,7 @@
       if (!state.directoryGrade.includes(normalized)) state.directoryGrade = [...state.directoryGrade, normalized];
       state.directoryGradeQuery = "";
     }
-    renderDirectorySearchBar();
+    renderDirectorySearchBar(type === "dept" ? "directoryDeptInput" : "directoryGradeInput");
   }
   function bindSuggestionButtons() {
     $$("[data-suggestion-type]", refs.searchBar).forEach((button) => {
@@ -500,10 +500,10 @@
     target.innerHTML = suggestionListHtml(items, type);
     bindSuggestionButtons();
   }
-  function renderDirectorySearchBar() {
+  function renderDirectorySearchBar(focusField = "") {
     const deptSuggestions = getDeptSuggestions();
     const gradeSuggestions = getGradeSuggestions();
-    refs.searchBar.innerHTML = `<div class="codex-directory-search-main"><input id="directorySearchInput" class="hr-search-input" placeholder="사원번호, 성명, 부서, 직급, 이메일, 연락처 검색" value="${state.directorySearchText}" style="flex:1"><button type="button" class="hr-btn btn-outline codex-search-toggle ${state.directoryAdvancedOpen ? "is-open" : ""}" id="directoryDetailToggle">상세검색</button><button type="button" class="hr-btn btn-primary" id="directorySearchSubmit">검색</button><button type="button" class="hr-btn btn-outline" id="directorySearchReset">검색 초기화</button></div>${state.directoryAdvancedOpen ? `<div class="codex-directory-search-advanced"><label><span>입사일</span><div class="codex-date-range"><input id="directoryHireDateFrom" class="hr-search-input" placeholder="YYYY.MM.DD" value="${state.directoryHireDateFrom}"><span>~</span><input id="directoryHireDateTo" class="hr-search-input" placeholder="YYYY.MM.DD" value="${state.directoryHireDateTo}"></div></label><label><span>부서</span>${chipHtml(state.directoryDept, "dept")}<input id="directoryDeptInput" class="hr-search-input" placeholder="부서명 입력 후 Enter" value="${state.directoryDeptQuery}"><div id="directoryDeptSuggestions">${suggestionListHtml(deptSuggestions, "dept")}</div></label><label><span>직급</span>${chipHtml(state.directoryGrade, "grade")}<input id="directoryGradeInput" class="hr-search-input" placeholder="직급 입력 후 Enter" value="${state.directoryGradeQuery}"><div id="directoryGradeSuggestions">${suggestionListHtml(gradeSuggestions, "grade")}</div></label><label><span>재직상태</span><select id="directoryStatusFilter" class="hr-filter-select"><option value="">전체</option><option value="재직" ${state.directoryStatus === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${state.directoryStatus === "휴직" ? "selected" : ""}>휴직</option></select></label></div>` : ""}`;
+    refs.searchBar.innerHTML = `<div class="codex-directory-search-main"><input id="directorySearchInput" class="hr-search-input" placeholder="사원번호, 성명, 부서, 직급, 이메일, 연락처 검색" value="${state.directorySearchText}" style="flex:1"><button type="button" class="hr-btn btn-outline codex-search-toggle ${state.directoryAdvancedOpen ? "is-open" : ""}" id="directoryDetailToggle">상세검색</button><button type="button" class="hr-btn btn-primary" id="directorySearchSubmit">검색</button><button type="button" class="hr-btn btn-outline" id="directorySearchReset">검색 초기화</button></div>${state.directoryAdvancedOpen ? `<div class="codex-directory-search-advanced"><label><span>입사일</span><div class="codex-date-range"><input id="directoryHireDateFrom" class="hr-search-input" placeholder="YYYY.MM.DD" value="${state.directoryHireDateFrom}"><span>~</span><input id="directoryHireDateTo" class="hr-search-input" placeholder="YYYY.MM.DD" value="${state.directoryHireDateTo}"></div></label><label><span>부서</span><input id="directoryDeptInput" class="hr-search-input" placeholder="부서명 입력 후 Enter" value="${state.directoryDeptQuery}"><div id="directoryDeptSuggestions">${suggestionListHtml(deptSuggestions, "dept")}</div>${chipHtml(state.directoryDept, "dept")}</label><label><span>직급</span><input id="directoryGradeInput" class="hr-search-input" placeholder="직급 입력 후 Enter" value="${state.directoryGradeQuery}"><div id="directoryGradeSuggestions">${suggestionListHtml(gradeSuggestions, "grade")}</div>${chipHtml(state.directoryGrade, "grade")}</label><label><span>재직상태</span><select id="directoryStatusFilter" class="hr-filter-select"><option value="">전체</option><option value="재직" ${state.directoryStatus === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${state.directoryStatus === "휴직" ? "selected" : ""}>휴직</option></select></label></div>` : ""}`;
     $("#directoryDetailToggle", refs.searchBar)?.addEventListener("click", () => {
       state.directoryAdvancedOpen = !state.directoryAdvancedOpen;
       renderDirectorySearchBar();
@@ -561,6 +561,16 @@
       renderDirectorySearchBar();
       renderTable();
     });
+    if (focusField) {
+      const target = $("#" + focusField, refs.searchBar);
+      if (target) {
+        requestAnimationFrame(() => {
+          target.focus();
+          const len = target.value.length;
+          target.setSelectionRange?.(len, len);
+        });
+      }
+    }
   }
   function getOrgSummary() {
     const map = new Map();
