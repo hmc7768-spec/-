@@ -148,7 +148,7 @@
     { id: "L3", name: "팀", parent: "L2", desc: "실 하위 팀 단위" },
     { id: "L4", name: "파트", parent: "L3", desc: "팀 하위 파트 단위" }
   ];
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: "", directoryGrade: "", directoryStatus: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const refs = { hrSystem: $("#hrSystem"), evalSystem: $("#evalSystem"), pageTitle: $(".hr-page-title"), searchBar: $('[data-region="searchbar"]'), stats: $('[data-region="stats"]'), tableWrap: $('[data-region="emptable"]'), orgWrap: $("#orgChartWrap"), cardWrap: $("#hrCardGrid"), hrContent: $(".hr-content"), hrSidebar: $(".hr-sidebar"), topItems: $$(".hr-top-item"), sideItems: $$(".hr-sidebar-item"), annoList: $("#annoList") };
@@ -432,16 +432,51 @@
     return state.employees.filter((employee) => {
       const dept = deepestDept(employee);
       const deptPath = employeePath(employee);
+      const hireDateValue = Number((employee.hireDate || "").replace(/\D/g, ""));
+      const hireDateFrom = Number((state.directoryHireDateFrom || "").replace(/\D/g, ""));
+      const hireDateTo = Number((state.directoryHireDateTo || "").replace(/\D/g, ""));
       const textMatched = !keyword || [employee.id, employee.name, dept, deptPath, employee.grade, employee.title, getCompanyEmail(employee), employee.phone].filter(Boolean).join(" ").toLowerCase().includes(keyword);
-      const deptMatched = !state.directoryDept || deptPath === state.directoryDept || dept === state.directoryDept;
-      const gradeMatched = !state.directoryGrade || employee.grade === state.directoryGrade;
+      const deptMatched = !state.directoryDept.length || state.directoryDept.some((item) => deptPath.includes(item) || dept === item || employee.hq === item || employee.office === item || employee.team === item || employee.part === item);
+      const gradeMatched = !state.directoryGrade.length || state.directoryGrade.includes(employee.grade);
       const statusMatched = !state.directoryStatus || employee.status === state.directoryStatus;
-      return textMatched && deptMatched && gradeMatched && statusMatched;
+      const hireDateFromMatched = !hireDateFrom || (hireDateValue && hireDateValue >= hireDateFrom);
+      const hireDateToMatched = !hireDateTo || (hireDateValue && hireDateValue <= hireDateTo);
+      return textMatched && deptMatched && gradeMatched && statusMatched && hireDateFromMatched && hireDateToMatched;
     });
   }
+  function chipHtml(items, type) {
+    return items.length ? `<div class="codex-chip-input-row">${items.map((item) => `<button type="button" class="codex-chip-item" data-chip-remove="${type}" data-chip-value="${item}">${item}<span>×</span></button>`).join("")}</div>` : "";
+  }
+  function suggestionListHtml(items, type) {
+    return items.length ? `<div class="codex-search-suggestions">${items.map((item) => `<button type="button" class="codex-search-suggestion" data-suggestion-type="${type}" data-suggestion-value="${item}">${item}</button>`).join("")}</div>` : "";
+  }
+  function getDeptSuggestions() {
+    const query = state.directoryDeptQuery.trim().toLowerCase();
+    if (!query) return [];
+    const values = uniqueValues(state.employees.flatMap((employee) => [employee.hq, employee.office, employee.team, employee.part, employeePath(employee)]).filter(Boolean));
+    return values.filter((item) => item.toLowerCase().includes(query) && !state.directoryDept.includes(item)).slice(0, 8);
+  }
+  function getGradeSuggestions() {
+    const query = state.directoryGradeQuery.trim().toLowerCase();
+    if (!query) return [];
+    return gradeCodes.filter((item) => item.toLowerCase().includes(query) && !state.directoryGrade.includes(item)).slice(0, 8);
+  }
+  function addSearchChip(type, value) {
+    const normalized = (value || "").trim();
+    if (!normalized) return;
+    if (type === "dept") {
+      if (!state.directoryDept.includes(normalized)) state.directoryDept = [...state.directoryDept, normalized];
+      state.directoryDeptQuery = "";
+    } else {
+      if (!state.directoryGrade.includes(normalized)) state.directoryGrade = [...state.directoryGrade, normalized];
+      state.directoryGradeQuery = "";
+    }
+    renderDirectorySearchBar();
+  }
   function renderDirectorySearchBar() {
-    const deptOptions = uniqueValues(state.employees.map((employee) => employeePath(employee) || deepestDept(employee))).sort((a, b) => a.localeCompare(b, "ko"));
-    refs.searchBar.innerHTML = `<div class="codex-directory-search-main"><input id="directorySearchInput" class="hr-search-input" placeholder="사원번호, 성명, 부서, 직급, 이메일, 연락처 검색" value="${state.directorySearchText}" style="flex:1"><button type="button" class="hr-btn btn-outline codex-search-toggle ${state.directoryAdvancedOpen ? "is-open" : ""}" id="directoryDetailToggle">상세검색</button><button type="button" class="hr-btn btn-primary" id="directorySearchSubmit">검색</button><button type="button" class="hr-btn btn-outline" id="directorySearchReset">검색 초기화</button></div>${state.directoryAdvancedOpen ? `<div class="codex-directory-search-advanced"><label><span>부서</span><select id="directoryDeptFilter" class="hr-filter-select"><option value="">전체</option>${deptOptions.map((item) => `<option value="${item}" ${item === state.directoryDept ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직급</span><select id="directoryGradeFilter" class="hr-filter-select"><option value="">전체</option>${gradeCodes.map((item) => `<option value="${item}" ${item === state.directoryGrade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>재직상태</span><select id="directoryStatusFilter" class="hr-filter-select"><option value="">전체</option><option value="재직" ${state.directoryStatus === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${state.directoryStatus === "휴직" ? "selected" : ""}>휴직</option></select></label></div>` : ""}`;
+    const deptSuggestions = getDeptSuggestions();
+    const gradeSuggestions = getGradeSuggestions();
+    refs.searchBar.innerHTML = `<div class="codex-directory-search-main"><input id="directorySearchInput" class="hr-search-input" placeholder="사원번호, 성명, 부서, 직급, 이메일, 연락처 검색" value="${state.directorySearchText}" style="flex:1"><button type="button" class="hr-btn btn-outline codex-search-toggle ${state.directoryAdvancedOpen ? "is-open" : ""}" id="directoryDetailToggle">상세검색</button><button type="button" class="hr-btn btn-primary" id="directorySearchSubmit">검색</button><button type="button" class="hr-btn btn-outline" id="directorySearchReset">검색 초기화</button></div>${state.directoryAdvancedOpen ? `<div class="codex-directory-search-advanced"><label><span>입사일</span><div class="codex-date-range"><input id="directoryHireDateFrom" class="hr-search-input" placeholder="YYYY.MM.DD" value="${state.directoryHireDateFrom}"><span>~</span><input id="directoryHireDateTo" class="hr-search-input" placeholder="YYYY.MM.DD" value="${state.directoryHireDateTo}"></div></label><label><span>부서</span>${chipHtml(state.directoryDept, "dept")}<input id="directoryDeptInput" class="hr-search-input" placeholder="부서명 입력 후 Enter" value="${state.directoryDeptQuery}">${suggestionListHtml(deptSuggestions, "dept")}</label><label><span>직급</span>${chipHtml(state.directoryGrade, "grade")}<input id="directoryGradeInput" class="hr-search-input" placeholder="직급 입력 후 Enter" value="${state.directoryGradeQuery}">${suggestionListHtml(gradeSuggestions, "grade")}</label><label><span>재직상태</span><select id="directoryStatusFilter" class="hr-filter-select"><option value="">전체</option><option value="재직" ${state.directoryStatus === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${state.directoryStatus === "휴직" ? "selected" : ""}>휴직</option></select></label></div>` : ""}`;
     $("#directoryDetailToggle", refs.searchBar)?.addEventListener("click", () => {
       state.directoryAdvancedOpen = !state.directoryAdvancedOpen;
       renderDirectorySearchBar();
@@ -453,23 +488,57 @@
       if (event.key !== "Enter") return;
       renderTable();
     });
-    $("#directoryDeptFilter", refs.searchBar)?.addEventListener("change", (event) => {
-      state.directoryDept = event.target.value;
+    $("#directoryHireDateFrom", refs.searchBar)?.addEventListener("input", (event) => {
+      state.directoryHireDateFrom = event.target.value;
     });
-    $("#directoryGradeFilter", refs.searchBar)?.addEventListener("change", (event) => {
-      state.directoryGrade = event.target.value;
+    $("#directoryHireDateTo", refs.searchBar)?.addEventListener("input", (event) => {
+      state.directoryHireDateTo = event.target.value;
+    });
+    $("#directoryDeptInput", refs.searchBar)?.addEventListener("input", (event) => {
+      state.directoryDeptQuery = event.target.value;
+      renderDirectorySearchBar();
+    });
+    $("#directoryDeptInput", refs.searchBar)?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      addSearchChip("dept", getDeptSuggestions()[0] || state.directoryDeptQuery);
+    });
+    $("#directoryGradeInput", refs.searchBar)?.addEventListener("input", (event) => {
+      state.directoryGradeQuery = event.target.value;
+      renderDirectorySearchBar();
+    });
+    $("#directoryGradeInput", refs.searchBar)?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      addSearchChip("grade", getGradeSuggestions()[0] || state.directoryGradeQuery);
     });
     $("#directoryStatusFilter", refs.searchBar)?.addEventListener("change", (event) => {
       state.directoryStatus = event.target.value;
+    });
+    $$("[data-suggestion-type]", refs.searchBar).forEach((button) => {
+      button.addEventListener("click", () => addSearchChip(button.dataset.suggestionType, button.dataset.suggestionValue));
+    });
+    $$("[data-chip-remove]", refs.searchBar).forEach((button) => {
+      button.addEventListener("click", () => {
+        const type = button.dataset.chipRemove;
+        const value = button.dataset.chipValue;
+        if (type === "dept") state.directoryDept = state.directoryDept.filter((item) => item !== value);
+        else state.directoryGrade = state.directoryGrade.filter((item) => item !== value);
+        renderDirectorySearchBar();
+      });
     });
     $("#directorySearchSubmit", refs.searchBar)?.addEventListener("click", () => {
       renderTable();
     });
     $("#directorySearchReset", refs.searchBar)?.addEventListener("click", () => {
       state.directorySearchText = "";
-      state.directoryDept = "";
-      state.directoryGrade = "";
+      state.directoryDept = [];
+      state.directoryDeptQuery = "";
+      state.directoryGrade = [];
+      state.directoryGradeQuery = "";
       state.directoryStatus = "";
+      state.directoryHireDateFrom = "";
+      state.directoryHireDateTo = "";
       state.directoryAdvancedOpen = false;
       renderDirectorySearchBar();
       renderTable();

@@ -1133,14 +1133,76 @@
   gap: 6px;
 }
 
+.codex-date-range {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.codex-date-range span {
+  font-size: 12px;
+  color: #7b8798;
+}
+
 .codex-directory-search-advanced span {
   font-size: 11px;
   font-weight: 700;
   color: #6d7890;
 }
 
+.codex-chip-input-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.codex-chip-item {
+  border: 1px solid #cfe0fb;
+  background: #eff6ff;
+  color: #2c4f88;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.codex-chip-item span {
+  font-size: 11px;
+  color: #6c7b95;
+}
+
+.codex-search-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.codex-search-suggestion {
+  border: 1px solid #dbe3f0;
+  background: #fff;
+  color: #556277;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.codex-search-suggestion:hover {
+  border-color: #4f8ef7;
+  color: #2b5fb8;
+  background: #f4f8ff;
+}
+
 @media (max-width: 900px) {
   .codex-directory-search-advanced {
+    grid-template-columns: 1fr;
+  }
+
+  .codex-date-range {
     grid-template-columns: 1fr;
   }
 
