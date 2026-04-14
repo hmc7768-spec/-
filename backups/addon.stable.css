@@ -626,6 +626,48 @@
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
 }
 
+.codex-sheet-focus-wrap {
+  padding: 14px 16px;
+  border-top: 1px solid #dfe6f1;
+  border-bottom: 1px solid #dfe6f1;
+  background: #fcfdff;
+}
+
+.codex-sheet-focus table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.codex-sheet-focus th,
+.codex-sheet-focus td {
+  padding: 10px 12px;
+  border: 1px solid #e3e8f1;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.codex-sheet-focus th {
+  width: 120px;
+  background: #f5f8fc;
+  font-weight: 700;
+  color: #38506e;
+}
+
+.codex-sheet-focus td {
+  background: #fff;
+  color: #2d3748;
+}
+
+.codex-sheet-memo {
+  min-height: 120px;
+  padding: 14px 16px;
+  border: 1px solid #e3e8f1;
+  background: #fff;
+  font-size: 12px;
+  color: #2d3748;
+  line-height: 1.8;
+}
+
 .codex-sheet-top {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);
@@ -678,6 +720,14 @@
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr);
   border-top: 1px solid #dfe6f1;
+}
+
+.codex-sheet-section.is-active {
+  background: #f8fbff;
+}
+
+.codex-sheet-section.is-active .codex-sheet-side {
+  background: #eef5ff;
 }
 
 .codex-sheet-side {
