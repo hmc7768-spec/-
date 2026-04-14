@@ -148,7 +148,7 @@
     { id: "L3", name: "팀", parent: "L2", desc: "실 하위 팀 단위" },
     { id: "L4", name: "파트", parent: "L3", desc: "팀 하위 파트 단위" }
   ];
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const refs = { hrSystem: $("#hrSystem"), evalSystem: $("#evalSystem"), pageTitle: $(".hr-page-title"), searchBar: $('[data-region="searchbar"]'), stats: $('[data-region="stats"]'), tableWrap: $('[data-region="emptable"]'), orgWrap: $("#orgChartWrap"), cardWrap: $("#hrCardGrid"), hrContent: $(".hr-content"), hrSidebar: $(".hr-sidebar"), topItems: $$(".hr-top-item"), sideItems: $$(".hr-sidebar-item"), annoList: $("#annoList") };
@@ -484,6 +484,28 @@
     });
     return results;
   }
+  function isOrgExpanded(key) {
+    return state.orgExpandedKeys.includes(key);
+  }
+  function setOrgExpanded(key, expanded) {
+    if (expanded) {
+      if (!state.orgExpandedKeys.includes(key)) state.orgExpandedKeys.push(key);
+      return;
+    }
+    state.orgExpandedKeys = state.orgExpandedKeys.filter((item) => item !== key || item === "ROOT");
+  }
+  function expandOrgAncestors(key) {
+    if (!key || key === "ROOT") {
+      setOrgExpanded("ROOT", true);
+      return;
+    }
+    const [, hq = "", office = "", team = "", part = ""] = key.split("|");
+    setOrgExpanded("ROOT", true);
+    if (hq) setOrgExpanded(["L1", hq, "", "", ""].join("|"), true);
+    if (office) setOrgExpanded(["L2", hq, office, "", ""].join("|"), true);
+    if (team) setOrgExpanded(["L3", hq, office, team, ""].join("|"), true);
+    if (part) setOrgExpanded(["L4", hq, office, team, part].join("|"), true);
+  }
   function renderOrgBoard(hqFilter = "") {
     const { root, nodeMap } = buildOrgExplorerData();
     const selected = nodeMap.get(state.currentOrgNode) || root;
@@ -502,9 +524,12 @@
       })
       .filter(Boolean)
       .join("");
+    expandOrgAncestors(selected.key);
     const renderTreeNode = (node) => {
       const selectedClass = node.key === state.currentOrgNode ? " selected" : "";
-      return `<div class="codex-org-tree-node level-${node.level.toLowerCase()}${selectedClass}"><button type="button" class="codex-org-tree-btn" data-org-node="${node.key}"><span class="codex-org-tree-toggle">${node.children.length ? "⊕" : "•"}</span><span class="codex-org-tree-label">${node.label}</span></button>${node.children.length ? `<div class="codex-org-tree-children">${node.children.map(renderTreeNode).join("")}</div>` : ""}</div>`;
+      const expanded = isOrgExpanded(node.key);
+      const hasChildren = node.children.length > 0;
+      return `<div class="codex-org-tree-node level-${node.level.toLowerCase()}${selectedClass}${expanded ? " is-open" : ""}" data-tree-node="${node.key}"><div class="codex-org-tree-row"><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${node.key}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button><button type="button" class="codex-org-tree-btn" data-org-node="${node.key}"><span class="codex-org-tree-label">${node.label}</span></button></div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${node.children.map(renderTreeNode).join("")}</div>` : ""}</div>`;
     };
     return `<div class="codex-org-explorer"><div class="codex-org-side"><div class="codex-org-side-head"><div class="codex-org-side-title">조직도</div><div class="codex-org-side-sub">내 정보</div></div><div class="codex-org-tree">${renderTreeNode(root)}</div></div><div class="codex-org-main"><div class="codex-org-toolbar"><input class="codex-org-search" id="orgSearchInput" placeholder="이름, ID, 소속명, 이메일, 연락처 검색" value="${state.orgSearch}"><label class="codex-org-toggle"><input type="checkbox" id="orgIncludeChildren" ${state.orgIncludeChildren ? "checked" : ""}><span>하위조직</span></label></div><div class="codex-org-content">${sections || `<div class="codex-note-box"><strong>검색 결과 없음</strong>선택 조직 또는 하위조직에서 검색 조건에 맞는 인원이 없습니다.</div>`}</div></div></div>`;
   }
@@ -611,10 +636,21 @@
     if (state.currentOrgNode === "ROOT") {
       state.currentOrgNode = getEmployeeNodeKey(selectedEmployee());
     }
+    expandOrgAncestors(state.currentOrgNode);
     refs.orgWrap.innerHTML = renderOrgBoard();
+    $$("[data-org-toggle]", refs.orgWrap).forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const key = button.dataset.orgToggle;
+        if (!key || button.classList.contains("is-leaf")) return;
+        setOrgExpanded(key, !isOrgExpanded(key));
+        renderOrg();
+      });
+    });
     $$("[data-org-node]", refs.orgWrap).forEach((button) => {
       button.addEventListener("click", () => {
         state.currentOrgNode = button.dataset.orgNode;
+        expandOrgAncestors(state.currentOrgNode);
         renderOrg();
       });
     });
@@ -626,6 +662,12 @@
       state.orgIncludeChildren = event.target.checked;
       renderOrg();
     });
+    const treeWrap = $(".codex-org-tree", refs.orgWrap);
+    const selectedNode = $('[data-org-node="' + state.currentOrgNode + '"]', refs.orgWrap);
+    if (treeWrap && selectedNode) {
+      const offsetTop = selectedNode.offsetTop - 14;
+      treeWrap.scrollTo({ top: Math.max(0, offsetTop), behavior: "auto" });
+    }
   }
   function uniqueValues(items) {
     return Array.from(new Set(items.filter(Boolean)));
