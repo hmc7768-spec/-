@@ -494,12 +494,14 @@
   display: grid;
   gap: 2px;
   padding-left: 22px;
+  border-left: 1px dashed #e2e8f2;
+  margin-left: 8px;
 }
 
 .codex-org-drop-line {
-  height: 8px;
-  margin: 0 0 0 46px;
-  border-top: 2px solid transparent;
+  height: 16px;
+  margin: 0 0 0 6px;
+  border-top: 5px solid transparent;
   pointer-events: none;
 }
 
@@ -509,6 +511,27 @@
 
 .codex-org-drop-line.is-active {
   border-top-color: #7c4dff;
+  box-shadow: 0 0 0 1px rgba(124, 77, 255, 0.08);
+}
+
+.codex-org-tree-node.is-after-tree[data-org-depth="1"] > .codex-org-tree-row {
+  background: rgba(37, 99, 235, 0.03);
+  border-radius: 8px;
+}
+
+.codex-org-tree-node.is-after-tree[data-org-depth="2"] > .codex-org-tree-row {
+  background: rgba(16, 185, 129, 0.03);
+  border-radius: 8px;
+}
+
+.codex-org-tree-node.is-after-tree[data-org-depth="3"] > .codex-org-tree-row {
+  background: rgba(245, 158, 11, 0.03);
+  border-radius: 8px;
+}
+
+.codex-org-tree-node.is-after-tree[data-org-depth="4"] > .codex-org-tree-row {
+  background: rgba(139, 92, 246, 0.04);
+  border-radius: 8px;
 }
 
 .codex-org-tree-btn {

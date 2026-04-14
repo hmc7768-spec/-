@@ -1461,6 +1461,9 @@
     if (row.level === "L4") return 4;
     return 0;
   }
+  function getDepthClassByKey(key) {
+    return `depth-${getOrgDepthByKey(key)}`;
+  }
   function getNextLevelByParentKey(parentKey) {
     const depth = getOrgDepthByKey(parentKey);
     return ["L1", "L2", "L3", "L4"][depth] || "";
@@ -1483,10 +1486,25 @@
     const siblings = getChildrenRows(rows, parentKey);
     return siblings.length ? Math.max(...siblings.map((row) => row.displayOrder ?? 0)) + 1 : 1;
   }
+  function remapExpandedKeysBySource(previousRows, previousExpandedKeys, nextRows) {
+    const previousByKey = new Map(previousRows.map((row) => [getOrgRowKey(row), row]));
+    const nextBySource = new Map(nextRows.map((row) => [row.sourceKey || getOrgRowKey(row), getOrgRowKey(row)]));
+    const nextExpanded = new Set(["ROOT"]);
+    (previousExpandedKeys || []).forEach((key) => {
+      if (key === "ROOT") return;
+      const row = previousByKey.get(key);
+      if (!row) return;
+      const remapped = nextBySource.get(row.sourceKey || getOrgRowKey(row));
+      if (remapped) nextExpanded.add(remapped);
+    });
+    return Array.from(nextExpanded);
+  }
   function renameOrgInDraft(orgKey, nextName) {
     const flow = ensureAssignmentFlow();
     const row = getBlueprintRow(flow.orgDraft, orgKey);
     if (!row || !nextName) return;
+    const previousRows = cloneOrgBlueprint(flow.orgDraft);
+    const previousExpandedKeys = [...(flow.afterExpandedKeys || ["ROOT"])];
     const previous = { ...row };
     if (previous.part) row.part = nextName;
     else if (previous.team) row.team = nextName;
@@ -1501,6 +1519,7 @@
     });
     flow.orgDraft = normalizeBlueprint(flow.orgDraft);
     flow.orgSummary = summarizeOrgChanges(state.orgBlueprint, flow.orgDraft);
+    flow.afterExpandedKeys = remapExpandedKeysBySource(previousRows, previousExpandedKeys, flow.orgDraft);
     flow.selectedAfterOrg = getOrgRowKey(flow.orgDraft.find((item) => (item.sourceKey || getOrgRowKey(item)) === (row.sourceKey || orgKey)) || flow.orgDraft[0] || { hq: "" }) || "ROOT";
     flow.editingAfterOrgKey = "";
   }
@@ -1510,15 +1529,30 @@
     if (isAncestorOrgKey(orgKey, targetParentKey)) return;
     const sourceRow = getBlueprintRow(flow.orgDraft, orgKey);
     if (!sourceRow) return;
-    const targetRow = targetParentKey === "ROOT" ? null : getBlueprintRow(flow.orgDraft, targetParentKey);
+    const previousRows = cloneOrgBlueprint(flow.orgDraft);
+    const previousExpandedKeys = [...(flow.afterExpandedKeys || ["ROOT"])];
+    let targetRow = targetParentKey === "ROOT" ? null : getBlueprintRow(flow.orgDraft, targetParentKey);
     const sourceDepth = getOrgDepthByKey(orgKey);
-    const targetDepth = getOrgDepthByKey(targetParentKey);
-    const nextParentKey = (position === "before" || position === "after")
+    let targetDepth = getOrgDepthByKey(targetParentKey);
+    let resolvedPosition = position;
+    let resolvedTargetKey = targetParentKey;
+    let nextParentKey = (resolvedPosition === "before" || resolvedPosition === "after")
       ? (targetRow ? getParentKeyForRow(targetRow) : "ROOT")
       : (targetRow && sourceDepth === targetDepth ? getParentKeyForRow(targetRow) : targetParentKey);
-    const nextLevel = getNextLevelByParentKey(nextParentKey);
+    let nextLevel = getNextLevelByParentKey(nextParentKey);
     if (!nextLevel) return;
     const subtreeDepth = getSubtreeDepth(flow.orgDraft, orgKey);
+    if ((getOrgDepthByKey(nextParentKey) + subtreeDepth) > 4) {
+      if (resolvedPosition === "into" && targetRow) {
+        resolvedPosition = "after";
+        resolvedTargetKey = getOrgRowKey(targetRow);
+        targetRow = getBlueprintRow(flow.orgDraft, resolvedTargetKey);
+        targetDepth = getOrgDepthByKey(resolvedTargetKey);
+        nextParentKey = targetRow ? getParentKeyForRow(targetRow) : "ROOT";
+        nextLevel = getNextLevelByParentKey(nextParentKey);
+      }
+    }
+    if (!nextLevel) return;
     if ((getOrgDepthByKey(nextParentKey) + subtreeDepth) > 4) return;
     const subtreeKeys = [orgKey, ...getDescendantKeys(flow.orgDraft, orgKey)];
     const subtreeRows = flow.orgDraft.filter((row) => subtreeKeys.includes(getOrgRowKey(row))).map((row) => ({ ...row }));
@@ -1539,29 +1573,36 @@
     rebuildNode(orgKey, nextParentKey);
     const movedRoot = rebuilt.find((row) => (row.sourceKey || getOrgRowKey(row)) === (sourceRow.sourceKey || orgKey));
     if (movedRoot) {
-      if (position === "before" && targetRow) movedRoot.displayOrder = (targetRow.displayOrder ?? 0) - 0.5;
-      else if (position === "after" && targetRow) movedRoot.displayOrder = (targetRow.displayOrder ?? 0) + 0.5;
+      if (resolvedPosition === "before" && targetRow) movedRoot.displayOrder = (targetRow.displayOrder ?? 0) - 0.5;
+      else if (resolvedPosition === "after" && targetRow) movedRoot.displayOrder = (targetRow.displayOrder ?? 0) + 0.5;
       else if (targetRow && sourceDepth === targetDepth) movedRoot.displayOrder = (targetRow.displayOrder ?? 0) + 0.5;
       else movedRoot.displayOrder = getNextSiblingOrder(outsideRows, nextParentKey);
     }
     flow.orgDraft = normalizeBlueprint([...outsideRows, ...rebuilt]);
     flow.orgSummary = summarizeOrgChanges(state.orgBlueprint, flow.orgDraft);
+    flow.afterExpandedKeys = remapExpandedKeysBySource(previousRows, previousExpandedKeys, flow.orgDraft);
     const moved = flow.orgDraft.find((row) => (row.sourceKey || getOrgRowKey(row)) === (sourceRow.sourceKey || orgKey));
     flow.selectedAfterOrg = moved ? getOrgRowKey(moved) : "ROOT";
     expandAssignmentAncestors("after", flow.selectedAfterOrg);
+    if (flow.selectedAfterOrg && flow.selectedAfterOrg !== "ROOT") setAssignmentExpanded("after", flow.selectedAfterOrg, true);
   }
   function cancelOrgChange(type, sourceKey) {
     const flow = ensureAssignmentFlow();
     if (!sourceKey) return;
+    const previousRows = cloneOrgBlueprint(flow.orgDraft);
+    const previousExpandedKeys = [...(flow.afterExpandedKeys || ["ROOT"])];
     if (type === "created") {
       const current = flow.orgDraft.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
       if (!current) return;
       const deleteKeys = [getOrgRowKey(current), ...getDescendantKeys(flow.orgDraft, getOrgRowKey(current))];
       flow.orgDraft = normalizeBlueprint(flow.orgDraft.filter((row) => !deleteKeys.includes(getOrgRowKey(row))));
+      flow.selectedAfterOrg = "ROOT";
     } else if (type === "deleted") {
       const base = state.orgBlueprint.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
       if (!base) return;
       flow.orgDraft = normalizeBlueprint([...flow.orgDraft, { ...base }]);
+      const restored = flow.orgDraft.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
+      flow.selectedAfterOrg = restored ? getOrgRowKey(restored) : flow.selectedAfterOrg;
     } else if (type === "updated") {
       const base = state.orgBlueprint.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
       const current = flow.orgDraft.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
@@ -1580,8 +1621,12 @@
         if (previous.part && row.part === previous.part) row.part = base.part || row.part;
       });
       flow.orgDraft = normalizeBlueprint(flow.orgDraft);
+      const restored = flow.orgDraft.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
+      flow.selectedAfterOrg = restored ? getOrgRowKey(restored) : flow.selectedAfterOrg;
     }
     flow.orgSummary = summarizeOrgChanges(state.orgBlueprint, flow.orgDraft);
+    flow.afterExpandedKeys = remapExpandedKeysBySource(previousRows, previousExpandedKeys, flow.orgDraft);
+    if (flow.selectedAfterOrg && flow.selectedAfterOrg !== "ROOT") expandAssignmentAncestors("after", flow.selectedAfterOrg);
     renderAssignment();
   }
   function buildTreeFromBlueprint(rows, selectedKey, includeControls = false, prefix = "landing") {
@@ -1589,7 +1634,7 @@
     const renderNode = (key, label) => {
       const children = getChildrenRows(rows, key);
       const hasChildren = children.length > 0;
-      const expanded = expandedKeys.has(key) || selectedKey === key || isAncestorOrgKey(key, selectedKey);
+      const expanded = expandedKeys.has(key) || (selectedKey && selectedKey !== key && isAncestorOrgKey(key, selectedKey));
       const selected = selectedKey === key;
       const selectedRow = key === "ROOT" ? null : getBlueprintRow(rows, key);
       const flow = state.assignmentFlow;
@@ -1608,7 +1653,7 @@
         ? `<div class="codex-org-tree-btn is-editing-field">${labelHtml}</div>`
         : `<button type="button" class="codex-org-tree-btn" data-assignment-org-node="${key}" data-assignment-org-prefix="${prefix}">${labelHtml}</button>`;
       const dropAttrs = isAfterTree ? ` data-org-drop="${key}"` : "";
-      return `<div class="codex-org-tree-node ${selected ? "selected" : ""} ${expanded ? "is-open" : ""} ${isEditing ? "is-editing" : ""} ${isAfterTree ? "is-after-tree" : ""}"><div class="codex-org-drop-line" data-org-drop-line="${key}" data-org-drop-position="before"></div><div class="codex-org-tree-row"${dropAttrs}><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${key}" data-org-toggle-prefix="${prefix}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button>${dragHandle}${buttonHtml}${controls}</div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${children.map((child) => renderNode(getOrgRowKey(child), getOrgRowName(child))).join("")}</div>` : ""}<div class="codex-org-drop-line" data-org-drop-line="${key}" data-org-drop-position="after"></div></div>`;
+      return `<div class="codex-org-tree-node ${selected ? "selected" : ""} ${expanded ? "is-open" : ""} ${isEditing ? "is-editing" : ""} ${isAfterTree ? "is-after-tree" : ""} ${getDepthClassByKey(key)}" data-org-depth="${getOrgDepthByKey(key)}"><div class="codex-org-drop-line" data-org-drop-line="${key}" data-org-drop-position="before"></div><div class="codex-org-tree-row"${dropAttrs}><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${key}" data-org-toggle-prefix="${prefix}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button>${dragHandle}${buttonHtml}${controls}</div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${children.map((child) => renderNode(getOrgRowKey(child), getOrgRowName(child))).join("")}</div>` : ""}<div class="codex-org-drop-line" data-org-drop-line="${key}" data-org-drop-position="after"></div></div>`;
     };
     return renderNode("ROOT", "오토플러스");
   }
@@ -1913,10 +1958,28 @@
          if (!dragKey) return;
          event.preventDefault();
          const flow = ensureAssignmentFlow();
-         flow.dragAfterDropMode = "into";
-         flow.dragAfterDropTarget = row.dataset.orgDrop;
-         row.classList.add("is-drop-target");
+         const rect = row.getBoundingClientRect();
+         const offsetY = event.clientY - rect.top;
+         const isTopZone = offsetY <= rect.height * 0.28;
+         const isBottomZone = offsetY >= rect.height * 0.72;
+         const targetKey = row.dataset.orgDrop;
          $$("[data-org-drop-line]", panels.assignment).forEach((line) => line.classList.remove("is-active"));
+         if (isTopZone || isBottomZone) {
+           flow.dragAfterDropMode = isTopZone ? "before" : "after";
+           flow.dragAfterDropTarget = targetKey;
+           row.classList.remove("is-drop-target");
+           const activeLine = $(`[data-org-drop-line="${targetKey}"][data-org-drop-position="${flow.dragAfterDropMode}"]`, panels.assignment);
+           activeLine?.classList.add("is-active");
+         } else {
+           flow.dragAfterDropMode = "into";
+           flow.dragAfterDropTarget = targetKey;
+           row.classList.add("is-drop-target");
+         }
+       });
+       row.addEventListener("dragenter", (event) => {
+         const dragKey = ensureAssignmentFlow().dragAfterOrgKey;
+         if (!dragKey) return;
+         event.preventDefault();
        });
        row.addEventListener("dragleave", () => row.classList.remove("is-drop-target"));
        row.addEventListener("drop", (event) => {
@@ -1935,6 +1998,16 @@
        });
      });
      $$("[data-org-drop-line]", panels.assignment).forEach((line) => {
+       line.addEventListener("dragenter", (event) => {
+         const flow = ensureAssignmentFlow();
+         if (!flow.dragAfterOrgKey) return;
+         event.preventDefault();
+         flow.dragAfterDropMode = line.dataset.orgDropPosition;
+         flow.dragAfterDropTarget = line.dataset.orgDropLine;
+         $$("[data-org-drop]", panels.assignment).forEach((row) => row.classList.remove("is-drop-target"));
+         $$("[data-org-drop-line]", panels.assignment).forEach((item) => item.classList.remove("is-active"));
+         line.classList.add("is-active");
+       });
        line.addEventListener("dragover", (event) => {
          const flow = ensureAssignmentFlow();
          if (!flow.dragAfterOrgKey) return;
