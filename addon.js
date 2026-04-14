@@ -152,6 +152,18 @@
   function renderEmployeeList(items) {
     return items.length ? `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>직급</th><th>입사일</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${employee.status}</td></tr>`).join("")}</tbody></table>` : `<div class="codex-note-box"><strong>대상자 없음</strong>선택한 조건에 해당하는 대상자가 없습니다.</div>`;
   }
+  function syncViewQuery(view) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", view);
+    url.searchParams.set("employeeId", state.selectedId);
+    window.history.replaceState({}, "", url.toString());
+  }
+  function openQuickProfileInNewTab(employeeId) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", "quick");
+    url.searchParams.set("employeeId", employeeId);
+    window.open(url.toString(), "_blank");
+  }
   function openRecordInNewTab(employeeId) {
     const url = new URL(window.location.href);
     url.searchParams.set("view", "record");
@@ -392,18 +404,19 @@
     renderCodes();
   }
   function openStatModal(type) {
-    statsModal.save.textContent = "인사기록카드 열기";
+    statsModal.save.textContent = "상세 탭 열기";
     statsModal.save.onclick = () => {
       if (!state.statModalSelection) return;
-      openRecordInNewTab(state.statModalSelection);
+      openQuickProfileInNewTab(state.statModalSelection);
     };
     if (type === "leave") {
       const items = state.employees.filter((employee) => employee.status !== "재직");
+      if (!state.statModalSelection && items[0]) state.statModalSelection = items[0].id;
       statsModal.body.innerHTML = `<div class="codex-stack"><div class="codex-note-box"><strong>휴직 중 대상자</strong>현재 휴직 상태로 분류된 사원 목록입니다. 발령입력 또는 기록카드 수정으로 재직상태가 바뀌면 이 목록도 즉시 갱신됩니다.</div>${renderEmployeeList(items)}</div>`;
       $$("[data-stat-employee]", statsModal.body).forEach((row) => {
         row.addEventListener("click", () => {
           state.statModalSelection = row.dataset.statEmployee;
-          openStatModal("leave");
+          openQuickProfileInNewTab(state.statModalSelection);
         });
       });
       statsModal.open();
@@ -418,6 +431,7 @@
       ];
       const years = uniqueValues(state.employees.map((employee) => parseDateParts(employee.hireDate).year)).sort((a, b) => b - a);
       const items = getHireStatEmployees(state.hireStatMode);
+      if ((!state.statModalSelection || !items.some((item) => item.id === state.statModalSelection)) && items[0]) state.statModalSelection = items[0].id;
       const periodControl = state.hireStatMode === "month"
         ? `<select id="hireStatMonth">${Array.from({ length: 12 }, (_, index) => index + 1).map((month) => `<option value="${month}" ${month === state.hireStatMonth ? "selected" : ""}>${month}월</option>`).join("")}</select>`
         : state.hireStatMode === "quarter"
@@ -456,7 +470,7 @@
       $$("[data-stat-employee]", statsModal.body).forEach((row) => {
         row.addEventListener("click", () => {
           state.statModalSelection = row.dataset.statEmployee;
-          openStatModal("hire");
+          openQuickProfileInNewTab(state.statModalSelection);
         });
       });
       statsModal.open();
@@ -465,6 +479,10 @@
   function renderRecord() {
     const employee = selectedEmployee();
     refs.cardWrap.innerHTML = `<div class="codex-record-shell"><div class="codex-record-summary"><div class="codex-record-card"><div class="codex-record-head"><div class="hr-profile-avatar">${employee.name[0]}</div><div class="hr-card-name">${employee.name}</div><div class="codex-record-subtitle">${employee.id} · ${employee.grade} · ${employee.title}</div><div class="codex-record-subtitle">${employeePath(employee)}</div></div><div class="codex-record-block"><h5>기본 정보</h5><div class="codex-record-list"><div class="codex-record-item"><div class="label">생년월일</div><div class="value">${employee.birthDate}</div></div><div class="codex-record-item"><div class="label">입사일</div><div class="value">${employee.hireDate}</div></div><div class="codex-record-item"><div class="label">연락처</div><div class="value">${employee.phone}</div></div><div class="codex-record-item"><div class="label">최종학력</div><div class="value">${employee.education}</div></div></div></div><div class="codex-record-block"><h5>조직 정보</h5><div class="codex-record-list"><div class="codex-record-item"><div class="label">본부</div><div class="value">${employee.hq || "-"}</div></div><div class="codex-record-item"><div class="label">실</div><div class="value">${employee.office || "-"}</div></div><div class="codex-record-item"><div class="label">팀</div><div class="value">${employee.team || "-"}</div></div><div class="codex-record-item"><div class="label">파트</div><div class="value">${employee.part || "-"}</div></div></div></div><div class="codex-record-block"><h5>인사 속성</h5><div class="codex-record-list"><div class="codex-record-item"><div class="label">직군</div><div class="value">${employee.jobFamily}</div></div><div class="codex-record-item"><div class="label">직원유형</div><div class="value">${employee.employeeType}</div></div><div class="codex-record-item"><div class="label">재직상태</div><div class="value">${statusBadge(employee.status)}</div></div><div class="codex-record-item"><div class="label">계약기간</div><div class="value">${employee.employeeType === "계약직" ? employee.contractPeriod || "-" : "-"}</div></div></div></div></div><div class="codex-record-detail"><div class="codex-record-section"><h4>인사기본정보</h4><div class="codex-record-grid"><div class="codex-record-field"><span class="label">사원번호</span><span class="value">${employee.id}</span></div><div class="codex-record-field"><span class="label">직급</span><span class="value">${employee.grade}</span></div><div class="codex-record-field"><span class="label">직책</span><span class="value">${employee.title}</span></div><div class="codex-record-field"><span class="label">입사시 직급</span><span class="value">${employee.hireGrade}</span></div><div class="codex-record-field"><span class="label">인정경력</span><span class="value">${employee.careerMonths}개월</span></div><div class="codex-record-field"><span class="label">부서배정일</span><span class="value">${employee.assignmentDate}</span></div></div></div><div class="codex-record-section"><h4>발령이력</h4><div class="hr-timeline">${employee.history.map((item, index) => `<div class="hr-timeline-item"><div class="hr-timeline-dot" style="${index === 1 ? "background:#7c5cfc" : index === 2 ? "background:#38d9a9" : ""}"></div><div class="hr-timeline-date">${item[0]}</div><div class="hr-timeline-text">${item[1]}</div></div>`).join("")}</div></div><div class="codex-record-section"><h4>자격/교육이력</h4><div class="hr-timeline">${employee.educationHistory.map((item) => `<div class="hr-timeline-item"><div class="hr-timeline-dot" style="background:#f5a623"></div><div class="hr-timeline-date">${item[0]}</div><div class="hr-timeline-text">${item[1]}</div></div>`).join("")}</div></div><div class="codex-record-section"><h4>인사 메모</h4><div class="codex-record-note">${employee.memo}</div></div></div></div>`;
+  }
+  function renderQuickRecord() {
+    const employee = selectedEmployee();
+    refs.cardWrap.innerHTML = `<div class="codex-record-shell" style="grid-template-columns:minmax(0,1fr)"><div class="codex-record-detail"><div class="codex-record-section"><h4>기본 프로필</h4><div class="codex-record-grid"><div class="codex-record-field"><span class="label">사원번호</span><span class="value">${employee.id}</span></div><div class="codex-record-field"><span class="label">성명</span><span class="value">${employee.name}</span></div><div class="codex-record-field"><span class="label">직급</span><span class="value">${employee.grade}</span></div><div class="codex-record-field"><span class="label">직책</span><span class="value">${employee.title}</span></div><div class="codex-record-field"><span class="label">직군</span><span class="value">${employee.jobFamily}</span></div><div class="codex-record-field"><span class="label">직원유형</span><span class="value">${employee.employeeType}</span></div><div class="codex-record-field full"><span class="label">소속</span><span class="value">${employeePath(employee)}</span></div></div></div><div class="codex-record-section"><h4>기본 인사정보</h4><div class="codex-record-grid"><div class="codex-record-field"><span class="label">입사일</span><span class="value">${employee.hireDate}</span></div><div class="codex-record-field"><span class="label">생년월일</span><span class="value">${employee.birthDate}</span></div><div class="codex-record-field"><span class="label">연락처</span><span class="value">${employee.phone}</span></div><div class="codex-record-field"><span class="label">최종학력</span><span class="value">${employee.education}</span></div><div class="codex-record-field"><span class="label">재직상태</span><span class="value">${statusBadge(employee.status)}</span></div><div class="codex-record-field"><span class="label">부서배정일</span><span class="value">${employee.assignmentDate}</span></div></div></div><div class="codex-record-section"><h4>안내</h4><div class="codex-record-note">이 화면은 통계 상세에서 여는 기본정보 전용 탭입니다. 경력, 발령이력, 교육이력 등 전체 내용은 상단의 인사기록카드 버튼을 통해 확인합니다.</div></div></div></div>`;
   }
   function renderCodes() {
     const orgSummary = getOrgSummary();
@@ -598,6 +616,14 @@
   createModal.save.addEventListener("click", saveCreate);
   editModal.save.addEventListener("click", saveEdit);
   function setPageTitle(title, description) { $("h2", refs.pageTitle).textContent = title; $("p", refs.pageTitle).textContent = description; }
+  function updatePrimaryAction(view) {
+    const primaryButton = $(".btn-primary", refs.pageTitle);
+    if (!primaryButton) return;
+    if (view === "directory") primaryButton.textContent = "➕ 신규 등록";
+    else if (view === "assignment") primaryButton.textContent = "발령 반영";
+    else if (view === "quick") primaryButton.textContent = "인사기록카드 보기";
+    else primaryButton.textContent = "➕ 신규 등록";
+  }
   function setMenus(view) {
     refs.topItems.forEach((item, index) => item.classList.toggle("active", (view === "directory" && index === 0) || (view === "record" && index === 1) || (view === "org" && index === 2) || (view === "assignment" && index === 3)));
     refs.sideItems.forEach((item, index) => { const active = (view === "directory" && index === 0) || (view === "record" && index === 1) || (view === "org" && index === 2) || (view === "assignment" && index === 3); item.classList.toggle("active", active); });
@@ -616,10 +642,13 @@
     state.currentHrView = view;
     setMenus(view);
     if (view === "directory") { setPageTitle("사원명부", "전체 사원 정보를 조회하고 관리합니다"); toggleBaseSections(true, false, false); }
-    else if (view === "record") { setPageTitle("인사기록카드", "선택한 사원의 상세 인사정보와 발령이력을 조회합니다"); toggleBaseSections(false, true, false); }
+    else if (view === "record") { setPageTitle("인사기록카드", "선택한 사원의 상세 인사정보와 발령이력을 조회합니다"); toggleBaseSections(false, true, false); renderRecord(); }
+    else if (view === "quick") { setPageTitle("사원 기본정보", "별도 탭에서 기본 인사정보만 빠르게 조회합니다"); toggleBaseSections(false, true, false); renderQuickRecord(); }
     else if (view === "org") { setPageTitle("조직도", "사원 배정 정보 기반으로 조직 구성을 조회합니다"); toggleBaseSections(false, false, true); }
     else if (view === "codes") { setPageTitle("코드관리", "조직코드와 기준코드를 조회하는 화면입니다"); toggleBaseSections(false, false, false); }
     else if (view === "assignment") { setPageTitle("발령입력", "대상자별 조직/직급 변경을 미리 확인하고 반영합니다"); toggleBaseSections(false, false, false); }
+    syncViewQuery(view);
+    updatePrimaryAction(view);
     renderNotesByView();
   }
   function renderAll() { renderStats(); renderTable(); renderOrg(); renderRecord(); renderCodes(); renderAssignment(); }
@@ -645,7 +674,11 @@
         if (card.dataset.statType === "hire") openStatModal("hire");
       });
     });
-    primaryButton?.addEventListener("click", (event) => { if (state.currentHrView === "directory") { event.preventDefault(); fillCreateForm(); createModal.open(); } else if (state.currentHrView === "assignment") { event.preventDefault(); $("#assignApplyBtn")?.click(); } }, true);
+    primaryButton?.addEventListener("click", (event) => {
+      if (state.currentHrView === "directory") { event.preventDefault(); fillCreateForm(); createModal.open(); }
+      else if (state.currentHrView === "assignment") { event.preventDefault(); $("#assignApplyBtn")?.click(); }
+      else if (state.currentHrView === "quick") { event.preventDefault(); showHrView("record"); }
+    }, true);
   }
   function renderNotesByView() {
     if (typeof annotations === "undefined" || !refs.annoList || state.currentSystem !== 1) return;
@@ -720,6 +753,7 @@
   }
   const viewFromUrl = params.get("view");
   if (viewFromUrl === "record") showHrView("record");
+  else if (viewFromUrl === "quick") showHrView("quick");
   else showHrView("directory");
   const tab1 = $("#tab1");
   const tab2 = $("#tab2");
