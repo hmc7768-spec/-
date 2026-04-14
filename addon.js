@@ -78,7 +78,7 @@
     return orgRows.map((row, index) => {
       const grade = inferGrade(row, index);
       const employeeType = inferEmployeeType(index, row);
-      const status = index % 17 === 0 && employeeType !== "임원" ? "휴직" : "재직";
+      const status = employeeType !== "임원" && index % 19 === 0 ? "퇴직" : (index % 17 === 0 && employeeType !== "임원" ? "휴직" : "재직");
       const hireYear = 2014 + (index % 13);
       const hireMonth = String((index % 12) + 1).padStart(2, "0");
       const hireDay = String((index % 27) + 1).padStart(2, "0");
@@ -92,6 +92,7 @@
       const leaveEndMonth = String((((Number(hireMonth) + 5) - 1) % 12) + 1).padStart(2, "0");
       const leaveEndYear = status === "휴직" ? Math.max(hireYear + 2, 2025) + (Number(hireMonth) + 5 > 12 ? 1 : 0) : "";
       const leaveEndDate = status === "휴직" ? `${leaveEndYear}.${leaveEndMonth}.28` : "";
+      const retireDate = status === "퇴직" ? `${Math.max(hireYear + 5, 2024)}.${hireMonth}.${hireDay}` : "";
       return {
         id: `EMP-${String(index + 1).padStart(4, "0")}`,
         name: `${surnames[index % surnames.length]}${given[index % given.length]}`,
@@ -111,6 +112,7 @@
         contractPeriod: employeeType === "계약직" ? "2026.01.01 ~ 2026.12.31" : "",
         birthDate: `${birthYear}.${birthMonth}.${birthDay}`,
         hireDate: `${hireYear}.${hireMonth}.${hireDay}`,
+        retireDate,
         phone: `010-${String(2000 + index * 7).slice(-4)}-${String(3000 + index * 11).slice(-4)}`,
         education: `${schools[index % schools.length]} ${majors[index % majors.length]}`,
         status,
@@ -130,6 +132,7 @@
         address: `서울특별시 ${row.hq || "오토플러스"} ${deepest} ${String(index + 1).padStart(2, "0")}호`,
         memo: `${deepest} 조직 기준 더미 사원 데이터`,
         history: [
+          ...(status === "퇴직" ? [[retireDate, "퇴직 처리"]] : []),
           ...(status === "휴직" ? [[leaveStartDate, `${leaveType} 전환`]] : []),
           [assignmentDate, `${deepest} 배치`],
           [`${hireYear}.${hireMonth}.${hireDay}`, `입사 (${deepest})`]
@@ -137,7 +140,7 @@
         educationHistory: [[`${Math.max(hireYear + 1, 2020)}.${hireMonth}`, "직무 기본교육 이수"], [`${Math.max(hireYear + 2, 2021)}.${hireMonth}`, "공통 역량교육 이수"]],
         educationItems: [[`${hireYear - 4}.03 ~ ${hireYear}.02`, `${schools[index % schools.length]} ${majors[index % majors.length]}`], [`${hireYear - 7}.03 ~ ${hireYear - 4}.02`, "고등학교 졸업"]],
         careerHistory: [[`${hireYear - 2}.01 ~ ${hireYear - 1}.12`, `${inferJobFamily(row)} 유관 경력`], [`${hireYear - 3}.03 ~ ${hireYear - 2}.12`, "프로젝트 참여 및 실무 수행"]],
-        awardItems: status === "휴직" ? [["인사처리", leaveType, leaveStartDate, `${leaveType} 승인`]] : []
+        awardItems: status === "휴직" ? [["인사처리", leaveType, leaveStartDate, `${leaveType} 승인`]] : status === "퇴직" ? [["인사처리", "퇴직", retireDate, "퇴직 확정"]] : []
       };
     });
   }
@@ -148,7 +151,7 @@
     { id: "L3", name: "팀", parent: "L2", desc: "실 하위 팀 단위" },
     { id: "L4", name: "파트", parent: "L3", desc: "팀 하위 파트 단위" }
   ];
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directoryListMode: "current", directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", directoryRetireDateFrom: "", directoryRetireDateTo: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const refs = { hrSystem: $("#hrSystem"), evalSystem: $("#evalSystem"), pageTitle: $(".hr-page-title"), searchBar: $('[data-region="searchbar"]'), stats: $('[data-region="stats"]'), tableWrap: $('[data-region="emptable"]'), orgWrap: $("#orgChartWrap"), cardWrap: $("#hrCardGrid"), hrContent: $(".hr-content"), hrSidebar: $(".hr-sidebar"), topItems: $$(".hr-top-item"), sideItems: $$(".hr-sidebar-item"), annoList: $("#annoList") };
@@ -429,19 +432,24 @@
   }
   function getDirectoryFilteredEmployees() {
     const keyword = state.directorySearchText.trim().toLowerCase();
-    return state.employees.filter((employee) => {
+    return getDirectoryScopedEmployees().filter((employee) => {
       const dept = deepestDept(employee);
       const deptPath = employeePath(employee);
       const hireDateValue = Number((employee.hireDate || "").replace(/\D/g, ""));
       const hireDateFrom = Number((state.directoryHireDateFrom || "").replace(/\D/g, ""));
       const hireDateTo = Number((state.directoryHireDateTo || "").replace(/\D/g, ""));
+      const retireDateValue = Number((employee.retireDate || "").replace(/\D/g, ""));
+      const retireDateFrom = Number((state.directoryRetireDateFrom || "").replace(/\D/g, ""));
+      const retireDateTo = Number((state.directoryRetireDateTo || "").replace(/\D/g, ""));
       const textMatched = !keyword || [employee.id, employee.name, dept, deptPath, employee.grade, employee.title, getCompanyEmail(employee), employee.phone].filter(Boolean).join(" ").toLowerCase().includes(keyword);
       const deptMatched = !state.directoryDept.length || state.directoryDept.some((item) => deptPath.includes(item) || dept === item || employee.hq === item || employee.office === item || employee.team === item || employee.part === item);
       const gradeMatched = !state.directoryGrade.length || state.directoryGrade.includes(employee.grade);
       const statusMatched = !state.directoryStatus || employee.status === state.directoryStatus;
       const hireDateFromMatched = !hireDateFrom || (hireDateValue && hireDateValue >= hireDateFrom);
       const hireDateToMatched = !hireDateTo || (hireDateValue && hireDateValue <= hireDateTo);
-      return textMatched && deptMatched && gradeMatched && statusMatched && hireDateFromMatched && hireDateToMatched;
+      const retireDateFromMatched = !retireDateFrom || (retireDateValue && retireDateValue >= retireDateFrom);
+      const retireDateToMatched = !retireDateTo || (retireDateValue && retireDateValue <= retireDateTo);
+      return textMatched && deptMatched && gradeMatched && statusMatched && hireDateFromMatched && hireDateToMatched && retireDateFromMatched && retireDateToMatched;
     });
   }
   function chipHtml(items, type) {
@@ -455,6 +463,18 @@
     if (digits.length <= 4) return digits;
     if (digits.length <= 6) return `${digits.slice(0, 4)}.${digits.slice(4)}`;
     return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8)}`;
+  }
+  function completeDateInput(value) {
+    const digits = (value || "").replace(/\D/g, "").slice(0, 8);
+    if (!digits) return "";
+    if (digits.length <= 4) return `${digits.slice(0, 4)}.01.01`;
+    if (digits.length <= 6) return `${digits.slice(0, 4)}.${digits.slice(4, 6).padEnd(2, "0")}.01`;
+    return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8).padEnd(2, "0")}`;
+  }
+  function getDirectoryScopedEmployees() {
+    if (state.directoryListMode === "all") return state.employees;
+    if (state.directoryListMode === "retired") return state.employees.filter((employee) => employee.status === "퇴직");
+    return state.employees.filter((employee) => employee.status !== "퇴직");
   }
   function getDeptSuggestions() {
     const query = state.directoryDeptQuery.trim().toLowerCase();
@@ -503,7 +523,7 @@
   function renderDirectorySearchBar(focusField = "") {
     const deptSuggestions = getDeptSuggestions();
     const gradeSuggestions = getGradeSuggestions();
-    refs.searchBar.innerHTML = `<div class="codex-directory-search-main"><input id="directorySearchInput" class="hr-search-input" placeholder="사원번호, 성명, 부서, 직급, 이메일, 연락처 검색" value="${state.directorySearchText}" style="flex:1"><button type="button" class="hr-btn btn-outline codex-search-toggle ${state.directoryAdvancedOpen ? "is-open" : ""}" id="directoryDetailToggle">상세검색</button><button type="button" class="hr-btn btn-primary" id="directorySearchSubmit">검색</button><button type="button" class="hr-btn btn-outline" id="directorySearchReset">검색 초기화</button></div>${state.directoryAdvancedOpen ? `<div class="codex-directory-search-advanced"><label class="codex-search-field"><span>입사일</span><div class="codex-date-range"><input id="directoryHireDateFrom" class="hr-search-input" placeholder="YYYY.MM.DD" value="${state.directoryHireDateFrom}"><span>~</span><input id="directoryHireDateTo" class="hr-search-input" placeholder="YYYY.MM.DD" value="${state.directoryHireDateTo}"></div></label><label class="codex-search-field codex-search-field-multi"><span>부서</span><div class="codex-search-input-wrap"><input id="directoryDeptInput" class="hr-search-input" placeholder="부서명 입력 후 Enter" value="${state.directoryDeptQuery}"><div id="directoryDeptSuggestions" class="codex-search-overlay">${suggestionListHtml(deptSuggestions, "dept")}</div></div>${chipHtml(state.directoryDept, "dept")}</label><label class="codex-search-field codex-search-field-multi"><span>직급</span><div class="codex-search-input-wrap"><input id="directoryGradeInput" class="hr-search-input" placeholder="직급 입력 후 Enter" value="${state.directoryGradeQuery}"><div id="directoryGradeSuggestions" class="codex-search-overlay">${suggestionListHtml(gradeSuggestions, "grade")}</div></div>${chipHtml(state.directoryGrade, "grade")}</label><label class="codex-search-field"><span>재직상태</span><select id="directoryStatusFilter" class="hr-filter-select"><option value="">전체</option><option value="재직" ${state.directoryStatus === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${state.directoryStatus === "휴직" ? "selected" : ""}>휴직</option></select></label></div>` : ""}`;
+    refs.searchBar.innerHTML = `<div class="codex-directory-search-main"><input id="directorySearchInput" class="hr-search-input" placeholder="사원번호, 성명, 부서, 직급, 이메일, 연락처 검색" value="${state.directorySearchText}" style="flex:1"><button type="button" class="hr-btn btn-outline codex-search-toggle ${state.directoryAdvancedOpen ? "is-open" : ""}" id="directoryDetailToggle">상세검색</button><button type="button" class="hr-btn btn-primary" id="directorySearchSubmit">검색</button><button type="button" class="hr-btn btn-outline" id="directorySearchReset">검색 초기화</button></div>${state.directoryAdvancedOpen ? `<div class="codex-directory-search-advanced"><label class="codex-search-field"><span>입사일</span><div class="codex-date-range"><input id="directoryHireDateFrom" class="hr-search-input" placeholder="YYYYMMDD" value="${state.directoryHireDateFrom}"><span>~</span><input id="directoryHireDateTo" class="hr-search-input" placeholder="YYYYMMDD" value="${state.directoryHireDateTo}"></div></label><label class="codex-search-field"><span>퇴사일</span><div class="codex-date-range"><input id="directoryRetireDateFrom" class="hr-search-input" placeholder="YYYYMMDD" value="${state.directoryRetireDateFrom}"><span>~</span><input id="directoryRetireDateTo" class="hr-search-input" placeholder="YYYYMMDD" value="${state.directoryRetireDateTo}"></div></label><label class="codex-search-field codex-search-field-multi"><span>부서</span><div class="codex-search-input-wrap"><input id="directoryDeptInput" class="hr-search-input" placeholder="부서명 입력 후 Enter" value="${state.directoryDeptQuery}"><div id="directoryDeptSuggestions" class="codex-search-overlay">${suggestionListHtml(deptSuggestions, "dept")}</div></div>${chipHtml(state.directoryDept, "dept")}</label><label class="codex-search-field codex-search-field-multi"><span>직급</span><div class="codex-search-input-wrap"><input id="directoryGradeInput" class="hr-search-input" placeholder="직급 입력 후 Enter" value="${state.directoryGradeQuery}"><div id="directoryGradeSuggestions" class="codex-search-overlay">${suggestionListHtml(gradeSuggestions, "grade")}</div></div>${chipHtml(state.directoryGrade, "grade")}</label><label class="codex-search-field"><span>재직상태</span><select id="directoryStatusFilter" class="hr-filter-select"><option value="">전체</option><option value="재직" ${state.directoryStatus === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${state.directoryStatus === "휴직" ? "selected" : ""}>휴직</option><option value="퇴직" ${state.directoryStatus === "퇴직" ? "selected" : ""}>퇴직</option></select></label></div>` : ""}`;
     $("#directoryDetailToggle", refs.searchBar)?.addEventListener("click", () => {
       state.directoryAdvancedOpen = !state.directoryAdvancedOpen;
       renderDirectorySearchBar();
@@ -519,9 +539,33 @@
       state.directoryHireDateFrom = formatDateInput(event.target.value);
       event.target.value = state.directoryHireDateFrom;
     });
+    $("#directoryHireDateFrom", refs.searchBar)?.addEventListener("blur", (event) => {
+      state.directoryHireDateFrom = completeDateInput(event.target.value);
+      event.target.value = state.directoryHireDateFrom;
+    });
     $("#directoryHireDateTo", refs.searchBar)?.addEventListener("input", (event) => {
       state.directoryHireDateTo = formatDateInput(event.target.value);
       event.target.value = state.directoryHireDateTo;
+    });
+    $("#directoryHireDateTo", refs.searchBar)?.addEventListener("blur", (event) => {
+      state.directoryHireDateTo = completeDateInput(event.target.value);
+      event.target.value = state.directoryHireDateTo;
+    });
+    $("#directoryRetireDateFrom", refs.searchBar)?.addEventListener("input", (event) => {
+      state.directoryRetireDateFrom = formatDateInput(event.target.value);
+      event.target.value = state.directoryRetireDateFrom;
+    });
+    $("#directoryRetireDateFrom", refs.searchBar)?.addEventListener("blur", (event) => {
+      state.directoryRetireDateFrom = completeDateInput(event.target.value);
+      event.target.value = state.directoryRetireDateFrom;
+    });
+    $("#directoryRetireDateTo", refs.searchBar)?.addEventListener("input", (event) => {
+      state.directoryRetireDateTo = formatDateInput(event.target.value);
+      event.target.value = state.directoryRetireDateTo;
+    });
+    $("#directoryRetireDateTo", refs.searchBar)?.addEventListener("blur", (event) => {
+      state.directoryRetireDateTo = completeDateInput(event.target.value);
+      event.target.value = state.directoryRetireDateTo;
     });
     $("#directoryDeptInput", refs.searchBar)?.addEventListener("input", (event) => {
       state.directoryDeptQuery = event.target.value;
@@ -546,6 +590,11 @@
     });
     bindSuggestionButtons();
     $("#directorySearchSubmit", refs.searchBar)?.addEventListener("click", () => {
+      state.directoryHireDateFrom = completeDateInput(state.directoryHireDateFrom);
+      state.directoryHireDateTo = completeDateInput(state.directoryHireDateTo);
+      state.directoryRetireDateFrom = completeDateInput(state.directoryRetireDateFrom);
+      state.directoryRetireDateTo = completeDateInput(state.directoryRetireDateTo);
+      renderDirectorySearchBar();
       renderTable();
     });
     $("#directorySearchReset", refs.searchBar)?.addEventListener("click", () => {
@@ -557,6 +606,8 @@
       state.directoryStatus = "";
       state.directoryHireDateFrom = "";
       state.directoryHireDateTo = "";
+      state.directoryRetireDateFrom = "";
+      state.directoryRetireDateTo = "";
       state.directoryAdvancedOpen = false;
       renderDirectorySearchBar();
       renderTable();
@@ -738,6 +789,14 @@
   });
   function ensurePanels() {
     if (panels.codes && panels.assignment) return;
+    const directoryAllMenu = document.createElement("div");
+    directoryAllMenu.className = "hr-sidebar-item codex-sidebar-subitem";
+    directoryAllMenu.innerHTML = '<span class="hr-sidebar-icon">•</span> 퇴직자 포함 전체';
+    const directoryRetiredMenu = document.createElement("div");
+    directoryRetiredMenu.className = "hr-sidebar-item codex-sidebar-subitem";
+    directoryRetiredMenu.innerHTML = '<span class="hr-sidebar-icon">•</span> 퇴직자';
+    refs.sideItems[0]?.insertAdjacentElement("afterend", directoryRetiredMenu);
+    refs.sideItems[0]?.insertAdjacentElement("afterend", directoryAllMenu);
     const codeMenu = document.createElement("div");
     codeMenu.className = "hr-sidebar-item codex-sidebar-extra";
     codeMenu.innerHTML = '<span class="hr-sidebar-icon">🗂</span> 코드관리';
@@ -754,12 +813,16 @@
     panels.codes = codePanel;
     panels.assignment = assignmentPanel;
     panels.codeMenu = codeMenu;
+    panels.directoryAllMenu = directoryAllMenu;
+    panels.directoryRetiredMenu = directoryRetiredMenu;
     codeMenu.addEventListener("click", () => showHrView("codes"));
+    directoryAllMenu.addEventListener("click", () => { state.directoryListMode = "all"; showHrView("directory"); });
+    directoryRetiredMenu.addEventListener("click", () => { state.directoryListMode = "retired"; showHrView("directory"); });
     refs.topItems[3]?.addEventListener("click", () => showHrView("assignment"));
     refs.sideItems[3]?.addEventListener("click", () => showHrView("assignment"));
   }
   function renderStats() {
-    const values = [state.employees.length, state.employees.filter((employee) => employee.status === "재직").length, state.employees.filter((employee) => employee.status !== "재직").length, getHireStatEmployees(state.hireStatMode).length];
+    const values = [state.employees.length, state.employees.filter((employee) => employee.status === "재직").length, state.employees.filter((employee) => employee.status === "휴직").length, getHireStatEmployees(state.hireStatMode).length];
     $$(".hr-stat-value", refs.stats).forEach((node, index) => { if (values[index] !== undefined) node.textContent = String(values[index]); });
     const subTexts = [
       `▲ ${Math.max(1, Math.floor(state.employees.length / 20))}명 (이번 달)`,
@@ -1370,6 +1433,8 @@
     refs.topItems.forEach((item, index) => item.classList.toggle("active", (view === "directory" && index === 0) || (view === "record" && index === 1) || (view === "org" && index === 2) || (view === "assignment" && index === 3)));
     refs.sideItems.forEach((item, index) => { const active = (view === "directory" && index === 0) || (view === "record" && index === 1) || (view === "org" && index === 2) || (view === "assignment" && index === 3); item.classList.toggle("active", active); });
     panels.codeMenu?.classList.toggle("active", view === "codes");
+    panels.directoryAllMenu?.classList.toggle("active", view === "directory" && state.directoryListMode === "all");
+    panels.directoryRetiredMenu?.classList.toggle("active", view === "directory" && state.directoryListMode === "retired");
   }
   function toggleBaseSections(directory, record, org) {
     refs.searchBar.style.display = directory ? "block" : "none";
@@ -1383,7 +1448,12 @@
   function showHrView(view) {
     state.currentHrView = view;
     setMenus(view);
-    if (view === "directory") { setPageTitle("사원명부", "전체 사원 정보를 조회하고 관리합니다"); toggleBaseSections(true, false, false); }
+    if (view === "directory") {
+      const title = state.directoryListMode === "all" ? "사원명부(퇴직자 포함 전체)" : state.directoryListMode === "retired" ? "퇴직자 명부" : "사원명부";
+      const desc = state.directoryListMode === "all" ? "재직, 휴직, 퇴직자를 모두 포함해 조회합니다" : state.directoryListMode === "retired" ? "퇴직 처리된 인원을 별도로 조회합니다" : "퇴직자를 제외한 현재 인원을 조회하고 관리합니다";
+      setPageTitle(title, desc);
+      toggleBaseSections(true, false, false);
+    }
     else if (view === "record") { setPageTitle("인사기록카드", "선택한 사원의 상세 인사정보와 발령이력을 조회합니다"); toggleBaseSections(false, true, false); renderRecord(); }
     else if (view === "quick") { setPageTitle("사원 기본정보", "별도 탭에서 기본 인사정보만 빠르게 조회합니다"); toggleBaseSections(false, true, false); renderQuickRecord(); }
     else if (view === "org") { setPageTitle("조직도", "사원 배정 정보 기반으로 조직 구성을 조회합니다"); toggleBaseSections(false, false, true); }
@@ -1454,7 +1524,7 @@
         searchbar: {
           title: "사원 검색 및 조건 필터",
           desc: "사원명부 조회 조건 입력 영역으로 검색어와 조건값에 따라 하단 목록이 즉시 갱신된다.",
-          detail: [["입력 데이터", "사번, 성명, 조직명, 직급, 재직상태 등"], ["처리 로직", "조회 실행 시 목록, 총 건수, 통계 하위 조건을 함께 재계산"], ["연계", "사원명부 테이블, 통계 카드, 기본정보 팝업"], ["검토 포인트", "검색어와 조직 변경 후 행 수/총건수가 일치해야 함"]]
+          detail: [["입력 데이터", "통합검색어, 입사일/퇴사일 기간, 부서 다중토큰, 직급 다중토큰, 재직상태"], ["처리 로직", "조회 실행 시 목록과 총 건수 재계산, 날짜는 불완전 입력값 자동완성"], ["연계", "사원명부 테이블, 기본정보 팝업, 퇴직자 분기 메뉴"], ["검토 포인트", "토큰 입력/추천검색어/퇴직자 모드 전환 후 결과 건수가 정확해야 함"]]
         },
         stats: {
           title: "인사 현황 요약 통계",
@@ -1464,7 +1534,7 @@
         emptable: {
           title: "사원명부 조회 결과",
           desc: "조건에 맞는 사원 목록을 보여주며 성명/사번은 기본정보 팝업, 상세보기는 인사기록카드로 연결된다.",
-          detail: [["주요 기능", "행 선택, 기본정보 팝업, 인사기록카드 상세 이동"], ["표시 데이터", "사번, 성명, 조직, 직급, 재직상태, 입사일"], ["연계", "신규등록, 기록카드 수정, 발령입력 반영 결과 즉시 반영"], ["검토 포인트", "저장 후 목록 재렌더와 클릭 동작이 유지되는지 확인"]]
+          detail: [["주요 기능", "행 선택, 기본정보 팝업, 인사기록카드 상세 이동"], ["표시 데이터", "사번, 성명, 조직, 직급, 입사일, 재직상태, 필요 시 퇴직 데이터 기반 조회"], ["연계", "신규등록, 기록카드 수정, 발령입력 반영 결과 즉시 반영"], ["검토 포인트", "퇴직자 포함 전체/퇴직자 모드에서도 클릭 동작과 목록 건수가 정확해야 함"]]
         },
         pagetitle: {
           title: "사원명부 화면 액션",
