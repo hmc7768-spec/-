@@ -71,9 +71,36 @@
     $(".hr-table-header div", refs.tableWrap).textContent = `총 ${state.employees.length}명 · 1-${state.employees.length} 표시`;
   }
   function renderOrg() {
-    const grouped = new Map();
-    state.employees.forEach((employee) => { const hq = employee.hq; if (!grouped.has(hq)) grouped.set(hq, []); grouped.get(hq).push(employee); });
-    refs.orgWrap.innerHTML = `<h3 style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:16px">조직도</h3><div class="codex-tree">${Array.from(grouped.entries()).map(([hq, members]) => { const officeGroups = new Map(); members.forEach((employee) => { const office = employee.office || "직속"; if (!officeGroups.has(office)) officeGroups.set(office, []); officeGroups.get(office).push(employee); }); return `<div class="codex-tree-section"><div class="codex-tree-title">${hq} · ${members.length}명</div><div class="codex-tree-branch">${Array.from(officeGroups.entries()).map(([office, officeMembers]) => { const teamGroups = new Map(); officeMembers.forEach((employee) => { const team = employee.team || employee.office || "직속"; if (!teamGroups.has(team)) teamGroups.set(team, []); teamGroups.get(team).push(employee); }); return `<div class="codex-tree-node"><strong>${office}</strong> · ${officeMembers.length}명<div class="codex-tree-branch">${Array.from(teamGroups.entries()).map(([team, teamMembers]) => `<div class="codex-tree-node"><strong>${team}</strong> · ${teamMembers.length}명${teamMembers.some((employee) => employee.part) ? `<div class="codex-chip-row" style="margin-top:6px">${Array.from(new Set(teamMembers.map((employee) => employee.part).filter(Boolean))).map((part) => `<span class="codex-chip">${part}</span>`).join("")}</div>` : ""}</div>`).join("")}</div></div>`; }).join("")}</div></div>`; }).join("")}</div>`;
+    const root = new Map();
+    state.employees.forEach((employee) => {
+      const hqKey = employee.hq || "미지정 본부";
+      if (!root.has(hqKey)) root.set(hqKey, { employees: [], offices: new Map() });
+      const hqNode = root.get(hqKey);
+      hqNode.employees.push(employee);
+
+      const officeKey = employee.office || "직속";
+      if (!hqNode.offices.has(officeKey)) hqNode.offices.set(officeKey, { employees: [], teams: new Map() });
+      const officeNode = hqNode.offices.get(officeKey);
+      officeNode.employees.push(employee);
+
+      const teamKey = employee.team || "직속";
+      if (!officeNode.teams.has(teamKey)) officeNode.teams.set(teamKey, { employees: [], parts: new Map() });
+      const teamNode = officeNode.teams.get(teamKey);
+      teamNode.employees.push(employee);
+
+      if (employee.part) {
+        if (!teamNode.parts.has(employee.part)) teamNode.parts.set(employee.part, []);
+        teamNode.parts.get(employee.part).push(employee);
+      }
+    });
+
+    const peopleRow = (members) => members.length ? `<div class="codex-org-people">${members.map((employee) => `<span class="codex-org-person"><strong>${employee.name}</strong><span>${employee.grade}</span></span>`).join("")}</div>` : "";
+    const renderPart = (part, members) => `<div class="codex-org-card" data-level="part"><div class="codex-org-header"><div class="codex-org-title"><strong>${part}</strong></div><div class="codex-org-meta">파트 · ${members.length}명</div></div>${peopleRow(members)}</div>`;
+    const renderTeam = (team, teamNode) => `<div class="codex-org-card" data-level="team"><div class="codex-org-header"><div class="codex-org-title"><strong>${team}</strong></div><div class="codex-org-meta">팀 · ${teamNode.employees.length}명</div></div>${peopleRow(teamNode.employees.filter((employee) => !employee.part))}${teamNode.parts.size ? `<div class="codex-org-children">${Array.from(teamNode.parts.entries()).map(([part, members]) => renderPart(part, members)).join("")}</div>` : ""}</div>`;
+    const renderOffice = (office, officeNode) => `<div class="codex-org-card" data-level="office"><div class="codex-org-header"><div class="codex-org-title"><strong>${office}</strong></div><div class="codex-org-meta">실 · ${officeNode.employees.length}명</div></div>${peopleRow(officeNode.employees.filter((employee) => !employee.team))}<div class="codex-org-children">${Array.from(officeNode.teams.entries()).map(([team, teamNode]) => renderTeam(team, teamNode)).join("")}</div></div>`;
+    const renderHq = (hq, hqNode) => `<div class="codex-org-card" data-level="hq"><div class="codex-org-header"><div class="codex-org-title"><strong>${hq}</strong></div><div class="codex-org-meta">본부 · ${hqNode.employees.length}명</div></div>${peopleRow(hqNode.employees.filter((employee) => !employee.office))}<div class="codex-org-children">${Array.from(hqNode.offices.entries()).map(([office, officeNode]) => renderOffice(office, officeNode)).join("")}</div></div>`;
+
+    refs.orgWrap.innerHTML = `<div class="codex-org-board"><div class="codex-org-root">오토플러스 <span style="opacity:.75;font-weight:500">${state.employees.length}명</span></div><div class="codex-org-level">${Array.from(root.entries()).map(([hq, hqNode]) => renderHq(hq, hqNode)).join("")}</div></div>`;
   }
   function renderRecord() {
     const employee = selectedEmployee();

@@ -140,6 +140,106 @@
   gap: 10px;
 }
 
+.codex-org-board {
+  display: grid;
+  gap: 14px;
+}
+
+.codex-org-root {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #1e3a5f;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.codex-org-level {
+  display: grid;
+  gap: 12px;
+}
+
+.codex-org-card {
+  border: 1px solid #dde7f2;
+  border-radius: 12px;
+  background: #fbfcfe;
+  padding: 14px;
+}
+
+.codex-org-card[data-level="hq"] {
+  background: #f7faff;
+  border-color: #ceddf5;
+}
+
+.codex-org-card[data-level="office"] {
+  margin-left: 18px;
+}
+
+.codex-org-card[data-level="team"] {
+  margin-left: 36px;
+}
+
+.codex-org-card[data-level="part"] {
+  margin-left: 54px;
+}
+
+.codex-org-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.codex-org-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.codex-org-title strong {
+  font-size: 13px;
+  color: #1e3a5f;
+}
+
+.codex-org-meta {
+  font-size: 11px;
+  color: #7d8799;
+  font-weight: 600;
+}
+
+.codex-org-children {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.codex-org-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.codex-org-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #e3ebf5;
+  font-size: 11px;
+  color: #496079;
+}
+
+.codex-org-person strong {
+  color: #1e3a5f;
+}
+
 .codex-tree-section {
   border: 1px solid #e1e8f2;
   border-radius: 10px;
