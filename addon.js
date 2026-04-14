@@ -139,6 +139,9 @@
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const refs = { hrSystem: $("#hrSystem"), evalSystem: $("#evalSystem"), pageTitle: $(".hr-page-title"), searchBar: $('[data-region="searchbar"]'), stats: $('[data-region="stats"]'), tableWrap: $('[data-region="emptable"]'), orgWrap: $("#orgChartWrap"), cardWrap: $("#hrCardGrid"), hrContent: $(".hr-content"), hrSidebar: $(".hr-sidebar"), topItems: $$(".hr-top-item"), sideItems: $$(".hr-sidebar-item"), annoList: $("#annoList") };
   if (!refs.hrSystem || !refs.tableWrap || !refs.cardWrap) return;
+  refs.pageActions = $(".hr-page-title > div:last-child", refs.hrSystem);
+  refs.pageSecondaryButton = refs.pageActions?.querySelector(".btn-outline") || null;
+  refs.pagePrimaryButton = refs.pageActions?.querySelector(".btn-primary") || null;
   const panels = {};
   function employeePath(employee) { return [employee.hq, employee.office, employee.team, employee.part].filter(Boolean).join(" > "); }
   function hireEmployeePath(employee) {
@@ -1015,8 +1018,8 @@
   editModal.save.addEventListener("click", saveEdit);
   function setPageTitle(title, description) { $("h2", refs.pageTitle).textContent = title; $("p", refs.pageTitle).textContent = description; }
   function updatePrimaryAction(view) {
-    const primaryButton = $(".btn-primary", refs.pageTitle);
-    const secondaryButton = $(".btn-outline", refs.pageTitle);
+    const primaryButton = refs.pagePrimaryButton;
+    const secondaryButton = refs.pageSecondaryButton;
     if (!primaryButton) return;
     if (view === "directory") {
       primaryButton.textContent = "➕ 신규 등록";
