@@ -524,12 +524,6 @@
   cursor: pointer;
 }
 
-.codex-sidebar-subitem {
-  margin-left: 22px;
-  font-size: 12px;
-  color: #6e7a92;
-}
-
 .codex-table-selected td {
   background: #f3f7ff;
 }
