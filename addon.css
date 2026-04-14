@@ -423,6 +423,11 @@
   gap: 16px;
 }
 
+.codex-record-shell-wide {
+  grid-template-columns: 320px minmax(0, 1fr);
+  align-items: start;
+}
+
 .codex-record-summary {
   display: grid;
   gap: 12px;
@@ -503,6 +508,29 @@
   gap: 12px;
 }
 
+.codex-record-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.codex-record-tab {
+  border: 1px solid #d8e0ec;
+  background: #fff;
+  color: #516174;
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.codex-record-tab.active {
+  background: #2f80ed;
+  border-color: #2f80ed;
+  color: #fff;
+}
+
 .codex-record-section {
   background: #fff;
   border: 1px solid #dde1ec;
@@ -560,6 +588,24 @@
   font-size: 12px;
   color: #55657d;
   line-height: 1.8;
+}
+
+.codex-record-note-tall {
+  min-height: 120px;
+}
+
+.codex-history-scroll {
+  max-height: 132px;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.dot-education {
+  background: #f5a623 !important;
+}
+
+.dot-career {
+  background: #25a18e !important;
 }
 
 .codex-quick-profile-hero {
