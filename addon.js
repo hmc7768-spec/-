@@ -793,7 +793,7 @@
     expandOrgAncestors(selected.key, false);
     const renderTreeNode = (node) => {
       const selectedClass = node.key === state.currentOrgNode ? " selected" : "";
-      const expanded = isOrgExpanded(node.key);
+      const expanded = isOrgExpanded(node.key) || isAncestorOrgKey(node.key, state.currentOrgNode);
       const hasChildren = node.children.length > 0;
       return `<div class="codex-org-tree-node level-${node.level.toLowerCase()}${selectedClass}${expanded ? " is-open" : ""}" data-tree-node="${node.key}"><div class="codex-org-tree-row"><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${node.key}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button><button type="button" class="codex-org-tree-btn" data-org-node="${node.key}"><span class="codex-org-tree-label">${node.label}</span></button></div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${node.children.map(renderTreeNode).join("")}</div>` : ""}</div>`;
     };
@@ -1332,6 +1332,20 @@
     const directChildren = getChildrenRows(rows, key);
     return directChildren.flatMap((row) => [getOrgRowKey(row), ...getDescendantKeys(rows, getOrgRowKey(row))]);
   }
+  function isAncestorOrgKey(ancestorKey, targetKey) {
+    if (!ancestorKey || !targetKey) return false;
+    if (ancestorKey === "ROOT") return true;
+    const ancestor = parseOrgKey(ancestorKey);
+    const target = parseOrgKey(targetKey);
+    if (!ancestor.level || !target.level) return false;
+    if (ancestor.hq !== target.hq) return false;
+    if (ancestor.level === "L1") return true;
+    if (ancestor.office !== target.office) return false;
+    if (ancestor.level === "L2") return true;
+    if (ancestor.team !== target.team) return false;
+    if (ancestor.level === "L3") return true;
+    return ancestor.part === target.part;
+  }
   function getEmployeesInOrgKey(key, includeChildren = false, rows = state.orgBlueprint, employees = state.employees) {
     if (key === "ROOT") return employees.slice();
     const keys = includeChildren ? [key, ...getDescendantKeys(rows, key)] : [key];
@@ -1373,7 +1387,7 @@
     const renderNode = (key, label) => {
       const children = getChildrenRows(rows, key);
       const hasChildren = children.length > 0;
-      const expanded = expandedKeys.has(key) || selectedKey === key;
+      const expanded = expandedKeys.has(key) || selectedKey === key || isAncestorOrgKey(key, selectedKey);
       const selected = selectedKey === key;
       const selectedRow = key === "ROOT" ? null : getBlueprintRow(rows, key);
       const controls = includeControls && key !== "ROOT"
