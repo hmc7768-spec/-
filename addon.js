@@ -121,6 +121,35 @@
   function renderOrg() {
     refs.orgWrap.innerHTML = renderOrgBoard();
   }
+  function uniqueValues(items) {
+    return Array.from(new Set(items.filter(Boolean)));
+  }
+  function getOrgOptions(level, filters = {}) {
+    const employees = state.employees.filter((employee) => {
+      if (filters.hq && employee.hq !== filters.hq) return false;
+      if (filters.office && employee.office !== filters.office) return false;
+      if (filters.team && employee.team !== filters.team) return false;
+      return true;
+    });
+    if (level === "hq") return uniqueValues(employees.map((employee) => employee.hq));
+    if (level === "office") return uniqueValues(employees.map((employee) => employee.office));
+    if (level === "team") return uniqueValues(employees.map((employee) => employee.team));
+    return uniqueValues(employees.map((employee) => employee.part));
+  }
+  function fillSelectOptions(selector, options, selectedValue, allowBlank = false) {
+    const select = $(selector);
+    if (!select) return;
+    const list = allowBlank ? ["", ...options] : options;
+    select.innerHTML = list.map((item) => `<option value="${item}" ${item === selectedValue ? "selected" : ""}>${item || "없음"}</option>`).join("");
+  }
+  function syncAssignmentOrgFields(sourceEmployee) {
+    const selectedHq = $("#assignNextHq")?.value || sourceEmployee.hq || "";
+    fillSelectOptions("#assignNextOffice", getOrgOptions("office", { hq: selectedHq }), $("#assignNextOffice")?.value || sourceEmployee.office || "", true);
+    const selectedOffice = $("#assignNextOffice")?.value || sourceEmployee.office || "";
+    fillSelectOptions("#assignNextTeam", getOrgOptions("team", { hq: selectedHq, office: selectedOffice }), $("#assignNextTeam")?.value || sourceEmployee.team || "", true);
+    const selectedTeam = $("#assignNextTeam")?.value || sourceEmployee.team || "";
+    fillSelectOptions("#assignNextPart", getOrgOptions("part", { hq: selectedHq, office: selectedOffice, team: selectedTeam }), $("#assignNextPart")?.value || sourceEmployee.part || "", true);
+  }
   function saveOrgCode() {
     const summary = getOrgSummary();
     const selected = summary.find((item) => item.key === state.currentCodeSelection);
@@ -220,17 +249,21 @@
   }
   function renderAssignment() {
     const employee = selectedEmployee();
-    panels.assignment.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><h3>발령입력</h3><div style="font-size:11px;color:#9095b0">대상자 선택 → 변경내용 확인 → 발령 반영</div></div><div class="codex-grid-2" style="margin-top:16px"><div class="codex-panel"><div class="codex-form-grid" id="codexAssignmentForm"><label><span>대상자</span><select id="assignEmployee">${state.employees.map((item) => `<option value="${item.id}" ${item.id === employee.id ? "selected" : ""}>${item.name} (${item.id})</option>`).join("")}</select></label><label><span>발령유형</span><select id="assignType"><option>조직이동</option><option>승진</option><option>겸직</option></select></label><label><span>현재 조직</span><input id="assignCurrentDept" value="${employeePath(employee)}" readonly></label><label><span>변경 조직</span><input id="assignNextDept" value="${employeePath(employee)}"></label><label><span>현재 직급</span><input id="assignCurrentGrade" value="${employee.grade}" readonly></label><label><span>변경 직급</span><input id="assignNextGrade" value="${employee.grade}"></label><label><span>재직상태</span><select id="assignStatus"><option ${employee.status === "재직" ? "selected" : ""}>재직</option><option ${employee.status === "휴직" ? "selected" : ""}>휴직</option></select></label><label><span>발령사유</span><input id="assignReason" value="조직 운영상 이동"></label></div><div class="codex-modal-actions"><button type="button" class="hr-btn btn-outline" id="assignPreviewBtn">미리보기</button><button type="button" class="hr-btn btn-primary" id="assignApplyBtn">발령 반영</button></div></div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">발령 반영 미리보기</h4><div id="assignPreviewBox"></div></div></div>`;
+    const hqOptions = getOrgOptions("hq");
+    panels.assignment.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><h3>발령입력</h3><div style="font-size:11px;color:#9095b0">대상자 선택 → 변경내용 검토 → 발령 반영</div></div><div class="codex-grid-2" style="margin-top:16px"><div class="codex-stack"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">발령 기본정보</h4><div class="codex-form-grid" id="codexAssignmentForm"><label><span>대상자</span><select id="assignEmployee">${state.employees.map((item) => `<option value="${item.id}" ${item.id === employee.id ? "selected" : ""}>${item.name} (${item.id})</option>`).join("")}</select></label><label><span>발령유형</span><select id="assignType"><option>조직이동</option><option>승진</option><option>직무변경</option><option>휴직전환</option></select></label><label class="span-2"><span>현재 조직</span><input id="assignCurrentDept" value="${employeePath(employee)}" readonly></label><label><span>현재 직급</span><input id="assignCurrentGrade" value="${employee.grade}" readonly></label><label><span>현재 재직상태</span><input id="assignCurrentStatus" value="${employee.status}" readonly></label></div></div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">변경 내용 입력</h4><div class="codex-form-grid"><label><span>변경 본부</span><select id="assignNextHq">${hqOptions.map((item) => `<option value="${item}" ${item === employee.hq ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>변경 실</span><select id="assignNextOffice"></select></label><label><span>변경 팀</span><select id="assignNextTeam"></select></label><label><span>변경 파트</span><select id="assignNextPart"></select></label><label><span>변경 직급</span><select id="assignNextGrade">${gradeCodes.map((item) => `<option value="${item}" ${item === employee.grade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>변경 직책</span><select id="assignNextTitle">${titleCodes.map((item) => `<option value="${item}" ${item === employee.title ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>재직상태</span><select id="assignStatus"><option ${employee.status === "재직" ? "selected" : ""}>재직</option><option ${employee.status === "휴직" ? "selected" : ""}>휴직</option></select></label><label><span>발령일</span><input id="assignDate" value="2026.04.14"></label><label class="span-2"><span>발령사유</span><input id="assignReason" value="조직 운영상 이동"></label></div><div class="codex-modal-actions"><button type="button" class="hr-btn btn-outline" id="assignPreviewBtn">미리보기</button><button type="button" class="hr-btn btn-primary" id="assignApplyBtn">발령 반영</button></div></div></div><div class="codex-stack"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">발령 반영 미리보기</h4><div id="assignPreviewBox"></div></div><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">개발 포인트</h4><div class="codex-note-box"><strong>연동 범위</strong>발령 반영 시 사원명부, 인사기록카드, 조직도, 평가대상 기준이 함께 갱신되어야 합니다.</div><div class="codex-note-box"><strong>검증 규칙</strong>조직 변경 시 본부-실-팀-파트 위계 검증과 직급/직책 코드 유효성 검사가 필요합니다.</div></div></div></div>`;
+    syncAssignmentOrgFields(employee);
     bindAssignment();
     renderAssignmentPreview();
   }
   function renderAssignmentPreview() {
     const employee = state.employees.find((item) => item.id === $("#assignEmployee")?.value) || selectedEmployee();
-    const nextDept = $("#assignNextDept")?.value || employeePath(employee);
+    const nextDept = [$("#assignNextHq")?.value, $("#assignNextOffice")?.value, $("#assignNextTeam")?.value, $("#assignNextPart")?.value].filter(Boolean).join(" > ");
     const nextGrade = $("#assignNextGrade")?.value || employee.grade;
+    const nextTitle = $("#assignNextTitle")?.value || employee.title;
     const nextStatus = $("#assignStatus")?.value || employee.status;
     const reason = $("#assignReason")?.value || "조직 운영상 이동";
-    $("#assignPreviewBox").innerHTML = `<div class="codex-note-box"><strong>대상자</strong>${employee.name} (${employee.id})</div><div class="codex-note-box"><strong>변경 전</strong>${employeePath(employee)} / ${employee.grade} / ${employee.status}</div><div class="codex-note-box"><strong>변경 후</strong>${nextDept} / ${nextGrade} / ${nextStatus}</div><div class="codex-note-box"><strong>사유</strong>${reason}</div>`;
+    const assignDate = $("#assignDate")?.value || "2026.04.14";
+    $("#assignPreviewBox").innerHTML = `<div class="codex-note-box"><strong>대상자</strong>${employee.name} (${employee.id})</div><div class="codex-note-box"><strong>변경 전</strong>${employeePath(employee)} / ${employee.grade} / ${employee.title} / ${employee.status}</div><div class="codex-note-box"><strong>변경 후</strong>${nextDept} / ${nextGrade} / ${nextTitle} / ${nextStatus}</div><div class="codex-note-box"><strong>발령일 / 사유</strong>${assignDate} / ${reason}</div>`;
   }
   function bindContractToggle(typeSelector, fieldSelector) {
     const typeEl = $(typeSelector);
@@ -245,9 +278,12 @@
   }
   function bindAssignment() {
     $("#assignEmployee")?.addEventListener("change", () => { state.selectedId = $("#assignEmployee").value; renderAssignment(); });
-    ["#assignNextDept", "#assignNextGrade", "#assignStatus", "#assignReason"].forEach((selector) => { $(selector)?.addEventListener("input", renderAssignmentPreview); $(selector)?.addEventListener("change", renderAssignmentPreview); });
+    $("#assignNextHq")?.addEventListener("change", () => { syncAssignmentOrgFields(selectedEmployee()); renderAssignmentPreview(); });
+    $("#assignNextOffice")?.addEventListener("change", () => { syncAssignmentOrgFields(selectedEmployee()); renderAssignmentPreview(); });
+    $("#assignNextTeam")?.addEventListener("change", () => { syncAssignmentOrgFields(selectedEmployee()); renderAssignmentPreview(); });
+    ["#assignNextPart", "#assignNextGrade", "#assignNextTitle", "#assignStatus", "#assignReason", "#assignDate"].forEach((selector) => { $(selector)?.addEventListener("input", renderAssignmentPreview); $(selector)?.addEventListener("change", renderAssignmentPreview); });
     $("#assignPreviewBtn")?.addEventListener("click", renderAssignmentPreview);
-    $("#assignApplyBtn")?.addEventListener("click", () => { const employee = selectedEmployee(); employee.grade = $("#assignNextGrade").value; employee.status = $("#assignStatus").value; const nextDept = $("#assignNextDept").value.split(" > "); employee.hq = nextDept[0] || employee.hq; employee.office = nextDept[1] || ""; employee.team = nextDept[2] || ""; employee.part = nextDept[3] || ""; employee.assignmentDate = "2026.04.13"; employee.history.unshift(["2026.04.13", `${$("#assignType").value} 반영 - ${$("#assignReason").value}`]); renderAll(); showHrView("org"); });
+    $("#assignApplyBtn")?.addEventListener("click", () => { const employee = selectedEmployee(); employee.hq = $("#assignNextHq").value || employee.hq; employee.office = $("#assignNextOffice").value || ""; employee.team = $("#assignNextTeam").value || ""; employee.part = $("#assignNextPart").value || ""; employee.grade = $("#assignNextGrade").value; employee.title = $("#assignNextTitle").value; employee.status = $("#assignStatus").value; employee.assignmentDate = $("#assignDate").value || "2026.04.14"; employee.history.unshift([employee.assignmentDate, `${$("#assignType").value} 반영 - ${$("#assignReason").value}`]); renderAll(); showHrView("org"); });
   }
   function fillCreateForm() {
     createModal.body.innerHTML = `<div class="codex-form-grid"><label><span>사원명</span><input id="createName"></label><label><span>직원유형</span><select id="createEmployeeType">${employeeTypes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>본부</span><input id="createHq" value="경영관리본부"></label><label><span>실</span><input id="createOffice" value="경영지원실"></label><label><span>팀</span><input id="createTeam" value="인사팀"></label><label><span>파트</span><input id="createPart"></label><label><span>직급</span><select id="createGrade">${gradeCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>직책</span><select id="createTitle">${titleCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>직군</span><select id="createFamily">${familyCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>입사일</span><input id="createHireDate" value="2026.04.13"></label><label><span>생년월일</span><input id="createBirthDate" value="1995.01.01"></label><label><span>연락처</span><input id="createPhone" value="010-0000-0000"></label><label><span>최종학력</span><input id="createEducation" value="미입력"></label><label><span>입사시 직급</span><select id="createHireGrade">${gradeCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>계약기간</span><input id="createContractPeriod" placeholder="계약직인 경우 입력"></label><label><span>인정경력(개월)</span><input id="createCareerMonths" value="0"></label><label><span>부서배정일</span><input id="createAssignmentDate" value="2026.04.13"></label><label class="span-2"><span>인사 메모</span><textarea id="createMemo" rows="3">신규 등록 사원</textarea></label></div>`;
