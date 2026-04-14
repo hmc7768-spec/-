@@ -424,13 +424,24 @@
 }
 
 .codex-record-shell-wide {
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 
 .codex-record-summary {
   display: grid;
   gap: 12px;
+}
+
+.codex-record-shell-wide .codex-record-card {
+  display: grid;
+  grid-template-columns: 280px repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.codex-record-shell-wide .codex-record-head {
+  height: 100%;
+  align-content: center;
 }
 
 .codex-record-card {
@@ -458,6 +469,11 @@
 .codex-record-block {
   padding: 14px 16px;
   border-top: 1px solid #eef2f7;
+}
+
+.codex-record-shell-wide .codex-record-block {
+  border-top: none;
+  border-left: 1px solid #eef2f7;
 }
 
 .codex-record-block:first-child {
@@ -512,6 +528,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  padding-bottom: 4px;
 }
 
 .codex-record-tab {
@@ -549,8 +566,8 @@
 
 .codex-record-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 18px;
 }
 
 .codex-record-grid .full {
@@ -595,9 +612,9 @@
 }
 
 .codex-history-scroll {
-  max-height: 132px;
+  max-height: 136px;
   overflow: auto;
-  padding-right: 6px;
+  padding-right: 8px;
 }
 
 .dot-education {
@@ -779,6 +796,15 @@
 }
 
 @media (max-width: 900px) {
+  .codex-record-shell-wide .codex-record-card {
+    grid-template-columns: 1fr;
+  }
+
+  .codex-record-shell-wide .codex-record-block {
+    border-left: none;
+    border-top: 1px solid #eef2f7;
+  }
+
   .codex-form-grid,
   .codex-grid-2,
   .codex-grid-2-tight {
