@@ -78,7 +78,7 @@
     return orgRows.map((row, index) => {
       const grade = inferGrade(row, index);
       const employeeType = inferEmployeeType(index, row);
-      const hireYear = 2014 + (index % 11);
+      const hireYear = 2014 + (index % 13);
       const hireMonth = String((index % 12) + 1).padStart(2, "0");
       const hireDay = String((index % 27) + 1).padStart(2, "0");
       const birthYear = 1982 + (index % 18);
@@ -119,7 +119,7 @@
     { id: "L3", name: "팀", parent: "L2", desc: "실 하위 팀 단위" },
     { id: "L4", name: "파트", parent: "L3", desc: "팀 하위 파트 단위" }
   ];
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1 };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, statModalSelection: "" };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const refs = { hrSystem: $("#hrSystem"), evalSystem: $("#evalSystem"), pageTitle: $(".hr-page-title"), searchBar: $('[data-region="searchbar"]'), stats: $('[data-region="stats"]'), tableWrap: $('[data-region="emptable"]'), orgWrap: $("#orgChartWrap"), cardWrap: $("#hrCardGrid"), hrContent: $(".hr-content"), hrSidebar: $(".hr-sidebar"), topItems: $$(".hr-top-item"), sideItems: $$(".hr-sidebar-item"), annoList: $("#annoList") };
@@ -150,7 +150,13 @@
     return `${state.hireStatYear}년 연간 기준`;
   }
   function renderEmployeeList(items) {
-    return items.length ? `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>직급</th><th>입사일</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${employee.status}</td></tr>`).join("")}</tbody></table>` : `<div class="codex-note-box"><strong>대상자 없음</strong>선택한 조건에 해당하는 대상자가 없습니다.</div>`;
+    return items.length ? `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>직급</th><th>입사일</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${employee.status}</td></tr>`).join("")}</tbody></table>` : `<div class="codex-note-box"><strong>대상자 없음</strong>선택한 조건에 해당하는 대상자가 없습니다.</div>`;
+  }
+  function openRecordInNewTab(employeeId) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", "record");
+    url.searchParams.set("employeeId", employeeId);
+    window.open(url.toString(), "_blank");
   }
   function getOrgSummary() {
     const map = new Map();
@@ -386,15 +392,18 @@
     renderCodes();
   }
   function openStatModal(type) {
+    statsModal.save.textContent = "인사기록카드 열기";
+    statsModal.save.onclick = () => {
+      if (!state.statModalSelection) return;
+      openRecordInNewTab(state.statModalSelection);
+    };
     if (type === "leave") {
       const items = state.employees.filter((employee) => employee.status !== "재직");
       statsModal.body.innerHTML = `<div class="codex-stack"><div class="codex-note-box"><strong>휴직 중 대상자</strong>현재 휴직 상태로 분류된 사원 목록입니다. 발령입력 또는 기록카드 수정으로 재직상태가 바뀌면 이 목록도 즉시 갱신됩니다.</div>${renderEmployeeList(items)}</div>`;
       $$("[data-stat-employee]", statsModal.body).forEach((row) => {
         row.addEventListener("click", () => {
-          state.selectedId = row.dataset.statEmployee;
-          statsModal.close();
-          renderRecord();
-          showHrView("record");
+          state.statModalSelection = row.dataset.statEmployee;
+          openStatModal("leave");
         });
       });
       statsModal.open();
@@ -446,10 +455,8 @@
       });
       $$("[data-stat-employee]", statsModal.body).forEach((row) => {
         row.addEventListener("click", () => {
-          state.selectedId = row.dataset.statEmployee;
-          statsModal.close();
-          renderRecord();
-          showHrView("record");
+          state.statModalSelection = row.dataset.statEmployee;
+          openStatModal("hire");
         });
       });
       statsModal.open();
@@ -706,7 +713,14 @@
   ensurePanels();
   bindCoreActions();
   renderAll();
-  showHrView("directory");
+  const params = new URLSearchParams(window.location.search);
+  const employeeFromUrl = params.get("employeeId");
+  if (employeeFromUrl && state.employees.some((employee) => employee.id === employeeFromUrl)) {
+    state.selectedId = employeeFromUrl;
+  }
+  const viewFromUrl = params.get("view");
+  if (viewFromUrl === "record") showHrView("record");
+  else showHrView("directory");
   const tab1 = $("#tab1");
   const tab2 = $("#tab2");
   tab1?.addEventListener("click", () => { state.currentSystem = 1; renderNotesByView(); }, true);
