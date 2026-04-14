@@ -10,13 +10,116 @@
   const titleCodes = ["대표이사", "본부장", "실장", "센터장", "팀장", "파트장", "지점장"];
   const familyCodes = ["임원", "관리", "관리(성과)", "물류", "정비", "별정", "영업(판매)", "영업(매입)", "순회"];
   const employeeTypes = ["정규직", "계약직", "임원"];
+  const orgRows = [
+    ["오토플러스", "", "", ""], ["대표이사 직속", "RTC", "", ""], ["대표이사 직속", "RTC", "공정지원팀", ""], ["대표이사 직속", "RTC", "RTC RQI팀", ""],
+    ["대표이사 직속", "RTC", "RTC 품질개선팀", ""], ["대표이사 직속", "RTC", "RTC 품질개선팀", "RTC 도장파트"], ["대표이사 직속", "RTC", "RTC 품질개선팀", "RTC 정비판금파트"],
+    ["BPO사업본부", "", "", ""], ["BPO사업본부", "금융사업실", "", ""], ["BPO사업본부", "금융사업실", "반납운영팀", ""], ["BPO사업본부", "금융사업실", "제휴사업팀", ""], ["BPO사업본부", "금융사업실", "선불운영팀", ""],
+    ["BPO사업본부", "옥션사업실", "", ""], ["BPO사업본부", "옥션사업실", "리본카옥션팀", "리본카옥션팀 영업파트"], ["BPO사업본부", "옥션사업실", "리본카옥션팀", "리본카옥션팀 운영파트"],
+    ["BPO사업본부", "상품매입실", "법인영업팀", ""], ["BPO사업본부", "상품매입실", "법인영업팀", "법인영업팀 1파트"], ["BPO사업본부", "상품매입실", "법인영업팀", "법인영업팀 2파트"],
+    ["BPO사업본부", "상품매입실", "", ""], ["BPO사업본부", "상품매입실", "온라인매입팀", ""], ["BPO사업본부", "상품매입실", "온라인매입팀", "온라인매입팀 1파트"], ["BPO사업본부", "상품매입실", "온라인매입팀", "온라인매입팀 2파트"],
+    ["경영관리본부", "", "", ""], ["경영관리본부", "경영지원실", "경영기획팀", ""], ["경영관리본부", "경영지원실", "노무팀", ""], ["경영관리본부", "경영지원실", "인사팀", ""], ["경영관리본부", "경영지원실", "인사팀(부)", ""],
+    ["경영관리본부", "경영지원실", "재무팀", ""], ["경영관리본부", "경영지원실", "재무팀", "재무팀 자금파트"], ["경영관리본부", "디지털사업실", "", ""], ["경영관리본부", "디지털사업실", "인프라개발팀", ""], ["경영관리본부", "디지털사업실", "온라인개발팀", ""],
+    ["경영관리본부", "디지털사업실", "서비스기획팀", ""], ["경영관리본부", "디지털사업실", "서비스기획팀", "UX파트"],
+    ["사업관리본부", "", "", ""], ["사업관리본부", "사업관리본부 직속", "포트폴리오팀", ""], ["사업관리본부", "사업관리본부 직속", "포트폴리오팀", "포트폴리오팀 견적심사파트"], ["사업관리본부", "사업관리본부 직속", "포트폴리오팀", "포트폴리오팀 차량이동파트"],
+    ["사업관리본부", "영업기획실", "", ""], ["사업관리본부", "영업기획실", "고객지원팀", ""], ["사업관리본부", "영업기획실", "고객지원팀", "EW파트"], ["사업관리본부", "영업기획실", "마케팅팀", ""], ["사업관리본부", "영업기획실", "영업관리팀", ""],
+    ["사업관리본부", "렌터카사업실", "", ""], ["사업관리본부", "렌터카사업실", "렌터카영업팀", "렌터카영업팀"], ["사업관리본부", "렌터카사업실", "렌터카지원팀", "렌터카지원팀"],
+    ["서비스본부", "", "", ""], ["서비스본부", "서비스본부 직속", "순회정비팀", ""], ["서비스본부", "서비스본부 직속", "순회정비팀", "순회(경남)"], ["서비스본부", "서비스본부 직속", "순회정비팀", "순회(부산)"], ["서비스본부", "서비스본부 직속", "순회정비팀", "순회(서울1)"], ["서비스본부", "서비스본부 직속", "순회정비팀", "순회(서울2)"], ["서비스본부", "서비스본부 직속", "순회정비팀", "순회(인천)"],
+    ["서비스본부", "오토케어사업실", "", ""], ["서비스본부", "오토케어사업실", "LP팀", ""], ["서비스본부", "오토케어사업실", "탁송팀", ""], ["서비스본부", "오토케어사업실", "신차물류팀", ""], ["서비스본부", "오토케어사업실", "신차물류팀", "경산물류"], ["서비스본부", "오토케어사업실", "신차물류팀", "광주물류"], ["서비스본부", "오토케어사업실", "신차물류팀", "김해물류"], ["서비스본부", "오토케어사업실", "신차물류팀", "용인물류"], ["서비스본부", "오토케어사업실", "신차물류팀", "인천물류"], ["서비스본부", "오토케어사업실", "신차물류팀", "청주물류"],
+    ["영업본부", "", "", ""], ["영업본부", "영업본부 직속", "매입운영팀", ""], ["영업본부", "영업본부 직속", "매입전담팀", ""], ["영업본부", "영업본부 직속", "영업운영팀", ""], ["영업본부", "영업본부 직속", "서울지점", ""],
+    ["영업본부", "영업본부 직속", "일산지점", ""], ["영업본부", "영업본부 직속", "일산지점", "일산지점 매입파트"], ["영업본부", "영업본부 직속", "일산지점", "일산지점 판매파트"],
+    ["영업본부", "영업본부 직속", "광주지점", ""], ["영업본부", "영업본부 직속", "광주지점", "광주지점 매입파트"], ["영업본부", "영업본부 직속", "광주지점", "광주지점 판매파트"],
+    ["영업본부", "영업본부 직속", "김포지점", ""], ["영업본부", "영업본부 직속", "김포지점", "김포지점 매입파트"], ["영업본부", "영업본부 직속", "김포지점", "김포지점 판매파트"],
+    ["영업본부", "영업본부 직속", "동대구지점", ""], ["영업본부", "영업본부 직속", "동대구지점", "동대구지점 매입파트"], ["영업본부", "영업본부 직속", "동대구지점", "동대구지점 판매파트"],
+    ["영업본부", "영업본부 직속", "부산지점", ""], ["영업본부", "영업본부 직속", "부산지점", "부산지점 라이브방송파트"], ["영업본부", "영업본부 직속", "부산지점", "부산지점 매입파트"], ["영업본부", "영업본부 직속", "부산지점", "부산지점 지원파트"], ["영업본부", "영업본부 직속", "부산지점", "부산지점 판매파트"],
+    ["영업본부", "영업본부 직속", "천안지점", ""], ["영업본부", "영업본부 직속", "천안지점", "천안지점 매입파트"], ["영업본부", "영업본부 직속", "천안지점", "천안지점 판매파트"],
+    ["영업본부", "영업본부 직속", "청라지점", ""], ["영업본부", "영업본부 직속", "청라지점", "청라지점 라이브방송파트"], ["영업본부", "영업본부 직속", "청라지점", "청라지점 지원파트"], ["영업본부", "영업본부 직속", "청라지점", "청라지점 판매파트"],
+    ["영업본부", "영업본부 직속", "제주지점", ""], ["영업본부", "영업본부 직속", "중앙특판지점", ""]
+  ].map(([hq, office, team, part]) => ({ hq, office, team, part }));
+  function inferJobFamily(row) {
+    const text = [row.hq, row.office, row.team, row.part].join(" ");
+    if (text.includes("물류") || text.includes("탁송")) return "물류";
+    if (text.includes("정비") || text.includes("RTC")) return "정비";
+    if (text.includes("매입")) return "영업(매입)";
+    if (text.includes("판매") || text.includes("지점") || text.includes("영업")) return "영업(판매)";
+    if (text.includes("순회")) return "순회";
+    if (text.includes("UX") || text.includes("서비스기획")) return "관리(성과)";
+    return "관리";
+  }
+  function inferTitle(row) {
+    if (row.hq === "오토플러스") return "대표이사";
+    if (!row.office && !row.team && !row.part) return "본부장";
+    if (row.team && row.team.includes("지점")) return "지점장";
+    if (row.part) return "파트장";
+    if (row.team) return "팀장";
+    if (row.office) return row.office.includes("센터") ? "센터장" : "실장";
+    return "본부장";
+  }
+  function inferGrade(row, index) {
+    if (row.hq === "오토플러스") return "사장";
+    if (!row.office && !row.team && !row.part) return index % 2 === 0 ? "부사장" : "전무이사";
+    if (row.office && !row.team && !row.part) return "부장";
+    if (row.team && !row.part) return index % 3 === 0 ? "차장" : "과장";
+    return index % 2 === 0 ? "대리" : "사원";
+  }
+  function inferHireGrade(grade) {
+    const index = gradeCodes.indexOf(grade);
+    return index >= 0 && index < gradeCodes.length - 1 ? gradeCodes[index + 1] : grade;
+  }
+  function inferEmployeeType(index, row) {
+    if (row.hq === "오토플러스" || (!row.office && !row.team && !row.part)) return "임원";
+    if (index % 13 === 0) return "계약직";
+    return "정규직";
+  }
+  function createEmployeeSeed() {
+    const surnames = ["김", "이", "박", "최", "정", "강", "조", "윤", "장", "임", "한", "오", "서", "신", "권", "황"];
+    const given = ["민준", "서준", "도윤", "하준", "시우", "지호", "지훈", "현우", "우진", "건우", "서연", "지우", "하윤", "민서", "지민", "채원", "수아", "다은", "가은", "예린", "태희", "승현", "도현", "은호", "주원", "유진", "수빈", "재윤", "유나", "소연"];
+    const majors = ["경영학과", "경제학과", "컴퓨터공학과", "산업공학과", "물류학과", "행정학과", "기계공학과", "디자인학과"];
+    const schools = ["한양대학교", "경희대학교", "국민대학교", "인하대학교", "중앙대학교", "단국대학교", "건국대학교", "서울과학기술대학교"];
+    return orgRows.map((row, index) => {
+      const grade = inferGrade(row, index);
+      const employeeType = inferEmployeeType(index, row);
+      const hireYear = 2014 + (index % 11);
+      const hireMonth = String((index % 12) + 1).padStart(2, "0");
+      const hireDay = String((index % 27) + 1).padStart(2, "0");
+      const birthYear = 1982 + (index % 18);
+      const birthMonth = String(((index + 4) % 12) + 1).padStart(2, "0");
+      const birthDay = String(((index + 9) % 27) + 1).padStart(2, "0");
+      const deepest = row.part || row.team || row.office || row.hq;
+      const assignmentDate = `${Math.max(hireYear + 1, 2020)}.${hireMonth}.${hireDay}`;
+      return {
+        id: `EMP-${String(index + 1).padStart(4, "0")}`,
+        name: `${surnames[index % surnames.length]}${given[index % given.length]}`,
+        hq: row.hq,
+        office: row.office,
+        team: row.team,
+        part: row.part,
+        grade,
+        hireGrade: inferHireGrade(grade),
+        title: inferTitle(row),
+        jobFamily: inferJobFamily(row),
+        employeeType,
+        contractPeriod: employeeType === "계약직" ? "2026.01.01 ~ 2026.12.31" : "",
+        birthDate: `${birthYear}.${birthMonth}.${birthDay}`,
+        hireDate: `${hireYear}.${hireMonth}.${hireDay}`,
+        phone: `010-${String(2000 + index * 7).slice(-4)}-${String(3000 + index * 11).slice(-4)}`,
+        education: `${schools[index % schools.length]} ${majors[index % majors.length]}`,
+        status: index % 17 === 0 && employeeType !== "임원" ? "휴직" : "재직",
+        careerMonths: String(6 + (index % 72)),
+        assignmentDate,
+        memo: `${deepest} 조직 기준 더미 사원 데이터`,
+        history: [[assignmentDate, `${deepest} 배치`], [`${hireYear}.${hireMonth}.${hireDay}`, `입사 (${deepest})`]],
+        educationHistory: [[`${Math.max(hireYear + 1, 2020)}.${hireMonth}`, "직무 기본교육 이수"], [`${Math.max(hireYear + 2, 2021)}.${hireMonth}`, "공통 역량교육 이수"]]
+      };
+    });
+  }
+  const fullEmployeeSeed = createEmployeeSeed();
   const levelDefs = [
     { id: "L1", name: "본부", parent: "-", desc: "최상위 조직 단위" },
     { id: "L2", name: "실", parent: "L1", desc: "본부 하위 실 단위" },
     { id: "L3", name: "팀", parent: "L2", desc: "실 하위 팀 단위" },
     { id: "L4", name: "파트", parent: "L3", desc: "팀 하위 파트 단위" }
   ];
-  const state = { employees: employeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0024", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "" };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const refs = { hrSystem: $("#hrSystem"), evalSystem: $("#evalSystem"), pageTitle: $(".hr-page-title"), searchBar: $('[data-region="searchbar"]'), stats: $('[data-region="stats"]'), tableWrap: $('[data-region="emptable"]'), orgWrap: $("#orgChartWrap"), cardWrap: $("#hrCardGrid"), hrContent: $(".hr-content"), hrSidebar: $(".hr-sidebar"), topItems: $$(".hr-top-item"), sideItems: $$(".hr-sidebar-item"), annoList: $("#annoList") };
@@ -46,6 +149,7 @@
     return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key, "ko"));
   }
   function getEmployeeNodeKey(employee) {
+    if (employee.hq === "오토플러스" && !employee.office && !employee.team && !employee.part) return "ROOT";
     if (employee.part) return ["L4", employee.hq, employee.office, employee.team, employee.part].join("|");
     if (employee.team) return ["L3", employee.hq, employee.office, employee.team, ""].join("|");
     if (employee.office) return ["L2", employee.hq, employee.office, "", ""].join("|");
@@ -65,7 +169,9 @@
     };
     state.employees.forEach((employee) => {
       let parent = root;
-      if (employee.hq) parent = ensureNode(parent, ["L1", employee.hq, "", "", ""].join("|"), employee.hq, "L1");
+      if (employee.hq && !(employee.hq === "오토플러스" && !employee.office && !employee.team && !employee.part)) {
+        parent = ensureNode(parent, ["L1", employee.hq, "", "", ""].join("|"), employee.hq, "L1");
+      }
       if (employee.office) parent = ensureNode(parent, ["L2", employee.hq, employee.office, "", ""].join("|"), employee.office, "L2");
       if (employee.team) parent = ensureNode(parent, ["L3", employee.hq, employee.office, employee.team, ""].join("|"), employee.team, "L3");
       if (employee.part) parent = ensureNode(parent, ["L4", employee.hq, employee.office, employee.team, employee.part].join("|"), employee.part, "L4");
