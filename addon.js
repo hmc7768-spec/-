@@ -378,7 +378,30 @@
   function renderNotesByView() {
     if (typeof annotations === "undefined" || !refs.annoList || state.currentSystem !== 1) return;
     const map = { directory: ["topbar", "gnb", "sidebar", "searchbar", "stats", "emptable", "pagetitle"], record: ["topbar", "gnb", "sidebar", "pagetitle", "hrcard"], org: ["topbar", "gnb", "sidebar", "pagetitle", "orgchart"], codes: ["topbar", "gnb", "sidebar", "pagetitle"], assignment: ["topbar", "gnb", "sidebar", "pagetitle"] };
-    const filtered = (annotations[1] || []).filter((item) => map[state.currentHrView].includes(item.region));
+    const base = (annotations[1] || []).filter((item) => map[state.currentHrView].includes(item.region));
+    const overrides = {
+      directory: {
+        searchbar: { title: "사원 검색 및 조건 필터", desc: "사번, 성명, 부서 기준 통합 검색과 재직상태/직급 필터를 제공하는 영역. 검색 실행 시 하단 사원명부 목록과 건수, 페이징 기준이 함께 갱신되어야 함." },
+        stats: { title: "인사 현황 요약 통계", desc: "전체 인원, 재직/휴직, 최근 입사자 수를 요약하는 카드 영역. 사원 등록, 수정, 발령 반영 시 숫자가 즉시 재계산되어야 함." },
+        emptable: { title: "사원명부 조회 결과", desc: "선택 조건에 따른 사원 목록 표시 영역. 상세보기 클릭 시 인사기록카드로 이동하고, 신규 등록 및 수정 결과가 즉시 반영되어야 함." },
+        pagetitle: { title: "사원명부 주요 액션", desc: "신규 등록, 엑셀 내보내기 등 현재 화면에서 수행 가능한 주요 작업 버튼 영역. 화면별로 버튼 구성이 달라져야 함." }
+      },
+      record: {
+        hrcard: { title: "인사기록카드 상세 정보", desc: "선택한 사원의 기본정보, 조직정보, 인사속성, 발령이력, 교육이력, 메모를 확인하는 상세 화면. 수정 저장 시 명부/조직도와 함께 동기화되어야 함." },
+        pagetitle: { title: "기록카드 화면 액션", desc: "기록카드 수정, 원본 복원 등 상세화면 전용 액션 버튼 영역. 선택 사원 기준으로만 동작해야 함." }
+      },
+      org: {
+        orgchart: { title: "조직도 및 배치 현황", desc: "본부-실-팀-파트 계층과 각 조직의 배치 인원을 확인하는 영역. 발령 반영 또는 코드 변경 시 즉시 재구성되어야 함." },
+        pagetitle: { title: "조직도 화면 액션", desc: "조직도 새로고침, 발령입력 이동 등 조직도 화면 전용 작업 버튼 영역." }
+      },
+      codes: {
+        pagetitle: { title: "코드관리 진입 액션", desc: "코드 현황 조회와 각 수정 화면으로 진입하는 상단 액션 영역. 현황 중심에서 수정 화면으로 이동하는 흐름이 중요함." }
+      },
+      assignment: {
+        pagetitle: { title: "발령입력 액션", desc: "발령 반영, 미리보기 등 발령 업무 전용 주요 버튼 영역. 저장 시 관련 화면이 함께 갱신되어야 함." }
+      }
+    };
+    const filtered = base.map((item) => ({ ...item, ...(overrides[state.currentHrView]?.[item.region] || {}) }));
     refs.annoList.innerHTML = "";
     filtered.forEach((item) => {
       const div = document.createElement("div");
@@ -386,7 +409,17 @@
       div.dataset.region = item.region;
       div.innerHTML = `<div class="anno-num">${item.num}</div><div class="anno-title">${item.title}</div><div class="anno-desc">${item.desc}</div><span class="anno-tag ${tagMap[item.tag]}">${item.tagLabel}</span>`;
       div.addEventListener("mouseenter", () => {
-        const regionMap = { searchbar: refs.searchBar, stats: refs.stats, emptable: refs.tableWrap, orgchart: state.currentHrView === "org" ? refs.orgWrap : state.currentHrView === "codes" ? panels.codes : state.currentHrView === "assignment" ? panels.assignment : refs.orgWrap, hrcard: refs.cardWrap, pagetitle: refs.pageTitle };
+        const regionMap = {
+          searchbar: refs.searchBar,
+          stats: refs.stats,
+          emptable: refs.tableWrap,
+          orgchart: refs.orgWrap,
+          hrcard: refs.cardWrap,
+          pagetitle: refs.pageTitle,
+          sidebar: refs.hrSidebar,
+          gnb: $(".hr-top-menu", refs.hrSystem),
+          topbar: $(".hr-topbar", refs.hrSystem)
+        };
         const el = regionMap[item.region] || getRegionEl(item.region);
         if (!el) return;
         clearHighlight();
