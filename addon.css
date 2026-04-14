@@ -386,6 +386,8 @@
   min-height: 0;
   overflow: auto;
   flex: 1;
+  align-content: start;
+  justify-items: stretch;
 }
 
 .codex-org-section {

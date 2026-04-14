@@ -515,7 +515,7 @@
       if (!keyword) return true;
       return [employee.name, employee.id, employeePath(employee), employee.grade, employee.title].filter(Boolean).join(" ").toLowerCase().includes(keyword);
     };
-    const nodes = state.orgIncludeChildren ? [selected, ...collectOrgDescendants(selected)] : [selected, ...selected.children];
+    const nodes = state.orgIncludeChildren ? [selected, ...collectOrgDescendants(selected)] : [selected];
     const scopedNodes = nodes.filter((node) => !hqFilter || node.path.includes(hqFilter) || node.key === "ROOT");
     const sections = scopedNodes
       .map((node) => {
