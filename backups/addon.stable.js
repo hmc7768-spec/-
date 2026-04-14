@@ -1606,6 +1606,16 @@
     $("#startAssignmentWizardBtn", panels.assignment)?.addEventListener("click", () => { state.assignmentFlow = createAssignmentFlow(); renderAssignment(); });
     $("#assignmentLandingSearch", panels.assignment)?.addEventListener("input", (event) => { state.assignmentLandingSearch = event.target.value; renderAssignment(); });
     $("#cancelAssignmentWizardBtn", panels.assignment)?.addEventListener("click", () => { state.assignmentFlow = null; renderAssignment(); });
+    $("#wizardChangeDate", panels.assignment)?.addEventListener("input", (event) => {
+      const flow = ensureAssignmentFlow();
+      flow.changeDate = formatDateInput(event.target.value);
+      event.target.value = flow.changeDate;
+    });
+    $("#wizardChangeDate", panels.assignment)?.addEventListener("blur", (event) => {
+      const flow = ensureAssignmentFlow();
+      flow.changeDate = completeDateInput(event.target.value);
+      event.target.value = flow.changeDate;
+    });
     $("#assignmentNextStepBtn", panels.assignment)?.addEventListener("click", () => { const flow = ensureAssignmentFlow(); flow.changeDate = $("#wizardChangeDate")?.value || flow.changeDate; flow.mode = document.querySelector('input[name="wizardMode"]:checked')?.value || flow.mode; flow.stage = 2; renderAssignment(); });
     $("#assignmentPrevStepBtn", panels.assignment)?.addEventListener("click", () => { const flow = ensureAssignmentFlow(); flow.stage = Math.max(1, flow.stage - 1); renderAssignment(); });
     $("#assignmentOrgEditDoneBtn", panels.assignment)?.addEventListener("click", () => { const flow = ensureAssignmentFlow(); flow.orgSummary = summarizeOrgChanges(state.orgBlueprint, flow.orgDraft); renderAssignment(); });
