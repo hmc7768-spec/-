@@ -117,6 +117,11 @@
   margin-bottom: 6px;
 }
 
+.codex-note-selected {
+  background: #f3f7ff;
+  border-color: #cddcf7;
+}
+
 .codex-chip-row {
   display: flex;
   flex-wrap: wrap;
