@@ -628,6 +628,108 @@
   color: #1f4db8;
 }
 
+.codex-assignment-stage3-layout {
+  align-items: start;
+}
+
+.codex-assignment-table-wrap {
+  overflow: auto;
+  border: 1px solid #e7edf5;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.codex-assignment-member-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.codex-assignment-member-table th,
+.codex-assignment-member-table td {
+  padding: 10px 12px;
+  white-space: nowrap;
+  vertical-align: middle;
+  border-bottom: 1px solid #eef2f7;
+  font-size: 12px;
+  color: #24364d;
+}
+
+.codex-assignment-member-table th:nth-child(1),
+.codex-assignment-member-table td:nth-child(1) {
+  width: 44px;
+  text-align: center;
+}
+
+.codex-assignment-member-table th:nth-child(2),
+.codex-assignment-member-table td:nth-child(2) {
+  width: 84px;
+}
+
+.codex-assignment-member-table th:nth-child(3),
+.codex-assignment-member-table td:nth-child(3) {
+  width: 110px;
+}
+
+.codex-assignment-member-table th:nth-child(4),
+.codex-assignment-member-table td:nth-child(4),
+.codex-assignment-member-table th:nth-child(8),
+.codex-assignment-member-table td:nth-child(8) {
+  white-space: normal;
+  width: 220px;
+  line-height: 1.45;
+}
+
+.codex-assignment-member-table th:nth-child(5),
+.codex-assignment-member-table td:nth-child(5),
+.codex-assignment-member-table th:nth-child(9),
+.codex-assignment-member-table td:nth-child(9) {
+  width: 110px;
+}
+
+.codex-assignment-member-table th:nth-child(6),
+.codex-assignment-member-table td:nth-child(6),
+.codex-assignment-member-table th:nth-child(10),
+.codex-assignment-member-table td:nth-child(10) {
+  width: 96px;
+}
+
+.codex-assignment-member-table th:nth-child(7),
+.codex-assignment-member-table td:nth-child(7) {
+  width: 240px;
+  white-space: normal;
+}
+
+.codex-assignment-member-table th:nth-child(11),
+.codex-assignment-member-table td:nth-child(11) {
+  width: 160px;
+  white-space: normal;
+  line-height: 1.45;
+}
+
+.codex-assignment-member-table td label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 10px 6px 0;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #475467;
+}
+
+.codex-assignment-member-table select,
+.codex-assignment-member-table input {
+  height: 34px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: #24364d;
+  background: #fff;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .codex-org-tree-node.is-after-tree[data-org-depth="1"] > .codex-org-tree-row {
   background: rgba(37, 99, 235, 0.03);
   border-radius: 8px;
