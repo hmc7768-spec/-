@@ -276,7 +276,7 @@
     return rows.map((row) => ({ ...row }));
   }
   const baseOrgBlueprint = createOrgBlueprint(orgRows);
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), orgBlueprint: cloneOrgBlueprint(baseOrgBlueprint), metaRegistry: JSON.parse(JSON.stringify(initialMetaRegistry)), codeHistory: [], assignmentRecords: [], deletedOrgArchive: [], assignmentFlow: null, assignmentLandingTab: "org", assignmentLandingSearch: "", selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentMetaCodeSelection: "", currentCodeHistoryFilter: "all", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", directoryRetireDateFrom: "", directoryRetireDateTo: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), orgBlueprint: cloneOrgBlueprint(baseOrgBlueprint), metaRegistry: JSON.parse(JSON.stringify(initialMetaRegistry)), codeHistory: [], codeDraft: null, currentPendingChangeKey: "", assignmentRecords: [], deletedOrgArchive: [], assignmentFlow: null, assignmentLandingTab: "org", assignmentLandingSearch: "", selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentMetaCodeSelection: "", currentCodeHistoryFilter: "all", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", directoryRetireDateFrom: "", directoryRetireDateTo: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
   syncLegacyMetaArraysFromRegistry();
   syncEmployeeCodeRefs();
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -290,6 +290,152 @@
   function employeePath(employee) { return [employee.hq, employee.office, employee.team, employee.part].filter(Boolean).join(" > "); }
   function getMetaRegistry(kind) {
     return state.metaRegistry?.[kind] || [];
+  }
+  function createCodeDraft() {
+    return {
+      orgBlueprint: cloneOrgBlueprint(state.orgBlueprint),
+      levelDefs: JSON.parse(JSON.stringify(levelDefs)),
+      metaRegistry: JSON.parse(JSON.stringify(state.metaRegistry)),
+      pendingChanges: []
+    };
+  }
+  function ensureCodeDraft() {
+    if (!state.codeDraft) state.codeDraft = createCodeDraft();
+    return state.codeDraft;
+  }
+  function discardCodeDraft() {
+    state.codeDraft = null;
+    state.currentPendingChangeKey = "";
+  }
+  function getCodeDraftOrgBlueprint() {
+    return cloneOrgBlueprint(state.codeDraft?.orgBlueprint || state.orgBlueprint);
+  }
+  function getCodeDraftLevelDefs() {
+    return JSON.parse(JSON.stringify(state.codeDraft?.levelDefs || levelDefs));
+  }
+  function getCodeDraftMetaRegistry(kind) {
+    const registry = state.codeDraft?.metaRegistry || state.metaRegistry;
+    return JSON.parse(JSON.stringify(registry?.[kind] || []));
+  }
+  function getPendingOrgChanges() {
+    return state.codeDraft?.pendingChanges || [];
+  }
+  function hasPendingOrgChanges() {
+    return getPendingOrgChanges().length > 0;
+  }
+  function upsertPendingOrgChange(change) {
+    const draft = ensureCodeDraft();
+    const changeKey = `org|${change.payload.mode}|${change.payload.originalKey || getOrgRowKey(change.payload.row)}`;
+    const payload = { ...change, _key: changeKey, changedAt: "2026.04.15 17:20" };
+    const index = draft.pendingChanges.findIndex((item) => item._key === changeKey);
+    if (index >= 0) draft.pendingChanges.splice(index, 1, payload);
+    else draft.pendingChanges.unshift(payload);
+    state.currentPendingChangeKey = changeKey;
+  }
+  function rebuildOrgDraftFromPending() {
+    const next = createCodeDraft();
+    const pending = getPendingOrgChanges().map((item) => ({ ...item, payload: JSON.parse(JSON.stringify(item.payload || {})) }));
+    next.pendingChanges = pending;
+    pending.slice().reverse().forEach((change) => {
+      const payload = change.payload;
+      if (payload?.kind === "org" && payload.row) {
+        if (payload.mode === "edit") {
+          next.orgBlueprint = next.orgBlueprint.map((row) => getOrgRowKey(row) === payload.originalKey ? { ...row, ...payload.row } : row);
+        } else {
+          const rowKey = getOrgRowKey(payload.row);
+          if (!next.orgBlueprint.some((row) => getOrgRowKey(row) === rowKey)) next.orgBlueprint.push({ ...payload.row });
+        }
+        next.orgBlueprint = normalizeBlueprint(next.orgBlueprint);
+      } else if (payload?.kind === "level" && payload.level) {
+        const index = next.levelDefs.findIndex((item) => item.id === payload.level.id);
+        if (payload.mode === "delete") {
+          if (index >= 0) next.levelDefs.splice(index, 1);
+        } else if (index >= 0) {
+          next.levelDefs.splice(index, 1, { ...payload.level });
+        } else {
+          next.levelDefs.push({ ...payload.level });
+        }
+      } else if (payload?.kind === "meta" && payload.codeRecord && payload.metaKind) {
+        const bucket = next.metaRegistry[payload.metaKind] || [];
+        const index = bucket.findIndex((item) => item.code === payload.codeRecord.code);
+        if (payload.mode === "delete") {
+          if (index >= 0) bucket.splice(index, 1);
+        } else if (index >= 0) {
+          bucket.splice(index, 1, { ...payload.codeRecord });
+        } else {
+          bucket.push({ ...payload.codeRecord });
+        }
+        next.metaRegistry[payload.metaKind] = bucket;
+      }
+    });
+    state.codeDraft = next;
+  }
+  function removePendingOrgChange(changeKey) {
+    if (!state.codeDraft) return;
+    state.codeDraft.pendingChanges = state.codeDraft.pendingChanges.filter((item) => item._key !== changeKey);
+    if (state.currentPendingChangeKey === changeKey) state.currentPendingChangeKey = "";
+    rebuildOrgDraftFromPending();
+    renderCodes();
+  }
+  function openCodeOrgModalFromPending(changeKey) {
+    const change = getPendingOrgChanges().find((item) => item._key === changeKey);
+    if (!change?.payload?.row) return;
+    const payload = change.payload;
+    const row = payload.row;
+    state.codeOrgModalDraft = {
+      mode: payload.mode,
+      originalKey: payload.originalKey || "",
+      level: getOrgRowLevel(row),
+      parentKey: getParentKeyForRow(row),
+      name: getOrgRowName(row),
+      code: row.code || "",
+      active: row.active !== false,
+      description: row.description || ""
+    };
+    $("h3", codeOrgModal.root).textContent = payload.mode === "edit" ? "조직코드 편집" : "신규 조직 추가";
+    codeOrgModal.body.innerHTML = `<div class="codex-code-modal-layout"><div class="codex-code-modal-form"><div class="codex-form-grid"><label><span>레벨</span><select id="codeOrgLevel">${levelDefs.map((item) => `<option value="${item.id}" ${item.id === state.codeOrgModalDraft.level ? "selected" : ""}>${item.id} · ${item.name}</option>`).join("")}</select></label><label><span>상위조직</span><select id="codeOrgParentKey"></select></label><label class="span-2"><span>조직명</span><input id="codeOrgName" value="${state.codeOrgModalDraft.name}"></label><label><span>코드값</span><input id="codeOrgCode" value="${state.codeOrgModalDraft.code}"></label><label><span>사용여부</span><select id="codeOrgActive"><option value="Y" ${state.codeOrgModalDraft.active ? "selected" : ""}>사용</option><option value="N" ${state.codeOrgModalDraft.active ? "" : "selected"}>중지</option></select></label><label class="span-2"><span>설명</span><textarea id="codeOrgDescription" rows="4">${state.codeOrgModalDraft.description}</textarea></label></div><div class="codex-note-box"><strong id="codeOrgLevelText"></strong>상위조직을 바꾸거나 레벨을 바꾸면 우측 미리보기에 바로 반영됩니다.</div></div><div class="codex-code-modal-preview"><div class="codex-panel"><h4>조직도 미리보기</h4><div id="codeOrgPreview"></div></div></div></div>`;
+    syncCodeOrgModalBody();
+    bindCodeOrgModal();
+    codeOrgModal.save.onclick = () => saveCodeOrgModal();
+    codeOrgModal.open();
+  }
+  function openLevelDraftFromPending(changeKey) {
+    const change = getPendingOrgChanges().find((item) => item._key === changeKey);
+    if (!change?.payload?.level) return;
+    state.currentCodeView = "level-edit";
+    state.currentLevelSelection = change.payload.level.id;
+    state.currentPendingChangeKey = changeKey;
+    renderCodes();
+  }
+  function openMetaDraftFromPending(changeKey) {
+    const change = getPendingOrgChanges().find((item) => item._key === changeKey);
+    if (!change?.payload?.codeRecord || !change?.payload?.metaKind) return;
+    state.currentCodeView = "meta-edit";
+    state.currentMetaSelection = change.payload.metaKind;
+    state.currentMetaCodeSelection = change.payload.codeRecord.code;
+    state.currentPendingChangeKey = changeKey;
+    renderCodes();
+  }
+  function applyCodeDraft() {
+    const draft = state.codeDraft;
+    if (!draft || !draft.pendingChanges.length) return;
+    state.orgBlueprint = normalizeBlueprint(cloneOrgBlueprint(draft.orgBlueprint));
+    levelDefs.splice(0, levelDefs.length, ...JSON.parse(JSON.stringify(draft.levelDefs || levelDefs)));
+    state.metaRegistry = JSON.parse(JSON.stringify(draft.metaRegistry || state.metaRegistry));
+    draft.pendingChanges.slice().reverse().forEach((change) => {
+      const payload = change.payload || {};
+      if (payload.kind === "org" && payload.row) {
+        pushCodeHistory("조직코드", payload.mode === "edit" ? "수정" : "신규", payload.row.code || "-", getOrgRowName(payload.row), getOrgRowPath(payload.row));
+      } else if (payload.kind === "level" && payload.level) {
+        pushCodeHistory("레벨관리", payload.mode === "edit" ? "수정" : "신규", payload.level.id, payload.level.name, payload.level.desc || "레벨 정의 변경");
+      } else if (payload.kind === "meta" && payload.codeRecord) {
+        pushCodeHistory(`${getMetaKindConfig(payload.metaKind).label}코드`, payload.mode === "edit" ? "수정" : "신규", payload.codeRecord.code, payload.codeRecord.name, payload.codeRecord.description || "기준코드 변경");
+      }
+    });
+    discardCodeDraft();
+    syncEmployeeCodeRefs();
+    syncLegacyMetaArraysFromRegistry();
+    renderAll();
   }
   function syncLegacyMetaArraysFromRegistry() {
     gradeCodes.splice(0, gradeCodes.length, ...getMetaRegistry("grade").filter((item) => item.active !== false).map((item) => item.name));
@@ -786,9 +932,9 @@
       }
     }
   }
-  function getOrgSummary() {
+  function getOrgSummary(rows = state.orgBlueprint) {
     const map = new Map();
-    state.orgBlueprint.forEach((row) => {
+    rows.forEach((row) => {
       const key = getOrgRowKey(row);
       const count = state.employees.filter((employee) => {
         if (row.part) return employee.hq === row.hq && employee.office === row.office && employee.team === row.team && employee.part === row.part;
@@ -814,11 +960,11 @@
     });
     return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key, "ko"));
   }
-  function getOrgUsageStats(orgKey) {
-    const row = getBlueprintRow(state.orgBlueprint, orgKey);
+  function getOrgUsageStats(orgKey, rows = state.orgBlueprint) {
+    const row = getBlueprintRow(rows, orgKey);
     if (!row) return { currentCount: 0, hireCount: 0, childCount: 0, descendantCount: 0 };
-    const children = getChildrenRows(state.orgBlueprint, orgKey);
-    const descendants = getDescendantKeys(state.orgBlueprint, orgKey);
+    const children = getChildrenRows(rows, orgKey);
+    const descendants = getDescendantKeys(rows, orgKey);
     const currentCount = state.employees.filter((employee) => employee.orgCode === row.code).length;
     const hireCount = state.employees.filter((employee) => employee.hireOrgCode === row.code).length;
     return {
@@ -1131,7 +1277,7 @@
     return Number(String(level || "").replace("L", "")) || 0;
   }
   function getLevelLabel(level) {
-    return levelDefs.find((item) => item.id === level)?.name || level;
+    return (state.codeDraft?.levelDefs || levelDefs).find((item) => item.id === level)?.name || level;
   }
   function getMetaKindConfig(kind) {
     if (kind === "grade") return { label: "직급", prefix: "GRD" };
@@ -1139,12 +1285,13 @@
     if (kind === "family") return { label: "직군", prefix: "JOB" };
     return { label: "직원유형", prefix: "EMP" };
   }
-  function getNextMetaCode(kind) {
+  function getNextMetaCode(kind, registry = null) {
     const { prefix } = getMetaKindConfig(kind);
-    return buildSeqCode(prefix, getMetaRegistry(kind).length + 1);
+    const target = registry || getMetaRegistry(kind);
+    return buildSeqCode(prefix, target.length + 1);
   }
-  function getNextOrgCode(level) {
-    const count = state.orgBlueprint.filter((row) => getOrgRowLevel(row) === level).length + 1;
+  function getNextOrgCode(level, rows = state.orgBlueprint) {
+    const count = rows.filter((row) => getOrgRowLevel(row) === level).length + 1;
     return buildOrgCode(level, count);
   }
   function getMetaRecords(kind) {
@@ -1156,10 +1303,10 @@
   function currentMetaLabel() {
     return getMetaKindConfig(state.currentMetaSelection).label;
   }
-  function getOrgParentCandidates(level, excludeKey = "") {
+  function getOrgParentCandidates(level, excludeKey = "", rows = state.orgBlueprint) {
     const targetDepth = getLevelDepth(level);
     if (targetDepth <= 1) return [{ key: "ROOT", label: "ROOT (최상위)" }];
-    return state.orgBlueprint
+    return rows
       .filter((row) => getLevelDepth(getOrgRowLevel(row)) < targetDepth && getOrgRowKey(row) !== excludeKey)
       .map((row) => ({
         key: getOrgRowKey(row),
@@ -1177,17 +1324,18 @@
     return { hq: name, office: "", team: "", part: "" };
   }
   function buildPreviewBlueprintForCodeDraft(draft) {
+    const sourceRows = getCodeDraftOrgBlueprint();
     const nextRow = {
       ...buildOrgRowFromCodeDraft(draft),
       code: draft.code,
       active: draft.active,
       description: draft.description,
       sourceKey: draft.mode === "edit" ? draft.originalKey : `NEW|${draft.code}`,
-      displayOrder: state.orgBlueprint.length + 1,
+      displayOrder: sourceRows.length + 1,
       createdAt: "2026.04.15 16:10",
       updatedAt: "2026.04.15 16:10"
     };
-    const rows = cloneOrgBlueprint(state.orgBlueprint);
+    const rows = cloneOrgBlueprint(sourceRows);
     if (draft.mode === "edit") {
       const index = rows.findIndex((row) => getOrgRowKey(row) === draft.originalKey);
       if (index >= 0) rows[index] = { ...rows[index], ...nextRow };
@@ -1206,7 +1354,8 @@
     return `<div class="codex-code-preview-tree">${renderNode("ROOT")}</div>`;
   }
   function createCodeOrgDraft(mode, orgKey = "") {
-    const row = orgKey ? getBlueprintRow(state.orgBlueprint, orgKey) : null;
+    const rows = getCodeDraftOrgBlueprint();
+    const row = orgKey ? getBlueprintRow(rows, orgKey) : null;
     const level = row ? getOrgRowLevel(row) : "L1";
     return {
       mode,
@@ -1214,7 +1363,7 @@
       level,
       parentKey: row ? getParentKeyForRow(row) : "ROOT",
       name: row ? getOrgRowName(row) : "",
-      code: row?.code || getNextOrgCode(level),
+      code: row?.code || getNextOrgCode(level, rows),
       active: row?.active !== false,
       description: row?.description || ""
     };
@@ -1226,14 +1375,15 @@
     const codeInput = $("#codeOrgCode", codeOrgModal.body);
     const preview = $("#codeOrgPreview", codeOrgModal.body);
     const levelBadge = $("#codeOrgLevelText", codeOrgModal.body);
-    const parentOptions = getOrgParentCandidates(draft.level, draft.originalKey);
+    const draftRows = getCodeDraftOrgBlueprint();
+    const parentOptions = getOrgParentCandidates(draft.level, draft.originalKey, draftRows);
     if (draft.level === "L1") draft.parentKey = "ROOT";
     else if (!parentOptions.some((item) => item.key === draft.parentKey)) draft.parentKey = parentOptions[0]?.key || "ROOT";
     if (parentSelect) {
       parentSelect.innerHTML = parentOptions.map((item) => `<option value="${item.key}" ${item.key === draft.parentKey ? "selected" : ""}>${item.label}</option>`).join("");
       parentSelect.disabled = draft.level === "L1";
     }
-    if (!draft.code) draft.code = getNextOrgCode(draft.level);
+    if (!draft.code) draft.code = getNextOrgCode(draft.level, draftRows);
     if (codeInput && !codeInput.dataset.locked) codeInput.value = draft.code;
     if (levelBadge) levelBadge.textContent = `${draft.level} · ${getLevelLabel(draft.level)}`;
     if (preview) {
@@ -1254,7 +1404,7 @@
     if (!draft) return;
     $("#codeOrgLevel", codeOrgModal.body)?.addEventListener("change", (event) => {
       draft.level = event.target.value;
-      draft.code = getNextOrgCode(draft.level);
+      draft.code = getNextOrgCode(draft.level, getCodeDraftOrgBlueprint());
       syncCodeOrgModalBody();
     });
     $("#codeOrgParentKey", codeOrgModal.body)?.addEventListener("change", (event) => {
@@ -1288,35 +1438,52 @@
   function saveCodeOrgModal() {
     const draft = state.codeOrgModalDraft;
     if (!draft || !draft.name.trim()) return;
+    const codeDraft = ensureCodeDraft();
+    const baseRows = codeDraft.orgBlueprint;
     const nextRowBase = buildOrgRowFromCodeDraft(draft);
     const nextKey = getOrgRowKey(nextRowBase);
-    if (draft.mode === "add" && state.orgBlueprint.some((row) => getOrgRowKey(row) === nextKey)) return;
+    if (draft.mode === "add" && baseRows.some((row) => getOrgRowKey(row) === nextKey)) return;
     const nextRow = {
       ...nextRowBase,
-      code: draft.code || getNextOrgCode(draft.level),
+      code: draft.code || getNextOrgCode(draft.level, baseRows),
       active: draft.active,
       description: draft.description.trim(),
-      sourceKey: draft.mode === "edit" ? (getBlueprintRow(state.orgBlueprint, draft.originalKey)?.sourceKey || draft.originalKey) : `NEW|${draft.code || nextKey}`,
-      displayOrder: state.orgBlueprint.length + 1,
-      createdAt: draft.mode === "edit" ? (getBlueprintRow(state.orgBlueprint, draft.originalKey)?.createdAt || "2023.08.16 00:00") : "2026.04.15 16:10",
+      sourceKey: draft.mode === "edit" ? (getBlueprintRow(baseRows, draft.originalKey)?.sourceKey || draft.originalKey) : `NEW|${draft.code || nextKey}`,
+      displayOrder: baseRows.length + 1,
+      createdAt: draft.mode === "edit" ? (getBlueprintRow(baseRows, draft.originalKey)?.createdAt || "2023.08.16 00:00") : "2026.04.15 16:10",
       updatedAt: "2026.04.15 16:10"
     };
     if (draft.mode === "edit") {
-      const oldRow = getBlueprintRow(state.orgBlueprint, draft.originalKey);
-      state.orgBlueprint = state.orgBlueprint.map((row) => getOrgRowKey(row) === draft.originalKey ? { ...row, ...nextRow } : row);
+      const oldRow = getBlueprintRow(baseRows, draft.originalKey);
+      codeDraft.orgBlueprint = normalizeBlueprint(baseRows.map((row) => getOrgRowKey(row) === draft.originalKey ? { ...row, ...nextRow } : row));
       state.currentCodeSelection = nextKey;
-      pushCodeHistory("조직코드", "수정", nextRow.code, draft.name, `${oldRow ? getOrgRowPath(oldRow) : "-"} → ${getOrgRowPath(nextRow)}`);
+      upsertPendingOrgChange({
+        section: "조직코드",
+        view: "org-edit",
+        action: "수정",
+        targetKey: oldRow?.sourceKey || draft.originalKey || nextKey,
+        detail: `${oldRow ? getOrgRowPath(oldRow) : "-"} → ${getOrgRowPath(nextRow)}`,
+        payload: { mode: "edit", originalKey: draft.originalKey, row: { ...nextRow } }
+      });
     } else {
-      state.orgBlueprint = normalizeBlueprint([...state.orgBlueprint, nextRow]);
+      codeDraft.orgBlueprint = normalizeBlueprint([...baseRows, nextRow]);
       state.currentCodeSelection = nextKey;
-      pushCodeHistory("조직코드", "신규", nextRow.code, draft.name, getOrgRowPath(nextRow));
+      upsertPendingOrgChange({
+        section: "조직코드",
+        view: "org-edit",
+        action: "신규",
+        targetKey: nextRow.sourceKey || nextKey,
+        detail: getOrgRowPath(nextRow),
+        payload: { mode: "add", originalKey: "", row: { ...nextRow } }
+      });
     }
-    syncEmployeeCodeRefs();
     codeOrgModal.close();
-    renderAll();
+    renderCodes();
   }
   function saveLevelCode() {
-    const selected = levelDefs.find((item) => item.id === state.currentLevelSelection);
+    const draftStore = ensureCodeDraft();
+    const draftLevels = draftStore.levelDefs;
+    const selected = draftLevels.find((item) => item.id === state.currentLevelSelection);
     const levelId = ($("#levelId")?.value || selected?.id || "").trim();
     if (!levelId) return;
     const payload = {
@@ -1325,13 +1492,29 @@
       name: ($("#levelName")?.value || "").trim() || levelId,
       desc: ($("#levelDesc")?.value || "").trim()
     };
-    const existingIndex = levelDefs.findIndex((item) => item.id === levelId);
+    const existingIndex = draftLevels.findIndex((item) => item.id === levelId);
     if (existingIndex >= 0) {
-      levelDefs.splice(existingIndex, 1, payload);
-      pushCodeHistory("레벨관리", "수정", levelId, payload.name, payload.desc || "레벨 정의 수정");
+      draftLevels.splice(existingIndex, 1, payload);
+      const changeKey = `level|${levelId}`;
+      const existing = getPendingOrgChanges().find((item) => item._key === changeKey);
+      upsertPendingOrgChange({
+        section: "레벨관리",
+        view: "level-edit",
+        action: "수정",
+        targetKey: levelId,
+        detail: `${existing?.payload?.level?.name || selected?.name || levelId} → ${payload.name}`,
+        payload: { kind: "level", mode: "edit", level: { ...payload } }
+      });
     } else {
-      levelDefs.push(payload);
-      pushCodeHistory("레벨관리", "신규", levelId, payload.name, payload.desc || "레벨 정의 추가");
+      draftLevels.push(payload);
+      upsertPendingOrgChange({
+        section: "레벨관리",
+        view: "level-edit",
+        action: "신규",
+        targetKey: levelId,
+        detail: payload.desc || "레벨 정의 추가",
+        payload: { kind: "level", mode: "add", level: { ...payload } }
+      });
     }
     state.currentLevelSelection = levelId;
     renderCodes();
@@ -1341,25 +1524,39 @@
     renderCodes();
   }
   function saveMetaCode() {
+    const draftStore = ensureCodeDraft();
     const code = ($("#metaCode")?.value || "").trim();
     const name = ($("#metaName")?.value || "").trim();
     if (!code || !name) return;
     const description = ($("#metaDesc")?.value || "").trim();
     const active = ($("#metaActive")?.value || "Y") === "Y";
-    const target = getMetaRegistry(state.currentMetaSelection);
+    const target = draftStore.metaRegistry[state.currentMetaSelection] || [];
     const existingIndex = target.findIndex((item) => item.code === code);
     const payload = { code, name, description, active, updatedAt: "2026.04.15 16:10" };
     if (existingIndex >= 0) {
       target.splice(existingIndex, 1, payload);
-      pushCodeHistory(`${currentMetaLabel()}코드`, "수정", code, name, description || "기준코드 수정");
+      upsertPendingOrgChange({
+        section: `${currentMetaLabel()}코드`,
+        view: "meta-edit",
+        action: "수정",
+        targetKey: code,
+        detail: description || "기준코드 수정",
+        payload: { kind: "meta", metaKind: state.currentMetaSelection, mode: "edit", codeRecord: { ...payload } }
+      });
     } else {
       target.push(payload);
-      pushCodeHistory(`${currentMetaLabel()}코드`, "신규", code, name, description || "기준코드 추가");
+      upsertPendingOrgChange({
+        section: `${currentMetaLabel()}코드`,
+        view: "meta-edit",
+        action: "신규",
+        targetKey: code,
+        detail: description || "기준코드 추가",
+        payload: { kind: "meta", metaKind: state.currentMetaSelection, mode: "add", codeRecord: { ...payload } }
+      });
     }
+    draftStore.metaRegistry[state.currentMetaSelection] = target;
     state.currentMetaCodeSelection = code;
-    syncLegacyMetaArraysFromRegistry();
-    syncEmployeeCodeRefs();
-    renderAll();
+    renderCodes();
   }
   function openStatModal(type) {
     statsModal.save.style.display = "none";
@@ -1579,19 +1776,33 @@
     recordDetailModal.save.onclick = () => recordDetailModal.close();
     recordDetailModal.open();
   }
+  function renderPendingOrgPanel(scope = "") {
+    const pending = getPendingOrgChanges().filter((item) => !scope || item.view === scope);
+    const label = scope === "org-edit" ? "조직코드 변경 예정" : scope === "level-edit" ? "레벨 변경 예정" : scope === "meta-edit" ? "기준코드 변경 예정" : "변경 예정 내역";
+    const renderName = (item) => {
+      if (item.payload?.kind === "org" && item.payload.row) return getOrgRowName(item.payload.row);
+      if (item.payload?.kind === "level" && item.payload.level) return item.payload.level.name;
+      if (item.payload?.kind === "meta" && item.payload.codeRecord) return item.payload.codeRecord.name;
+      return item.itemName || "-";
+    };
+    return `<div class="codex-panel codex-panel-compact"><div class="codex-code-head"><h4>${label}</h4><div class="codex-secondary-actions"><button type="button" class="hr-btn btn-primary btn-xs" id="codeDraftApplyBtn" ${getPendingOrgChanges().length ? "" : "disabled"}>변경 적용</button><button type="button" class="hr-btn btn-outline btn-xs" id="codeDraftResetBtn" ${getPendingOrgChanges().length ? "" : "disabled"}>전체 취소</button></div></div>${pending.length ? `<div class="codex-code-history-mini">${pending.map((item) => `<div class="codex-note-box codex-note-box-compact codex-pending-item ${state.currentPendingChangeKey === item._key ? "is-selected" : ""}" data-pending-item="${item._key}"><div class="codex-pending-head"><strong>${item.action} · ${renderName(item)}</strong><div class="codex-secondary-actions"><button type="button" class="hr-btn btn-outline btn-xs" data-pending-open="${item._key}">수정</button><button type="button" class="hr-btn btn-outline btn-xs" data-pending-cancel="${item._key}">취소</button></div></div><div class="codex-pending-body">${item.detail || "-"}</div></div>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">아직 확정 전 변경 내역이 없습니다.</div>`}</div>`;
+  }
   function renderCodes() {
-    const orgSummary = getOrgSummary();
+    const orgRows = state.currentCodeView === "org-edit" ? getCodeDraftOrgBlueprint() : state.orgBlueprint;
+    const orgSummary = getOrgSummary(orgRows);
+    const draftLevelDefs = getCodeDraftLevelDefs();
+    const draftMetaRegistry = state.codeDraft?.metaRegistry || state.metaRegistry;
     if (!state.currentCodeSelection && orgSummary[0]) state.currentCodeSelection = orgSummary[0].key;
     const historyRows = state.codeHistory.slice(0, 12);
     const selectedOrg = orgSummary.find((item) => item.key === state.currentCodeSelection) || orgSummary[0];
-    const selectedOrgUsage = selectedOrg ? getOrgUsageStats(selectedOrg.key) : { currentCount: 0, hireCount: 0, childCount: 0, descendantCount: 0 };
-    const currentMeta = currentMetaRecords();
+    const selectedOrgUsage = selectedOrg ? getOrgUsageStats(selectedOrg.key, orgRows) : { currentCount: 0, hireCount: 0, childCount: 0, descendantCount: 0 };
+    const currentMeta = JSON.parse(JSON.stringify(draftMetaRegistry[state.currentMetaSelection] || []));
     if (!state.currentMetaCodeSelection && currentMeta[0]) state.currentMetaCodeSelection = currentMeta[0].code;
     const selectedMeta = currentMeta.find((item) => item.code === state.currentMetaCodeSelection) || currentMeta[0];
     const selectedMetaUsage = selectedMeta ? getMetaUsageStats(state.currentMetaSelection, selectedMeta.code) : { currentCount: 0, hireCount: 0 };
     const selectedLevel = state.currentLevelSelection === "NEW"
       ? { id: "", name: "", parent: "L1", desc: "" }
-      : (levelDefs.find((item) => item.id === state.currentLevelSelection) || levelDefs[0]);
+      : (draftLevelDefs.find((item) => item.id === state.currentLevelSelection) || draftLevelDefs[0]);
     const selectedLevelUsage = selectedLevel?.id ? getLevelUsageStats(selectedLevel.id) : { orgCount: 0, codeCount: 0 };
     const historyFilterOptions = [
       { id: "all", label: "전체" },
@@ -1607,15 +1818,15 @@
       : historyRows.filter((item) => item.section === state.currentCodeHistoryFilter);
     const codeActions = `<div class="codex-secondary-actions"><button type="button" class="hr-btn btn-outline" data-code-view="overview">코드 현황</button><button type="button" class="hr-btn btn-outline" data-code-view="org-edit">조직코드 수정</button><button type="button" class="hr-btn btn-outline" data-code-view="level-edit">레벨관리</button><button type="button" class="hr-btn btn-outline" data-code-view="meta-edit">기준코드 수정</button><button type="button" class="hr-btn btn-outline" data-code-view="history">코드변경 이력</button></div>`;
     if (state.currentCodeView === "overview") {
-      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>코드관리</h3><div style="font-size:11px;color:#9095b0">조직, 직급, 직책, 직군, 직원유형 기준코드를 통합 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">조직코드 현황</h4><div class="codex-code-table-wrap"><table><thead><tr><th>레벨</th><th>코드</th><th>조직</th><th>상위조직</th><th>사용</th><th>인원</th></tr></thead><tbody>${orgSummary.map((item) => `<tr><td>${item.level}</td><td>${item.code}</td><td>${item.name}</td><td>${item.parent}</td><td>${item.active ? "Y" : "N"}</td><td>${item.count}명</td></tr>`).join("")}</tbody></table></div></div><div class="codex-stack"><div class="codex-panel codex-panel-compact"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">레벨 정의</h4>${levelDefs.map((level) => `<div class="codex-note-box codex-note-box-compact"><strong>${level.id} · ${level.name}</strong>상위레벨: ${level.parent} · ${level.desc}</div>`).join("")}</div><div class="codex-panel codex-panel-compact"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">기준코드 현황</h4>${["grade", "title", "family", "type"].map((kind) => `<div class="codex-note-box codex-note-box-compact"><strong>${getMetaKindConfig(kind).label}</strong>${getMetaRegistry(kind).map((item) => `${item.code} ${item.name}`).join(" / ")}</div>`).join("")}</div><div class="codex-panel codex-panel-compact"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">최근 코드변경 이력</h4><div class="codex-code-history-mini">${historyRows.length ? historyRows.map((item) => `<div class="codex-note-box codex-note-box-compact"><strong>${item.section} · ${item.action}</strong>${item.changedAt} · ${item.itemCode} · ${item.itemName}${item.detail ? `<br>${item.detail}` : ""}</div>`).join("") : `<div class="codex-note-box codex-note-box-compact">아직 저장된 코드 변경 이력이 없습니다.</div>`}</div></div></div></div>`;
+      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>코드관리</h3><div style="font-size:11px;color:#9095b0">조직, 직급, 직책, 직군, 직원유형 기준코드를 통합 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">조직코드 현황</h4><div class="codex-code-table-wrap"><table><thead><tr><th>레벨</th><th>코드</th><th>조직</th><th>상위조직</th><th>사용</th><th>인원</th></tr></thead><tbody>${orgSummary.map((item) => `<tr><td>${item.level}</td><td>${item.code}</td><td>${item.name}</td><td>${item.parent}</td><td>${item.active ? "Y" : "N"}</td><td>${item.count}명</td></tr>`).join("")}</tbody></table></div></div><div class="codex-stack"><div class="codex-panel codex-panel-compact"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">레벨 정의</h4>${draftLevelDefs.map((level) => `<div class="codex-note-box codex-note-box-compact"><strong>${level.id} · ${level.name}</strong>상위레벨: ${level.parent} · ${level.desc}</div>`).join("")}</div><div class="codex-panel codex-panel-compact"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">기준코드 현황</h4>${["grade", "title", "family", "type"].map((kind) => `<div class="codex-note-box codex-note-box-compact"><strong>${getMetaKindConfig(kind).label}</strong>${(draftMetaRegistry[kind] || []).map((item) => `${item.code} ${item.name}`).join(" / ")}</div>`).join("")}</div><div class="codex-panel codex-panel-compact"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">최근 코드변경 이력</h4><div class="codex-code-history-mini">${historyRows.length ? historyRows.map((item) => `<div class="codex-note-box codex-note-box-compact"><strong>${item.section} · ${item.action}</strong>${item.changedAt} · ${item.itemCode} · ${item.itemName}${item.detail ? `<br>${item.detail}` : ""}</div>`).join("") : `<div class="codex-note-box codex-note-box-compact">아직 저장된 코드 변경 이력이 없습니다.</div>`}</div></div></div></div>`;
     } else if (state.currentCodeView === "org-edit") {
-      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>조직코드 수정</h3><div style="font-size:11px;color:#9095b0">조직명/레벨/상위조직/코드값/사용여부를 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2" style="margin-top:16px"><div class="codex-panel"><div class="codex-code-head"><h4>조직코드 목록</h4><button type="button" class="hr-btn btn-primary" id="codeOrgNewBtn">신규 조직 추가</button></div><div class="codex-code-table-wrap"><table><thead><tr><th>레벨</th><th>코드</th><th>조직</th><th>상위조직</th><th>사용</th><th>인원</th><th>편집</th></tr></thead><tbody>${orgSummary.map((item) => `<tr class="${item.key === state.currentCodeSelection ? "codex-table-selected" : ""}" data-org-select-row="${item.key}"><td>${item.level}</td><td>${item.code}</td><td>${item.name}</td><td>${item.parent}</td><td>${item.active ? "Y" : "N"}</td><td>${item.count}명</td><td><button type="button" class="hr-btn btn-outline btn-xs" data-org-edit-open="${item.key}">편집</button></td></tr>`).join("")}</tbody></table></div></div><div class="codex-stack"><div class="codex-panel codex-panel-compact"><div class="codex-code-head"><h4>선택 조직 정보</h4>${selectedOrg ? `<button type="button" class="hr-btn btn-outline btn-xs" data-org-edit-open="${selectedOrg.key}">편집</button>` : ""}</div>${selectedOrg ? `<div class="codex-form-grid"><label><span>조직명</span><input value="${selectedOrg.name}" readonly></label><label><span>코드값</span><input value="${selectedOrg.code}" readonly></label><label><span>레벨</span><input value="${selectedOrg.level} · ${getLevelLabel(selectedOrg.level)}" readonly></label><label><span>상위조직</span><input value="${selectedOrg.parent}" readonly></label><label><span>사용여부</span><input value="${selectedOrg.active ? "사용" : "중지"}" readonly></label><label><span>최종수정일</span><input value="${selectedOrg.updatedAt}" readonly></label><label class="span-2"><span>설명</span><textarea readonly rows="2">${selectedOrg.description || "-"}</textarea></label></div>` : `<div class="codex-note-box">조직을 선택하면 코드 정보를 볼 수 있습니다.</div>`}</div><div class="codex-panel codex-panel-compact"><h4>연계 정보</h4>${selectedOrg ? `<div class="codex-note-grid"><div class="codex-note-box codex-note-box-compact"><strong>현재 조직 사용 인원</strong>${selectedOrgUsage.currentCount}명</div><div class="codex-note-box codex-note-box-compact"><strong>입사시 기준 사용 인원</strong>${selectedOrgUsage.hireCount}명</div><div class="codex-note-box codex-note-box-compact"><strong>직계/전체 하위조직</strong>${selectedOrgUsage.childCount}개 / ${selectedOrgUsage.descendantCount}개</div><div class="codex-note-box codex-note-box-compact"><strong>사용처</strong>사원명부 · 인사기록카드 · 조직도 · 조직관리 · 발령입력</div></div><div class="codex-note-box codex-note-box-compact"><strong>운영 권장안</strong>코드값은 타 시스템 연계 키로 사용하고, 조직명/설명은 화면 표시용으로 운영합니다.</div>` : `<div class="codex-note-box">선택 조직 정보가 없습니다.</div>`}</div></div></div>`;
+      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>조직코드 수정</h3><div style="font-size:11px;color:#9095b0">조직명/레벨/상위조직/코드값/사용여부를 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2" style="margin-top:16px"><div class="codex-panel"><div class="codex-code-head"><h4>조직코드 목록</h4><button type="button" class="hr-btn btn-primary" id="codeOrgNewBtn">신규 조직 추가</button></div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px"><strong>운영 방식</strong>편집 내용은 우측 <em>변경 예정 내역</em>에 먼저 적재되고, <em>변경 적용</em> 시점에만 실제 기준정보에 반영됩니다.</div><div class="codex-code-table-wrap"><table><thead><tr><th>레벨</th><th>코드</th><th>조직</th><th>상위조직</th><th>사용</th><th>인원</th><th>편집</th></tr></thead><tbody>${orgSummary.map((item) => `<tr class="${item.key === state.currentCodeSelection ? "codex-table-selected" : ""}" data-org-select-row="${item.key}"><td>${item.level}</td><td>${item.code}</td><td>${item.name}</td><td>${item.parent}</td><td>${item.active ? "Y" : "N"}</td><td>${item.count}명</td><td><button type="button" class="hr-btn btn-outline btn-xs" data-org-edit-open="${item.key}">편집</button></td></tr>`).join("")}</tbody></table></div></div><div class="codex-stack"><div class="codex-panel codex-panel-compact"><div class="codex-code-head"><h4>선택 조직 정보</h4>${selectedOrg ? `<button type="button" class="hr-btn btn-outline btn-xs" data-org-edit-open="${selectedOrg.key}">편집</button>` : ""}</div>${selectedOrg ? `<div class="codex-form-grid"><label><span>조직명</span><input value="${selectedOrg.name}" readonly></label><label><span>코드값</span><input value="${selectedOrg.code}" readonly></label><label><span>레벨</span><input value="${selectedOrg.level} · ${getLevelLabel(selectedOrg.level)}" readonly></label><label><span>상위조직</span><input value="${selectedOrg.parent}" readonly></label><label><span>사용여부</span><input value="${selectedOrg.active ? "사용" : "중지"}" readonly></label><label><span>최종수정일</span><input value="${selectedOrg.updatedAt}" readonly></label><label class="span-2"><span>설명</span><textarea readonly rows="2">${selectedOrg.description || "-"}</textarea></label></div>` : `<div class="codex-note-box">조직을 선택하면 코드 정보를 볼 수 있습니다.</div>`}</div><div class="codex-panel codex-panel-compact"><h4>연계 정보</h4>${selectedOrg ? `<div class="codex-note-grid"><div class="codex-note-box codex-note-box-compact"><strong>현재 조직 사용 인원</strong>${selectedOrgUsage.currentCount}명</div><div class="codex-note-box codex-note-box-compact"><strong>입사시 기준 사용 인원</strong>${selectedOrgUsage.hireCount}명</div><div class="codex-note-box codex-note-box-compact"><strong>직계/전체 하위조직</strong>${selectedOrgUsage.childCount}개 / ${selectedOrgUsage.descendantCount}개</div><div class="codex-note-box codex-note-box-compact"><strong>사용처</strong>사원명부 · 인사기록카드 · 조직도 · 조직관리 · 발령입력</div></div><div class="codex-note-box codex-note-box-compact"><strong>운영 권장안</strong>코드값은 타 시스템 연계 키로 사용하고, 조직명/설명은 화면 표시용으로 운영합니다.</div>` : `<div class="codex-note-box">선택 조직 정보가 없습니다.</div>`}</div>${renderPendingOrgPanel("org-edit")}</div></div>`;
     } else if (state.currentCodeView === "level-edit") {
-      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>레벨관리</h3><div style="font-size:11px;color:#9095b0">조직 레벨 정의와 허용 상위 레벨 규칙을 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><div class="codex-code-head"><h4>레벨 목록</h4><button type="button" class="hr-btn btn-primary" id="codeLevelNewBtn">신규 레벨 추가</button></div><table><thead><tr><th>레벨 ID</th><th>레벨명</th><th>상위레벨</th><th>설명</th></tr></thead><tbody>${levelDefs.map((level) => `<tr class="${level.id === state.currentLevelSelection ? "codex-table-selected" : ""}" data-level-select-row="${level.id}"><td>${level.id}</td><td>${level.name}</td><td>${level.parent}</td><td>${level.desc}</td></tr>`).join("")}</tbody></table></div><div class="codex-stack"><div class="codex-panel"><h4>레벨 편집</h4><div class="codex-form-grid"><label><span>레벨 ID</span><input id="levelId" value="${selectedLevel.id || ""}" ${selectedLevel.id ? "readonly" : ""}></label><label><span>상위레벨</span><select id="levelParent"><option value="-">-</option>${["L1","L2","L3","L4"].map((item) => `<option value="${item}" ${item === (selectedLevel.parent || "-") ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>레벨명</span><input id="levelName" value="${selectedLevel.name || ""}"></label><label><span>설명</span><input id="levelDesc" value="${selectedLevel.desc || ""}"></label></div><div class="codex-modal-actions"><button type="button" class="hr-btn btn-primary" id="levelSaveBtn">레벨 저장</button></div><div class="codex-note-box"><strong>적용 영향</strong>조직코드 생성 규칙, 상위조직 후보, 조직관리 이동 규칙에 공통 반영됩니다.</div><div class="codex-note-box"><strong>현재 사용 현황</strong>${selectedLevel.id ? `${selectedLevelUsage.orgCount}개 조직 · ${selectedLevelUsage.codeCount}개 코드` : `신규 레벨 정의`}</div></div><div class="codex-panel"><h4>최근 레벨 변경 이력</h4>${historyRows.filter((item) => item.section === "레벨관리").length ? historyRows.filter((item) => item.section === "레벨관리").map((item) => `<div class="codex-note-box"><strong>${item.action}</strong>${item.changedAt} · ${item.itemCode} · ${item.itemName}</div>`).join("") : `<div class="codex-note-box">레벨 변경 이력이 없습니다.</div>`}</div></div></div>`;
+      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>레벨관리</h3><div style="font-size:11px;color:#9095b0">조직 레벨 정의와 허용 상위 레벨 규칙을 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><div class="codex-code-head"><h4>레벨 목록</h4><button type="button" class="hr-btn btn-primary" id="codeLevelNewBtn">신규 레벨 추가</button></div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px"><strong>운영 방식</strong>레벨 정의 변경도 즉시 반영되지 않고, 우측 <em>레벨 변경 예정</em>에 적재된 후 <em>변경 적용</em> 시점에만 전체 기준에 반영됩니다.</div><table><thead><tr><th>레벨 ID</th><th>레벨명</th><th>상위레벨</th><th>설명</th></tr></thead><tbody>${draftLevelDefs.map((level) => `<tr class="${level.id === state.currentLevelSelection ? "codex-table-selected" : ""}" data-level-select-row="${level.id}"><td>${level.id}</td><td>${level.name}</td><td>${level.parent}</td><td>${level.desc}</td></tr>`).join("")}</tbody></table></div><div class="codex-stack"><div class="codex-panel"><h4>레벨 편집</h4><div class="codex-form-grid"><label><span>레벨 ID</span><input id="levelId" value="${selectedLevel.id || ""}" ${selectedLevel.id ? "readonly" : ""}></label><label><span>상위레벨</span><select id="levelParent"><option value="-">-</option>${["L1","L2","L3","L4"].map((item) => `<option value="${item}" ${item === (selectedLevel.parent || "-") ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>레벨명</span><input id="levelName" value="${selectedLevel.name || ""}"></label><label><span>설명</span><input id="levelDesc" value="${selectedLevel.desc || ""}"></label></div><div class="codex-modal-actions"><button type="button" class="hr-btn btn-primary" id="levelSaveBtn">변경 예정 추가</button></div><div class="codex-note-box"><strong>적용 영향</strong>조직코드 생성 규칙, 상위조직 후보, 조직관리 이동 규칙에 공통 반영됩니다.</div><div class="codex-note-box"><strong>현재 사용 현황</strong>${selectedLevel.id ? `${selectedLevelUsage.orgCount}개 조직 · ${selectedLevelUsage.codeCount}개 코드` : `신규 레벨 정의`}</div></div><div class="codex-panel"><h4>최근 레벨 변경 이력</h4>${historyRows.filter((item) => item.section === "레벨관리").length ? historyRows.filter((item) => item.section === "레벨관리").map((item) => `<div class="codex-note-box"><strong>${item.action}</strong>${item.changedAt} · ${item.itemCode} · ${item.itemName}</div>`).join("") : `<div class="codex-note-box">레벨 변경 이력이 없습니다.</div>`}</div>${renderPendingOrgPanel("level-edit")}</div></div></div>`;
     } else if (state.currentCodeView === "history") {
       panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>코드변경 이력</h3><div style="font-size:11px;color:#9095b0">조직코드, 레벨관리, 기준코드의 변경 이력을 확인합니다.</div></div>${codeActions}</div><div class="codex-panel" style="margin-top:16px"><div class="codex-secondary-actions" style="margin-bottom:12px">${historyFilterOptions.map((item) => `<button type="button" class="hr-btn ${state.currentCodeHistoryFilter === item.id ? "btn-primary" : "btn-outline"}" data-code-history-filter="${item.id}">${item.label}</button>`).join("")}</div><table><thead><tr><th>변경시각</th><th>구분</th><th>처리</th><th>코드값</th><th>코드명</th><th>상세</th></tr></thead><tbody>${filteredHistoryRows.length ? filteredHistoryRows.map((item) => `<tr><td>${item.changedAt}</td><td>${item.section}</td><td>${item.action}</td><td>${item.itemCode}</td><td>${item.itemName}</td><td>${item.detail || "-"}</td></tr>`).join("") : `<tr><td colspan="6">선택한 조건의 코드 변경 이력이 없습니다.</td></tr>`}</tbody></table></div>`;
     } else {
-      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>기준코드 수정</h3><div style="font-size:11px;color:#9095b0">직급 / 직책 / 직군 / 직원유형 기준코드를 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><div class="codex-code-head"><h4>기준코드 목록</h4><button type="button" class="hr-btn btn-primary" id="metaNewBtn">신규 코드 추가</button></div><div class="codex-secondary-actions" style="margin-bottom:12px">${["grade", "title", "family", "type"].map((kind) => `<button type="button" class="hr-btn ${state.currentMetaSelection === kind ? "btn-primary" : "btn-outline"}" data-meta-select="${kind}">${getMetaKindConfig(kind).label}</button>`).join("")}</div><table><thead><tr><th>코드값</th><th>코드명</th><th>사용</th><th>설명</th></tr></thead><tbody>${currentMeta.map((item) => `<tr class="${item.code === state.currentMetaCodeSelection ? "codex-table-selected" : ""}" data-meta-code-row="${item.code}"><td>${item.code}</td><td>${item.name}</td><td>${item.active ? "Y" : "N"}</td><td>${item.description || "-"}</td></tr>`).join("")}</tbody></table></div><div class="codex-stack"><div class="codex-panel"><h4>${currentMetaLabel()} 편집</h4><div class="codex-form-grid"><label><span>코드값</span><input id="metaCode" value="${selectedMeta?.code || getNextMetaCode(state.currentMetaSelection)}" ${selectedMeta ? "readonly" : ""}></label><label><span>사용여부</span><select id="metaActive"><option value="Y" ${selectedMeta?.active !== false ? "selected" : ""}>사용</option><option value="N" ${selectedMeta?.active === false ? "selected" : ""}>중지</option></select></label><label class="span-2"><span>코드명</span><input id="metaName" value="${selectedMeta?.name || ""}"></label><label class="span-2"><span>설명</span><textarea id="metaDesc" rows="4">${selectedMeta?.description || ""}</textarea></label></div><div class="codex-modal-actions"><button type="button" class="hr-btn btn-primary" id="metaSaveBtn">기준코드 저장</button></div><div class="codex-note-box"><strong>적용 영향</strong>신규등록, 인사기록카드, 조직관리, 인사발령 입력값은 이 기준코드를 참조합니다.</div><div class="codex-note-box"><strong>현재 사용 현황</strong>현재 기준 ${selectedMetaUsage.currentCount}명 · 입사시 기준 ${selectedMetaUsage.hireCount}명</div></div><div class="codex-panel"><h4>최근 ${currentMetaLabel()} 변경 이력</h4>${historyRows.filter((item) => item.section === `${currentMetaLabel()}코드`).length ? historyRows.filter((item) => item.section === `${currentMetaLabel()}코드`).map((item) => `<div class="codex-note-box"><strong>${item.action}</strong>${item.changedAt} · ${item.itemCode} · ${item.itemName}</div>`).join("") : `<div class="codex-note-box">변경 이력이 없습니다.</div>`}</div></div></div>`;
+      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>기준코드 수정</h3><div style="font-size:11px;color:#9095b0">직급 / 직책 / 직군 / 직원유형 기준코드를 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><div class="codex-code-head"><h4>기준코드 목록</h4><button type="button" class="hr-btn btn-primary" id="metaNewBtn">신규 코드 추가</button></div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px"><strong>운영 방식</strong>기준코드도 수정 즉시 반영되지 않고, 우측 <em>${currentMetaLabel()} 변경 예정</em>에 적재된 뒤 <em>변경 적용</em> 시점에만 반영됩니다.</div><div class="codex-secondary-actions" style="margin-bottom:12px">${["grade", "title", "family", "type"].map((kind) => `<button type="button" class="hr-btn ${state.currentMetaSelection === kind ? "btn-primary" : "btn-outline"}" data-meta-select="${kind}">${getMetaKindConfig(kind).label}</button>`).join("")}</div><table><thead><tr><th>코드값</th><th>코드명</th><th>사용</th><th>설명</th></tr></thead><tbody>${currentMeta.map((item) => `<tr class="${item.code === state.currentMetaCodeSelection ? "codex-table-selected" : ""}" data-meta-code-row="${item.code}"><td>${item.code}</td><td>${item.name}</td><td>${item.active ? "Y" : "N"}</td><td>${item.description || "-"}</td></tr>`).join("")}</tbody></table></div><div class="codex-stack"><div class="codex-panel"><h4>${currentMetaLabel()} 편집</h4><div class="codex-form-grid"><label><span>코드값</span><input id="metaCode" value="${selectedMeta?.code || getNextMetaCode(state.currentMetaSelection, currentMeta)}" ${selectedMeta ? "readonly" : ""}></label><label><span>사용여부</span><select id="metaActive"><option value="Y" ${selectedMeta?.active !== false ? "selected" : ""}>사용</option><option value="N" ${selectedMeta?.active === false ? "selected" : ""}>중지</option></select></label><label class="span-2"><span>코드명</span><input id="metaName" value="${selectedMeta?.name || ""}"></label><label class="span-2"><span>설명</span><textarea id="metaDesc" rows="4">${selectedMeta?.description || ""}</textarea></label></div><div class="codex-modal-actions"><button type="button" class="hr-btn btn-primary" id="metaSaveBtn">변경 예정 추가</button></div><div class="codex-note-box"><strong>적용 영향</strong>신규등록, 인사기록카드, 조직관리, 인사발령 입력값은 이 기준코드를 참조합니다.</div><div class="codex-note-box"><strong>현재 사용 현황</strong>현재 기준 ${selectedMetaUsage.currentCount}명 · 입사시 기준 ${selectedMetaUsage.hireCount}명</div></div><div class="codex-panel"><h4>${currentMetaLabel()} 변경 예정</h4>${renderPendingOrgPanel("meta-edit")}</div></div></div>`;
     }
     $$("[data-code-view]", panels.codes).forEach((button) => {
       button.classList.toggle("btn-primary", button.dataset.codeView === state.currentCodeView);
@@ -1639,6 +1850,33 @@
       });
     });
     $("#codeOrgNewBtn", panels.codes)?.addEventListener("click", () => openCodeOrgModal("add"));
+    $("#codeDraftApplyBtn", panels.codes)?.addEventListener("click", applyCodeDraft);
+    $("#codeDraftResetBtn", panels.codes)?.addEventListener("click", () => {
+      discardCodeDraft();
+      renderCodes();
+    });
+    $$("[data-pending-item]", panels.codes).forEach((item) => {
+      item.addEventListener("click", () => {
+        state.currentPendingChangeKey = item.dataset.pendingItem;
+        renderCodes();
+      });
+    });
+    $$("[data-pending-open]", panels.codes).forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const change = getPendingOrgChanges().find((item) => item._key === button.dataset.pendingOpen);
+        if (!change) return;
+        if (change.payload?.kind === "org") openCodeOrgModalFromPending(button.dataset.pendingOpen);
+        else if (change.payload?.kind === "level") openLevelDraftFromPending(button.dataset.pendingOpen);
+        else if (change.payload?.kind === "meta") openMetaDraftFromPending(button.dataset.pendingOpen);
+      });
+    });
+    $$("[data-pending-cancel]", panels.codes).forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        removePendingOrgChange(button.dataset.pendingCancel);
+      });
+    });
     $$("[data-level-select-row]", panels.codes).forEach((row) => {
       row.addEventListener("click", () => {
         state.currentLevelSelection = row.dataset.levelSelectRow;

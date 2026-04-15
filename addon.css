@@ -236,6 +236,30 @@
   gap: 8px;
 }
 
+.codex-pending-item {
+  cursor: pointer;
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.codex-pending-item.is-selected {
+  border-color: #8ba8ff;
+  background: #f4f8ff;
+  box-shadow: inset 0 0 0 1px rgba(61, 103, 255, 0.12);
+}
+
+.codex-pending-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.codex-pending-body {
+  color: #48566a;
+  font-size: 12px;
+}
+
 .codex-assignment-shell,
 .codex-assignment-wizard {
   display: grid;
