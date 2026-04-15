@@ -7,7 +7,7 @@
     { id: "EMP-0067", name: "정다은", hq: "BPO사업본부", office: "금융사업실", team: "반납운영팀", part: "", grade: "사원", hireGrade: "사원", title: "팀장", jobFamily: "관리", employeeType: "정규직", contractPeriod: "", birthDate: "1999.07.09", hireDate: "2024.02.26", phone: "010-9831-6721", education: "경희대학교 경제학과", status: "재직", careerMonths: "3", assignmentDate: "2024.02.26", memo: "반납 프로세스 운영 지원", history: [["2024.02.26", "입사 (반납운영팀)"]], educationHistory: [["2024.03", "금융상품 운영교육"]] }
   ];
   const gradeCodes = ["사장", "부사장", "전무이사", "상무이사", "이사", "부장", "차장", "과장", "대리", "사원"];
-  const titleCodes = ["대표이사", "본부장", "실장", "센터장", "팀장", "파트장", "지점장"];
+  const titleCodes = ["대표이사", "본부장", "실장", "센터장", "팀장", "파트장", "지점장", "팀원"];
   const familyCodes = ["임원", "관리", "관리(성과)", "물류", "정비", "별정", "영업(판매)", "영업(매입)", "순회"];
   const employeeTypes = ["정규직", "계약직", "임원"];
   const orgRows = [
@@ -821,7 +821,7 @@
       const selectedClass = node.key === state.currentOrgNode ? " selected" : "";
       const expanded = isOrgExpanded(node.key) || isAncestorOrgKey(node.key, state.currentOrgNode);
       const hasChildren = node.children.length > 0;
-      return `<div class="codex-org-tree-node level-${node.level.toLowerCase()}${selectedClass}${expanded ? " is-open" : ""}" data-tree-node="${node.key}"><div class="codex-org-tree-row"><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${node.key}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button><button type="button" class="codex-org-tree-btn" data-org-node="${node.key}"><span class="codex-org-tree-label">${node.label}</span></button></div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${node.children.map(renderTreeNode).join("")}</div>` : ""}</div>`;
+      return `<div class="codex-org-tree-node level-${node.level.toLowerCase()}${selectedClass}${expanded ? " is-open" : ""}" data-tree-node="${node.key}"><div class="codex-org-tree-row is-simple-row"><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${node.key}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button><button type="button" class="codex-org-tree-btn" data-org-node="${node.key}"><span class="codex-org-tree-label">${node.label}</span></button></div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${node.children.map(renderTreeNode).join("")}</div>` : ""}</div>`;
     };
     return `<div class="codex-org-explorer"><div class="codex-org-side"><div class="codex-org-side-head"><div class="codex-org-side-title">조직도</div><div class="codex-org-side-sub">내 정보</div></div><div class="codex-org-tree">${renderTreeNode(root)}</div></div><div class="codex-org-main"><div class="codex-org-toolbar"><input class="codex-org-search" id="orgSearchInput" placeholder="이름, ID, 소속명, 이메일, 연락처 검색" value="${state.orgSearch}"><button type="button" class="codex-org-toggle-btn2 ${state.orgIncludeChildren ? "active" : ""}" id="orgIncludeChildrenToggle" aria-pressed="${state.orgIncludeChildren}">하위조직 ${state.orgIncludeChildren ? "ON" : "OFF"}</button></div><div class="codex-org-content">${sections || `<div class="codex-note-box"><strong>검색 결과 없음</strong>선택 조직 또는 하위조직에서 검색 조건에 맞는 인원이 없습니다.</div>`}</div></div></div>`;
   }
@@ -1315,6 +1315,9 @@
       changeDate: "2026.04.14",
       mode: "auto",
       orgDraft: cloneOrgBlueprint(state.orgBlueprint),
+      baseRows: cloneOrgBlueprint(state.orgBlueprint),
+      baseEmployees: state.employees.map((employee) => ({ ...employee })),
+      editingRecordDate: "",
       selectedBeforeOrg: "ROOT",
       selectedAfterOrg: "ROOT",
       selectedPersonnelOrg: "ROOT",
@@ -1327,12 +1330,23 @@
       dragAfterDropTarget: "",
       orgSummary: { created: [], updated: [], deleted: [] },
       personnelActions: [],
-      personnelSearch: ""
+      personnelInitialized: false,
+      personnelPickerSelectedIds: [],
+      personnelSearch: "",
+      personnelOrgSuggestions: {}
+      ,createdSourceKeys: [],
+      deletedSourceKeys: []
     };
   }
   function ensureAssignmentFlow() {
     if (!state.assignmentFlow) state.assignmentFlow = createAssignmentFlow();
     return state.assignmentFlow;
+  }
+  function getFlowBaseRows(flow) {
+    return flow?.baseRows || state.orgBlueprint;
+  }
+  function getFlowBaseEmployees(flow) {
+    return flow?.baseEmployees || state.employees;
   }
   function parseOrgKey(key) {
     if (!key || key === "ROOT") return { level: "ROOT", hq: "", office: "", team: "", part: "" };
@@ -1398,11 +1412,46 @@
       .filter(Boolean);
     return { created, updated, deleted };
   }
+  function summarizeOrgChangesForFlow(baseRows, nextRows, flow) {
+    const baseSourceMap = new Map(baseRows.map((row) => [row.sourceKey || getOrgRowKey(row), row]));
+    const nextSourceMap = new Map(nextRows.map((row) => [row.sourceKey || getOrgRowKey(row), row]));
+    const createdKeys = new Set((flow?.createdSourceKeys || []).filter(Boolean));
+    const deletedKeys = new Set((flow?.deletedSourceKeys || []).filter(Boolean));
+    const created = Array.from(createdKeys).map((key) => nextSourceMap.get(key)).filter(Boolean);
+    const deleted = Array.from(deletedKeys).map((key) => baseSourceMap.get(key)).filter(Boolean);
+    const updated = nextRows
+      .map((row) => {
+        const sourceKey = row.sourceKey || getOrgRowKey(row);
+        if (createdKeys.has(sourceKey)) return null;
+        const before = baseSourceMap.get(sourceKey);
+        if (!before || deletedKeys.has(sourceKey)) return null;
+        return getOrgRowPath(before) !== getOrgRowPath(row) ? { before, after: row } : null;
+      })
+      .filter(Boolean);
+    return { created, updated, deleted };
+  }
+  function cloneAssignmentRecord(record) {
+    return {
+      ...record,
+      orgSummary: {
+        created: (record.orgSummary?.created || []).map((row) => ({ ...row })),
+        updated: (record.orgSummary?.updated || []).map((item) => ({ before: { ...item.before }, after: { ...item.after } })),
+        deleted: (record.orgSummary?.deleted || []).map((row) => ({ ...row }))
+      },
+      personnelActions: (record.personnelActions || []).map((item) => ({ ...item, types: [...(item.types || [])] })),
+      afterRows: cloneOrgBlueprint(record.afterRows || []),
+      beforeRows: cloneOrgBlueprint(record.beforeRows || []),
+      beforeEmployees: (record.beforeEmployees || []).map((item) => ({ ...item })),
+      afterEmployees: (record.afterEmployees || []).map((item) => ({ ...item }))
+    };
+  }
   function getProjectedEmployees(flow) {
     const nextRows = flow?.orgDraft || state.orgBlueprint;
+    const baseRows = getFlowBaseRows(flow);
+    const baseEmployees = getFlowBaseEmployees(flow);
     const nextBySource = new Map(nextRows.map((row) => [row.sourceKey || getOrgRowKey(row), row]));
-    const currentByKey = new Map(state.orgBlueprint.map((row) => [getOrgRowKey(row), row]));
-    return state.employees.map((employee) => {
+    const currentByKey = new Map(baseRows.map((row) => [getOrgRowKey(row), row]));
+    return baseEmployees.map((employee) => {
       const currentRow = currentByKey.get(getEmployeeNodeKey(employee));
       const projectedRow = currentRow ? nextBySource.get(currentRow.sourceKey || getOrgRowKey(currentRow)) : null;
       return projectedRow ? { ...employee, hq: projectedRow.hq, office: projectedRow.office, team: projectedRow.team, part: projectedRow.part } : { ...employee };
@@ -1411,10 +1460,71 @@
   function ensurePersonnelAction(flow, employee) {
     let action = flow.personnelActions.find((item) => item.employeeId === employee.id);
     if (!action) {
-      action = { employeeId: employee.id, type: "부서 이동", targetOrgKey: getEmployeeNodeKey(employee), targetTitle: employee.title, note: "", enabled: true };
+      action = {
+        employeeId: employee.id,
+        types: ["부서 이동"],
+        targetOrgKey: getEmployeeNodeKey(employee),
+        targetTitle: employee.title,
+        targetGrade: employee.grade,
+        note: "",
+        enabled: true,
+        removed: false,
+        manual: false
+      };
       flow.personnelActions.push(action);
     }
     return action;
+  }
+  function getActivePersonnelActions(flow) {
+    return (flow.personnelActions || []).filter((item) => item.enabled !== false && item.removed !== true);
+  }
+  function hasPersonnelType(action, type) {
+    return Array.isArray(action.types) ? action.types.includes(type) : action.type === type;
+  }
+  function setPersonnelTypeEnabled(action, type, enabled) {
+    const nextTypes = new Set(Array.isArray(action.types) ? action.types : (action.type ? [action.type] : []));
+    if (enabled) nextTypes.add(type);
+    else nextTypes.delete(type);
+    action.types = Array.from(nextTypes);
+    if (!action.types.length) action.types = ["부서 이동"];
+  }
+  function syncPersonnelActionsForStage(flow) {
+    const projectedEmployees = getProjectedEmployees(flow);
+    const currentEmployees = new Map(state.employees.map((employee) => [employee.id, employee]));
+    const affectedIds = new Set(projectedEmployees.filter((employee) => {
+      const current = currentEmployees.get(employee.id);
+      return current && getEmployeeNodeKey(current) !== getEmployeeNodeKey(employee);
+    }).map((employee) => employee.id));
+    projectedEmployees.forEach((employee) => {
+      if (!affectedIds.has(employee.id)) return;
+      const action = ensurePersonnelAction(flow, employee);
+      action.removed = false;
+    });
+    flow.personnelActions.forEach((action) => {
+      if (action.manual) return;
+      action.removed = !affectedIds.has(action.employeeId);
+    });
+  }
+  function getPersonnelEmployee(flow, employeeId) {
+    const projected = getProjectedEmployees(flow).find((employee) => employee.id === employeeId);
+    return projected || state.employees.find((employee) => employee.id === employeeId) || null;
+  }
+  function getPersonnelOrgOptions(flow) {
+    return flow.orgDraft.map((row) => ({ key: getOrgRowKey(row), path: getOrgRowPath(row) }));
+  }
+  function getPersonnelInputValue(flow, action) {
+    return action.targetOrgText ?? getPersonnelTargetPath(flow, action);
+  }
+  function getPersonnelOrgSuggestions(flow, action) {
+    const keyword = (action.targetOrgText ?? "").trim().toLowerCase();
+    if (!keyword) return [];
+    return getPersonnelOrgOptions(flow)
+      .filter((item) => item.path.toLowerCase().includes(keyword))
+      .slice(0, 8);
+  }
+  function getPersonnelTargetPath(flow, action) {
+    const targetRow = getBlueprintRow(flow.orgDraft, action.targetOrgKey);
+    return targetRow ? getOrgRowPath(targetRow) : "조직 없음";
   }
   function getAssignmentExpandedKeys(prefix) {
     const flow = state.assignmentFlow;
@@ -1518,7 +1628,7 @@
       if (previous.part && item.part === previous.part) item.part = row.part || item.part;
     });
     flow.orgDraft = normalizeBlueprint(flow.orgDraft);
-    flow.orgSummary = summarizeOrgChanges(state.orgBlueprint, flow.orgDraft);
+    flow.orgSummary = summarizeOrgChangesForFlow(getFlowBaseRows(flow), flow.orgDraft, flow);
     flow.afterExpandedKeys = remapExpandedKeysBySource(previousRows, previousExpandedKeys, flow.orgDraft);
     flow.selectedAfterOrg = getOrgRowKey(flow.orgDraft.find((item) => (item.sourceKey || getOrgRowKey(item)) === (row.sourceKey || orgKey)) || flow.orgDraft[0] || { hq: "" }) || "ROOT";
     flow.editingAfterOrgKey = "";
@@ -1579,7 +1689,7 @@
       else movedRoot.displayOrder = getNextSiblingOrder(outsideRows, nextParentKey);
     }
     flow.orgDraft = normalizeBlueprint([...outsideRows, ...rebuilt]);
-    flow.orgSummary = summarizeOrgChanges(state.orgBlueprint, flow.orgDraft);
+    flow.orgSummary = summarizeOrgChangesForFlow(getFlowBaseRows(flow), flow.orgDraft, flow);
     flow.afterExpandedKeys = remapExpandedKeysBySource(previousRows, previousExpandedKeys, flow.orgDraft);
     const moved = flow.orgDraft.find((row) => (row.sourceKey || getOrgRowKey(row)) === (sourceRow.sourceKey || orgKey));
     flow.selectedAfterOrg = moved ? getOrgRowKey(moved) : "ROOT";
@@ -1588,6 +1698,7 @@
   }
   function cancelOrgChange(type, sourceKey) {
     const flow = ensureAssignmentFlow();
+    const baseRows = getFlowBaseRows(flow);
     if (!sourceKey) return;
     const previousRows = cloneOrgBlueprint(flow.orgDraft);
     const previousExpandedKeys = [...(flow.afterExpandedKeys || ["ROOT"])];
@@ -1595,16 +1706,21 @@
       const current = flow.orgDraft.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
       if (!current) return;
       const deleteKeys = [getOrgRowKey(current), ...getDescendantKeys(flow.orgDraft, getOrgRowKey(current))];
+      flow.createdSourceKeys = flow.createdSourceKeys.filter((key) => {
+        const row = flow.orgDraft.find((item) => (item.sourceKey || getOrgRowKey(item)) === key);
+        return row && !deleteKeys.includes(getOrgRowKey(row));
+      });
       flow.orgDraft = normalizeBlueprint(flow.orgDraft.filter((row) => !deleteKeys.includes(getOrgRowKey(row))));
       flow.selectedAfterOrg = "ROOT";
     } else if (type === "deleted") {
-      const base = state.orgBlueprint.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
+      const base = baseRows.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
       if (!base) return;
+      flow.deletedSourceKeys = flow.deletedSourceKeys.filter((key) => key !== sourceKey);
       flow.orgDraft = normalizeBlueprint([...flow.orgDraft, { ...base }]);
       const restored = flow.orgDraft.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
       flow.selectedAfterOrg = restored ? getOrgRowKey(restored) : flow.selectedAfterOrg;
     } else if (type === "updated") {
-      const base = state.orgBlueprint.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
+      const base = baseRows.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
       const current = flow.orgDraft.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
       if (!base || !current) return;
       const previous = { ...current };
@@ -1624,7 +1740,7 @@
       const restored = flow.orgDraft.find((row) => (row.sourceKey || getOrgRowKey(row)) === sourceKey);
       flow.selectedAfterOrg = restored ? getOrgRowKey(restored) : flow.selectedAfterOrg;
     }
-    flow.orgSummary = summarizeOrgChanges(state.orgBlueprint, flow.orgDraft);
+    flow.orgSummary = summarizeOrgChangesForFlow(getFlowBaseRows(flow), flow.orgDraft, flow);
     flow.afterExpandedKeys = remapExpandedKeysBySource(previousRows, previousExpandedKeys, flow.orgDraft);
     if (flow.selectedAfterOrg && flow.selectedAfterOrg !== "ROOT") expandAssignmentAncestors("after", flow.selectedAfterOrg);
     renderAssignment();
@@ -1640,20 +1756,26 @@
       const flow = state.assignmentFlow;
       const isAfterTree = prefix === "after";
       const isEditing = isAfterTree && flow?.editingAfterOrgKey === key;
-      const dragHandle = isAfterTree && key !== "ROOT"
-        ? `<button type="button" class="codex-org-row-handle" draggable="true" data-org-drag="${key}" title="끌어서 위치 변경">⋮⋮</button>`
-        : `<span class="codex-org-row-handle codex-org-row-handle-placeholder"></span>`;
-      const controls = (includeControls && key !== "ROOT") || (isAfterTree && key !== "ROOT")
+      const dragHandle = isAfterTree
+        ? (key !== "ROOT"
+          ? `<button type="button" class="codex-org-row-handle" draggable="true" data-org-drag="${key}" title="끌어서 위치 변경">⋮⋮</button>`
+          : `<span class="codex-org-row-handle codex-org-row-handle-placeholder" aria-hidden="true"></span>`)
+        : "";
+      const controls = ((includeControls && key !== "ROOT") || (isAfterTree && key !== "ROOT"))
         ? `<div class="codex-assignment-tree-actions"><button type="button" class="codex-icon-btn" data-org-inline-edit="${key}" title="부서명 변경">✎</button><button type="button" class="codex-icon-btn" data-org-delete="${key}" title="삭제">🗑</button></div>`
         : "";
+      const codeHtml = isAfterTree && selectedRow?.code ? `<span class="codex-assignment-tree-code">${selectedRow.code}</span>` : "";
       const labelHtml = isEditing
         ? `<input class="codex-org-inline-input" data-org-inline-input="${key}" value="${label}">`
-        : `<span class="codex-org-tree-label">${label}</span>${selectedRow?.code ? `<span class="codex-assignment-tree-code">${selectedRow.code}</span>` : ""}`;
+        : `<span class="codex-org-tree-label">${label}</span>${codeHtml}`;
       const buttonHtml = isEditing
         ? `<div class="codex-org-tree-btn is-editing-field">${labelHtml}</div>`
         : `<button type="button" class="codex-org-tree-btn" data-assignment-org-node="${key}" data-assignment-org-prefix="${prefix}">${labelHtml}</button>`;
       const dropAttrs = isAfterTree ? ` data-org-drop="${key}"` : "";
-      return `<div class="codex-org-tree-node ${selected ? "selected" : ""} ${expanded ? "is-open" : ""} ${isEditing ? "is-editing" : ""} ${isAfterTree ? "is-after-tree" : ""} ${getDepthClassByKey(key)}" data-org-depth="${getOrgDepthByKey(key)}"><div class="codex-org-drop-line" data-org-drop-line="${key}" data-org-drop-position="before"></div><div class="codex-org-tree-row"${dropAttrs}><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${key}" data-org-toggle-prefix="${prefix}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button>${dragHandle}${buttonHtml}${controls}</div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${children.map((child) => renderNode(getOrgRowKey(child), getOrgRowName(child))).join("")}</div>` : ""}<div class="codex-org-drop-line" data-org-drop-line="${key}" data-org-drop-position="after"></div></div>`;
+      const rowClass = isAfterTree ? "codex-org-tree-row is-after-row" : "codex-org-tree-row is-simple-row";
+      const beforeLine = isAfterTree ? `<div class="codex-org-drop-line" data-org-drop-line="${key}" data-org-drop-position="before"></div>` : "";
+      const afterLine = isAfterTree ? `<div class="codex-org-drop-line" data-org-drop-line="${key}" data-org-drop-position="after"></div>` : "";
+      return `<div class="codex-org-tree-node ${selected ? "selected" : ""} ${expanded ? "is-open" : ""} ${isEditing ? "is-editing" : ""} ${isAfterTree ? "is-after-tree" : ""} ${getDepthClassByKey(key)}" data-org-depth="${getOrgDepthByKey(key)}">${beforeLine}<div class="${rowClass}"${dropAttrs}><button type="button" class="codex-org-tree-toggle-btn ${hasChildren ? "" : "is-leaf"}" data-org-toggle="${key}" data-org-toggle-prefix="${prefix}" ${hasChildren ? `aria-expanded="${expanded}"` : "disabled"}>${hasChildren ? (expanded ? "−" : "+") : "·"}</button>${dragHandle}${buttonHtml}${controls}</div>${hasChildren && expanded ? `<div class="codex-org-tree-children">${children.map((child) => renderNode(getOrgRowKey(child), getOrgRowName(child))).join("")}</div>` : ""}${afterLine}</div>`;
     };
     return renderNode("ROOT", "오토플러스");
   }
@@ -1670,11 +1792,11 @@
       ? [["부서명", "오토플러스"], ["부서 코드", "ROOT"], ["부서 레벨", "ROOT"], ["최근 수정일", "2026.04.14 09:00"]]
       : [["부서명", getOrgRowName(selectedRow)], ["부서 코드", selectedRow?.code || "-"], ["부서 레벨", getOrgRowLevel(selectedRow)], ["최근 수정일", selectedRow?.updatedAt || "-"]];
     const memberRows = selectedMembers.map((employee) => `<tr><td>${employee.name}</td><td>${employee.id}</td><td>${employee.title}</td><td>${employee.status}</td></tr>`).join("");
-    const historyRows = state.assignmentRecords.map((record) => `<tr><td><button type="button" class="codex-link-btn" data-assignment-history="${record.date}">${record.date}</button></td><td>${record.orgSummary.created.length + record.orgSummary.updated.length + record.orgSummary.deleted.length}건</td><td>${record.personnelActions.length}건</td><td>${record.mode === "auto" ? "자동" : "수동"}</td></tr>`).join("");
+    const historyRows = state.assignmentRecords.map((record) => `<tr><td><button type="button" class="codex-link-btn" data-assignment-history="${record.date}">${record.date}</button></td><td>${record.orgSummary.created.length + record.orgSummary.updated.length + record.orgSummary.deleted.length}건</td><td>${record.personnelActions.length}건</td><td>${record.mode === "auto" ? "자동" : "수동"}</td><td>${record.status || "완료"}</td><td><div class="codex-inline-actions"><button type="button" class="hr-btn btn-xs btn-outline" data-assignment-history-edit="${record.date}">수정</button><button type="button" class="hr-btn btn-xs btn-outline" data-assignment-history-cancel="${record.date}" ${record.status === "취소" ? "disabled" : ""}>취소</button></div></td></tr>`).join("");
     const deletedRows = state.deletedOrgArchive.map((item) => `<tr><td>${item.date}</td><td>${item.path}</td></tr>`).join("");
     const tabs = `<div class="codex-assignment-tabs"><button type="button" class="codex-assignment-tab ${state.assignmentLandingTab === "org" ? "active" : ""}" data-assignment-tab="org">조직도</button><button type="button" class="codex-assignment-tab ${state.assignmentLandingTab === "history" ? "active" : ""}" data-assignment-tab="history">조직개편/인사발령 이력</button><button type="button" class="codex-assignment-tab ${state.assignmentLandingTab === "deleted" ? "active" : ""}" data-assignment-tab="deleted">삭제된 조직 목록</button></div>`;
     const body = state.assignmentLandingTab === "history"
-      ? `<div class="codex-panel"><table><thead><tr><th>인사발령일</th><th>조직개편</th><th>인사발령</th><th>처리방식</th></tr></thead><tbody>${historyRows || `<tr><td colspan="4">이력이 없습니다.</td></tr>`}</tbody></table></div>`
+      ? `<div class="codex-panel"><table><thead><tr><th>인사발령일</th><th>조직개편</th><th>인사발령</th><th>처리방식</th><th>상태</th><th>관리</th></tr></thead><tbody>${historyRows || `<tr><td colspan="6">이력이 없습니다.</td></tr>`}</tbody></table></div>`
       : state.assignmentLandingTab === "deleted"
         ? `<div class="codex-panel"><table><thead><tr><th>일자</th><th>삭제 조직</th></tr></thead><tbody>${deletedRows || `<tr><td colspan="2">삭제 이력이 없습니다.</td></tr>`}</tbody></table></div>`
         : `<div class="codex-assignment-landing-grid"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>조직도</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(state.orgBlueprint, state.currentOrgNode, false, "landing")}</div></div><div class="codex-stack"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>부서 정보</h4><button type="button" class="hr-btn btn-primary" id="startAssignmentWizardBtn">조직개편/인사발령</button></div><table><tbody>${infoRows.map((row) => `<tr><th>${row[0]}</th><td>${row[1]}</td></tr>`).join("")}</tbody></table></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>구성원 정보</h4><input class="hr-search-input" id="assignmentLandingSearch" value="${state.assignmentLandingSearch || ""}" placeholder="이름, ID 검색"></div><table><thead><tr><th>이름</th><th>ID</th><th>직위</th><th>재직 상태</th></tr></thead><tbody>${memberRows || `<tr><td colspan="4">구성원이 없습니다.</td></tr>`}</tbody></table></div></div></div>`;
@@ -1695,43 +1817,42 @@
     panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">Before / After 조직을 비교하며 명칭 변경, 이동, 신설, 폐지를 편집합니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="active">2단계</span><span>3단계</span></div></div><div class="codex-assignment-before-after"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>Before</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(state.orgBlueprint, flow.selectedBeforeOrg, false, "before")}</div></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>After</h4><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" data-org-add-under="${flow.selectedAfterOrg || "ROOT"}">추가</button><button type="button" class="hr-btn btn-outline" ${selectedAfter ? `data-org-edit="${flow.selectedAfterOrg}"` : "disabled"}>수정</button><button type="button" class="hr-btn btn-outline" ${selectedAfter ? `data-org-delete="${flow.selectedAfterOrg}"` : "disabled"}>삭제</button></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedAfterOrg, false, "after")}</div></div></div><div style="margin-top:16px">${renderOrgSummaryTable(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentOrgEditDoneBtn">편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentOrgNextStepBtn">다음 단계</button></div></div></div>`;
   }
   function renderPersonnelSummary(flow) {
-    const actions = flow.personnelActions.filter((item) => item.enabled !== false).map((action) => {
+    const actions = getActivePersonnelActions(flow).map((action) => {
       const employee = state.employees.find((item) => item.id === action.employeeId);
       const targetRow = getBlueprintRow(flow.orgDraft, action.targetOrgKey);
+      const actionTypes = Array.isArray(action.types) ? action.types : (action.type ? [action.type] : []);
       return {
         employee,
         action,
+        actionTypes,
         beforeOrg: employee ? employeePath(employee) : "-",
         afterOrg: targetRow ? getOrgRowPath(targetRow) : "조직 없음"
       };
     });
-    const moveRows = actions
-      .filter((item) => ["부서 이동", "조직장 임명"].includes(item.action.type))
-      .map((item) => `<tr><td>${item.employee?.name || "-"}</td><td>${item.employee?.grade || "-"}</td><td>${item.beforeOrg}</td><td>${item.action.type}</td><td>${item.afterOrg}</td><td>${item.action.targetTitle || "-"}</td><td>${item.action.note || "-"}</td></tr>`)
-      .join("");
-    const removeRows = actions
-      .filter((item) => item.action.type === "소속 제외")
-      .map((item) => `<tr><td>${item.employee?.name || "-"}</td><td>${item.employee?.grade || "-"}</td><td>${item.beforeOrg}</td><td>${item.action.note || "-"}</td></tr>`)
-      .join("");
-    const titleRows = actions
-      .filter((item) => item.action.type === "직위 변경")
-      .map((item) => `<tr><td>${item.employee?.name || "-"}</td><td>${item.beforeOrg}</td><td>${item.employee?.title || "-"}</td><td>${item.action.targetTitle || "-"}</td><td>${item.action.note || "-"}</td></tr>`)
-      .join("");
-    return `<div class="codex-panel"><h4>인사발령</h4><div class="codex-summary-group"><h5>부서 이동 및 조직장 임명</h5><table><thead><tr><th>이름</th><th>직위</th><th>발령 전 조직</th><th>유형</th><th>발령 후 조직</th><th>직책</th><th>비고</th></tr></thead><tbody>${moveRows || `<tr><td colspan="7">해당 내역이 없습니다.</td></tr>`}</tbody></table></div><div class="codex-summary-group"><h5>소속 제외</h5><table><thead><tr><th>이름</th><th>직위</th><th>발령 전 조직</th><th>비고</th></tr></thead><tbody>${removeRows || `<tr><td colspan="4">해당 내역이 없습니다.</td></tr>`}</tbody></table></div><div class="codex-summary-group"><h5>직위 변경</h5><table><thead><tr><th>이름</th><th>소속 조직</th><th>발령 전 직책</th><th>발령 후 직책</th><th>비고</th></tr></thead><tbody>${titleRows || `<tr><td colspan="5">해당 내역이 없습니다.</td></tr>`}</tbody></table></div></div>`;
+    const rows = actions.map((item) => `<tr><td>${item.employee?.name || "-"}</td><td>${item.employee?.id || "-"}</td><td>${item.beforeOrg}</td><td>${item.employee?.title || "-"}</td><td>${item.employee?.grade || "-"}</td><td>${item.actionTypes.join(", ")}</td><td>${hasPersonnelType(item.action, "소속 제외") ? "조직 없음" : item.afterOrg}</td><td>${item.action.targetTitle || item.employee?.title || "-"}</td><td>${item.action.targetGrade || item.employee?.grade || "-"}</td><td>${item.action.note || "-"}</td></tr>`).join("");
+    return `<div class="codex-panel"><h4>인사발령</h4><div class="codex-summary-group"><h5>반영 예정 내역</h5><table><thead><tr><th>이름</th><th>ID</th><th>발령 전 조직</th><th>발령 전 직책</th><th>발령 전 직급</th><th>처리 유형</th><th>발령 후 조직</th><th>발령 후 직책</th><th>발령 후 직급</th><th>비고</th></tr></thead><tbody>${rows || `<tr><td colspan="10">해당 내역이 없습니다.</td></tr>`}</tbody></table></div></div>`;
   }
   function renderAssignmentStepThree(flow) {
+    syncPersonnelActionsForStage(flow);
     const projectedEmployees = getProjectedEmployees(flow);
-    const members = getEmployeesInOrgKey(flow.selectedPersonnelOrg || "ROOT", false, flow.orgDraft, projectedEmployees).filter((employee) => {
-      const keyword = (flow.personnelSearch || "").trim().toLowerCase();
+    const keyword = (flow.personnelSearch || "").trim().toLowerCase();
+    const pickerMembers = getEmployeesInOrgKey(flow.selectedPersonnelOrg || "ROOT", false, flow.orgDraft, projectedEmployees).filter((employee) => {
       if (!keyword) return true;
       return [employee.name, employee.id, employee.title, employeePath(employee)].join(" ").toLowerCase().includes(keyword);
     });
-    const orgOptions = flow.orgDraft.map((row) => `<option value="${getOrgRowKey(row)}">${getOrgRowPath(row)}</option>`).join("");
-    const memberRows = members.map((employee) => {
-      const action = ensurePersonnelAction(flow, employee);
-      return `<tr><td><input type="checkbox" ${action.enabled !== false ? "checked" : ""} data-personnel-enable="${employee.id}"></td><td>${employee.name}</td><td>${employee.id}</td><td>${employee.grade}</td><td><select data-personnel-type="${employee.id}"><option ${action.type === "부서 이동" ? "selected" : ""}>부서 이동</option><option ${action.type === "소속 제외" ? "selected" : ""}>소속 제외</option><option ${action.type === "조직장 임명" ? "selected" : ""}>조직장 임명</option><option ${action.type === "직위 변경" ? "selected" : ""}>직위 변경</option></select></td><td><select data-personnel-org="${employee.id}"><option value="">조직 없음</option>${orgOptions.replace(`value="${action.targetOrgKey}"`, `value="${action.targetOrgKey}" selected`)}</select></td><td><select data-personnel-title="${employee.id}">${titleCodes.map((item) => `<option value="${item}" ${item === action.targetTitle ? "selected" : ""}>${item}</option>`).join("")}</select></td><td><input data-personnel-note="${employee.id}" value="${action.note || ""}" placeholder="비고"></td></tr>`;
+    const activeActions = getActivePersonnelActions(flow);
+    const pickerRows = pickerMembers.map((employee) => {
+      const checked = (flow.personnelPickerSelectedIds || []).includes(employee.id) ? "checked" : "";
+      return `<label class="codex-personnel-picker-row"><input type="checkbox" data-personnel-pick="${employee.id}" ${checked}><span>${employee.name}</span><span>${employee.id}</span><span>${employee.title}</span></label>`;
     }).join("");
-    panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">구성원의 부서 이동, 소속 제외, 조직장 임명, 직위 변경을 설정합니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="done">2단계</span><span class="active">3단계</span></div></div><div class="codex-assignment-before-after"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>조직도</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT", false, "personnel")}</div></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>구성원 정보</h4><input class="hr-search-input" id="personnelSearchInput" value="${flow.personnelSearch || ""}" placeholder="이름, ID 검색"></div><table><thead><tr><th></th><th>이름</th><th>ID</th><th>직위</th><th>처리 유형</th><th>발령 후 조직</th><th>직책</th><th>비고</th></tr></thead><tbody>${memberRows || `<tr><td colspan="8">해당 조직에 구성원이 없습니다.</td></tr>`}</tbody></table></div></div><div style="margin-top:16px">${renderPersonnelSummary(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentPersonnelDoneBtn">편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentFinishBtn">완료</button></div></div></div>`;
+    const memberRows = activeActions.map((action) => {
+      const employee = getPersonnelEmployee(flow, action.employeeId);
+      if (!employee) return "";
+      const suggestions = getPersonnelOrgSuggestions(flow, action);
+      const suggestionRows = suggestions.map((item) => `<button type="button" class="codex-org-suggest-item" data-personnel-org-pick="${employee.id}" data-personnel-org-key="${item.key}"><span>${item.path}</span></button>`).join("");
+      return `<tr><td><button type="button" class="codex-icon-btn" data-personnel-remove="${employee.id}" title="목록에서 제외">🗑</button></td><td>${employee.name}</td><td>${employee.id}</td><td>${employeePath(employee)}</td><td>${employee.title}</td><td>${employee.grade}</td><td><label><input type="checkbox" data-personnel-type="${employee.id}" data-personnel-type-value="부서 이동" ${hasPersonnelType(action, "부서 이동") ? "checked" : ""}>부서 이동</label><label><input type="checkbox" data-personnel-type="${employee.id}" data-personnel-type-value="소속 제외" ${hasPersonnelType(action, "소속 제외") ? "checked" : ""}>소속 제외</label><label><input type="checkbox" data-personnel-type="${employee.id}" data-personnel-type-value="책임자 임면" ${hasPersonnelType(action, "책임자 임면") ? "checked" : ""}>책임자 임면</label><label><input type="checkbox" data-personnel-type="${employee.id}" data-personnel-type-value="승급" ${hasPersonnelType(action, "승급") ? "checked" : ""}>승급</label></td><td><div class="codex-org-suggest-field"><input data-personnel-org-text="${employee.id}" value="${getPersonnelInputValue(flow, action)}" placeholder="발령 후 조직 검색"><div class="codex-org-suggest-list ${suggestionRows ? "is-open" : ""}">${suggestionRows || ""}</div></div></td><td><select data-personnel-title="${employee.id}">${titleCodes.map((item) => `<option value="${item}" ${item === action.targetTitle ? "selected" : ""}>${item}</option>`).join("")}</select></td><td><select data-personnel-grade="${employee.id}">${gradeCodes.map((item) => `<option value="${item}" ${item === (action.targetGrade || employee.grade) ? "selected" : ""}>${item}</option>`).join("")}</select></td><td><input data-personnel-note="${employee.id}" value="${action.note || ""}" placeholder="비고"></td></tr>`;
+    }).join("");
+    panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">변동 조직 인원은 자동 반영되고, 필요한 인원은 좌측 조직도에서 추가할 수 있습니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="done">2단계</span><span class="active">3단계</span></div></div><div class="codex-assignment-before-after"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>조직도</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT", false, "personnel")}</div><div class="codex-panel" style="margin-top:12px"><div class="codex-assignment-section-head"><h4>구성원 선택</h4><button type="button" class="hr-btn btn-outline" id="personnelAddSelectedBtn">선택 추가</button></div><input class="hr-search-input" id="personnelSearchInput" value="${flow.personnelSearch || ""}" placeholder="이름, ID 검색"><div class="codex-personnel-picker">${pickerRows || `<div class="codex-note-box">해당 조직에 구성원이 없습니다.</div>`}</div></div></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>구성원 정보</h4><div></div></div><table><thead><tr><th></th><th>이름</th><th>ID</th><th>발령 전 조직</th><th>발령 전 직책</th><th>발령 전 직급</th><th>처리 유형</th><th>발령 후 조직</th><th>발령 후 직책</th><th>발령 후 직급</th><th>비고</th></tr></thead><tbody>${memberRows || `<tr><td colspan="11">발령 대상자가 없습니다.</td></tr>`}</tbody></table></div></div><div style="margin-top:16px">${renderPersonnelSummary(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentPersonnelDoneBtn">편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentFinishBtn">완료</button></div></div></div>`;
   }
   function openOrgEditModal(mode, orgKey = "ROOT") {
     const flow = ensureAssignmentFlow();
@@ -1783,6 +1904,7 @@
         row.sourceKey = `NEW|${Date.now()}|${Math.random().toString(36).slice(2, 8)}`;
         row.displayOrder = getNextSiblingOrder(flowRef.orgDraft, parentKey);
         flowRef.orgDraft.push(row);
+        flowRef.createdSourceKeys.push(row.sourceKey);
       } else if (selected) {
         const previous = { ...selected };
         if (level === "L1") { selected.hq = name; selected.office = ""; selected.team = ""; selected.part = ""; }
@@ -1797,7 +1919,7 @@
         });
       }
       flowRef.orgDraft = normalizeBlueprint(flowRef.orgDraft);
-      flowRef.orgSummary = summarizeOrgChanges(state.orgBlueprint, flowRef.orgDraft);
+      flowRef.orgSummary = summarizeOrgChangesForFlow(getFlowBaseRows(flowRef), flowRef.orgDraft, flowRef);
       createModal.close();
       renderAssignment();
     };
@@ -1806,25 +1928,65 @@
   function deleteOrgFromDraft(orgKey) {
     const flow = ensureAssignmentFlow();
     const deleteKeys = [orgKey, ...getDescendantKeys(flow.orgDraft, orgKey)];
+    const deletingRows = flow.orgDraft.filter((row) => deleteKeys.includes(getOrgRowKey(row)));
+    deletingRows.forEach((row) => {
+      const sourceKey = row.sourceKey || getOrgRowKey(row);
+      if (String(sourceKey).startsWith("NEW|")) flow.createdSourceKeys = flow.createdSourceKeys.filter((item) => item !== sourceKey);
+      else if (!flow.deletedSourceKeys.includes(sourceKey)) flow.deletedSourceKeys.push(sourceKey);
+    });
     flow.orgDraft = normalizeBlueprint(flow.orgDraft.filter((row) => !deleteKeys.includes(getOrgRowKey(row))));
-    flow.orgSummary = summarizeOrgChanges(state.orgBlueprint, flow.orgDraft);
+    flow.orgSummary = summarizeOrgChangesForFlow(getFlowBaseRows(flow), flow.orgDraft, flow);
     flow.selectedAfterOrg = "ROOT";
     renderAssignment();
+  }
+  function startAssignmentHistoryEdit(date) {
+    const record = state.assignmentRecords.find((item) => item.date === date);
+    if (!record) return;
+    const target = cloneAssignmentRecord(record);
+    state.assignmentFlow = createAssignmentFlow();
+    state.assignmentFlow.stage = 3;
+    state.assignmentFlow.changeDate = target.date;
+    state.assignmentFlow.mode = target.mode;
+    state.assignmentFlow.orgDraft = cloneOrgBlueprint(target.afterRows || state.orgBlueprint);
+    state.assignmentFlow.baseRows = cloneOrgBlueprint(target.beforeRows || state.orgBlueprint);
+    state.assignmentFlow.baseEmployees = (target.beforeEmployees || state.employees).map((item) => ({ ...item }));
+    state.assignmentFlow.personnelActions = (target.personnelActions || []).map((item) => ({ ...item, types: [...(item.types || [])], removed: false, enabled: true }));
+    state.assignmentFlow.editingRecordDate = target.date;
+    state.assignmentFlow.selectedPersonnelOrg = "ROOT";
+    showHrView("assignment");
+  }
+  function cancelAssignmentHistory(date) {
+    const record = state.assignmentRecords.find((item) => item.date === date);
+    if (!record || record.status === "취소") return;
+    record.status = "취소";
+    state.orgBlueprint = cloneOrgBlueprint(record.beforeRows || state.orgBlueprint);
+    state.employees = (record.beforeEmployees || state.employees).map((item) => ({ ...item }));
+    renderAll();
+    showHrView("assignment");
   }
   function openAssignmentHistoryDetail(date) {
     const record = state.assignmentRecords.find((item) => item.date === date);
     if (!record) return;
     $("h3", recordDetailModal.root).textContent = `${date} 인사발령 상세`;
-    recordDetailModal.body.innerHTML = `${renderOrgSummaryTable({ orgSummary: record.orgSummary })}${renderPersonnelSummary({ personnelActions: record.personnelActions, orgDraft: record.afterRows || state.orgBlueprint })}`;
+    const activeActions = (record.personnelActions || []).map((item) => ({ ...item, enabled: true, removed: false }));
+    recordDetailModal.body.innerHTML = `${renderOrgSummaryTable({ orgSummary: record.orgSummary })}${renderPersonnelSummary({ personnelActions: activeActions, orgDraft: record.afterRows || state.orgBlueprint })}<div class="codex-inline-actions" style="margin-top:16px"><button type="button" class="hr-btn btn-outline" id="assignmentHistoryEditBtn">수정</button><button type="button" class="hr-btn btn-outline" id="assignmentHistoryCancelBtn" ${record.status === "취소" ? "disabled" : ""}>취소</button></div>`;
     recordDetailModal.save.onclick = () => recordDetailModal.close();
     recordDetailModal.open();
+    $("#assignmentHistoryEditBtn", recordDetailModal.body)?.addEventListener("click", () => {
+      recordDetailModal.close();
+      startAssignmentHistoryEdit(date);
+    });
+    $("#assignmentHistoryCancelBtn", recordDetailModal.body)?.addEventListener("click", () => {
+      recordDetailModal.close();
+      cancelAssignmentHistory(date);
+    });
   }
   function applyAssignmentFlow(flow) {
     const nextBlueprint = normalizeBlueprint(flow.orgDraft);
     const previousBlueprint = state.orgBlueprint.map((row) => ({ ...row }));
     const previousByKey = new Map(previousBlueprint.map((row) => [getOrgRowKey(row), row]));
     const nextBySource = new Map(nextBlueprint.map((row) => [row.sourceKey || getOrgRowKey(row), row]));
-    const explicitActionIds = new Set(flow.personnelActions.filter((item) => item.enabled !== false).map((item) => item.employeeId));
+    const explicitActionIds = new Set(getActivePersonnelActions(flow).map((item) => item.employeeId));
     state.orgBlueprint = nextBlueprint;
     state.employees.forEach((employee) => {
       const currentRow = previousByKey.get(getEmployeeNodeKey(employee));
@@ -1841,28 +2003,34 @@
         }
       }
     });
-    flow.personnelActions.filter((action) => action.enabled !== false).forEach((action) => {
+    getActivePersonnelActions(flow).forEach((action) => {
       const employee = state.employees.find((item) => item.id === action.employeeId);
       if (!employee) return;
       const targetRow = getBlueprintRow(state.orgBlueprint, action.targetOrgKey);
-      if (action.type !== "직위 변경") {
-        if (action.type === "소속 제외") {
-          employee.hq = "오토플러스";
-          employee.office = "";
-          employee.team = "";
-          employee.part = "";
-        } else if (targetRow) {
-          employee.hq = targetRow.hq;
-          employee.office = targetRow.office;
-          employee.team = targetRow.team;
-          employee.part = targetRow.part;
-        }
+      if (hasPersonnelType(action, "소속 제외")) {
+        employee.hq = "오토플러스";
+        employee.office = "";
+        employee.team = "";
+        employee.part = "";
+      } else if (hasPersonnelType(action, "부서 이동") && targetRow) {
+        employee.hq = targetRow.hq;
+        employee.office = targetRow.office;
+        employee.team = targetRow.team;
+        employee.part = targetRow.part;
       }
-      if (action.type === "조직장 임명" || action.type === "직위 변경") employee.title = action.targetTitle || employee.title;
+      if (hasPersonnelType(action, "책임자 임면")) employee.title = action.targetTitle || employee.title;
+      if (hasPersonnelType(action, "승급")) employee.grade = action.targetGrade || employee.grade;
       employee.assignmentDate = flow.changeDate;
-      appendAssignmentDrivenHistory(employee, { type: action.type, assignDate: flow.changeDate, reason: action.note || "조직개편/인사발령 반영", nextDept: employeePath(employee) || "조직 없음", nextGrade: employee.grade, nextTitle: employee.title, nextStatus: employee.status });
+      appendAssignmentDrivenHistory(employee, { type: action.types.join(", "), assignDate: flow.changeDate, reason: action.note || "조직개편/인사발령 반영", nextDept: employeePath(employee) || "조직 없음", nextGrade: employee.grade, nextTitle: employee.title, nextStatus: employee.status });
     });
-    state.assignmentRecords.unshift({ date: flow.changeDate, mode: flow.mode, orgSummary: flow.orgSummary, personnelActions: flow.personnelActions.filter((item) => item.enabled !== false).map((item) => ({ ...item })), afterRows: cloneOrgBlueprint(state.orgBlueprint) });
+    const recordPayload = { date: flow.changeDate, mode: flow.mode, status: "완료", orgSummary: flow.orgSummary, personnelActions: getActivePersonnelActions(flow).map((item) => ({ ...item, types: [...(item.types || [])] })), afterRows: cloneOrgBlueprint(state.orgBlueprint), beforeRows: cloneOrgBlueprint(getFlowBaseRows(flow)), beforeEmployees: getFlowBaseEmployees(flow).map((item) => ({ ...item })), afterEmployees: state.employees.map((item) => ({ ...item })) };
+    if (flow.editingRecordDate) {
+      const index = state.assignmentRecords.findIndex((item) => item.date === flow.editingRecordDate);
+      if (index >= 0) state.assignmentRecords[index] = recordPayload;
+      else state.assignmentRecords.unshift(recordPayload);
+    } else {
+      state.assignmentRecords.unshift(recordPayload);
+    }
     flow.orgSummary.deleted.forEach((row) => state.deletedOrgArchive.unshift({ date: flow.changeDate, path: getOrgRowPath(row) }));
     state.assignmentFlow = null;
     renderAll();
@@ -1894,13 +2062,48 @@
     });
     $("#assignmentNextStepBtn", panels.assignment)?.addEventListener("click", () => { const flow = ensureAssignmentFlow(); flow.changeDate = $("#wizardChangeDate")?.value || flow.changeDate; flow.mode = document.querySelector('input[name="wizardMode"]:checked')?.value || flow.mode; flow.stage = 2; renderAssignment(); });
     $("#assignmentPrevStepBtn", panels.assignment)?.addEventListener("click", () => { const flow = ensureAssignmentFlow(); flow.stage = Math.max(1, flow.stage - 1); renderAssignment(); });
-    $("#assignmentOrgEditDoneBtn", panels.assignment)?.addEventListener("click", () => { const flow = ensureAssignmentFlow(); flow.orgSummary = summarizeOrgChanges(state.orgBlueprint, flow.orgDraft); renderAssignment(); });
-    $("#assignmentOrgNextStepBtn", panels.assignment)?.addEventListener("click", () => { const flow = ensureAssignmentFlow(); flow.orgSummary = summarizeOrgChanges(state.orgBlueprint, flow.orgDraft); flow.stage = 3; renderAssignment(); });
+    $("#assignmentOrgEditDoneBtn", panels.assignment)?.addEventListener("click", () => { const flow = ensureAssignmentFlow(); flow.orgSummary = summarizeOrgChangesForFlow(getFlowBaseRows(flow), flow.orgDraft, flow); renderAssignment(); });
+    $("#assignmentOrgNextStepBtn", panels.assignment)?.addEventListener("click", () => { const flow = ensureAssignmentFlow(); flow.orgSummary = summarizeOrgChangesForFlow(getFlowBaseRows(flow), flow.orgDraft, flow); flow.stage = 3; renderAssignment(); });
     $("#assignmentPersonnelDoneBtn", panels.assignment)?.addEventListener("click", () => renderAssignment());
     $("#assignmentFinishBtn", panels.assignment)?.addEventListener("click", () => applyAssignmentFlow(ensureAssignmentFlow()));
     $("#personnelSearchInput", panels.assignment)?.addEventListener("input", (event) => { ensureAssignmentFlow().personnelSearch = event.target.value; renderAssignment(); });
     $$("[data-assignment-history]", panels.assignment).forEach((button) => button.addEventListener("click", () => openAssignmentHistoryDetail(button.dataset.assignmentHistory)));
-     $$("[data-assignment-org-node]", panels.assignment).forEach((button) => button.addEventListener("click", () => { const flow = state.assignmentFlow; const prefix = button.dataset.assignmentOrgPrefix; if (!flow) state.currentOrgNode = button.dataset.assignmentOrgNode; else if (prefix === "before") flow.selectedBeforeOrg = button.dataset.assignmentOrgNode; else if (prefix === "after") flow.selectedAfterOrg = button.dataset.assignmentOrgNode; else if (prefix === "personnel") flow.selectedPersonnelOrg = button.dataset.assignmentOrgNode; expandAssignmentAncestors(prefix, button.dataset.assignmentOrgNode); renderAssignment(); }));
+    $$("[data-assignment-history-edit]", panels.assignment).forEach((button) => button.addEventListener("click", () => startAssignmentHistoryEdit(button.dataset.assignmentHistoryEdit)));
+    $$("[data-assignment-history-cancel]", panels.assignment).forEach((button) => button.addEventListener("click", () => cancelAssignmentHistory(button.dataset.assignmentHistoryCancel)));
+     $$("[data-assignment-org-node]", panels.assignment).forEach((button) => button.addEventListener("click", () => {
+       const flow = state.assignmentFlow;
+       const prefix = button.dataset.assignmentOrgPrefix;
+       const key = button.dataset.assignmentOrgNode;
+       if (!flow) {
+         if (state.currentOrgNode === key) setOrgExpanded(key, !isOrgExpanded(key));
+         else {
+           state.currentOrgNode = key;
+           expandOrgAncestors(key, false);
+         }
+         renderAssignment();
+         return;
+       }
+       if (prefix === "before") {
+         if (flow.selectedBeforeOrg === key) setAssignmentExpanded("before", key, !getAssignmentExpandedKeys("before").includes(key));
+         else {
+           flow.selectedBeforeOrg = key;
+           expandAssignmentAncestors("before", key);
+         }
+       } else if (prefix === "after") {
+         if (flow.selectedAfterOrg === key) setAssignmentExpanded("after", key, !getAssignmentExpandedKeys("after").includes(key));
+         else {
+           flow.selectedAfterOrg = key;
+           expandAssignmentAncestors("after", key);
+         }
+       } else if (prefix === "personnel") {
+         if (flow.selectedPersonnelOrg === key) setAssignmentExpanded("personnel", key, !getAssignmentExpandedKeys("personnel").includes(key));
+         else {
+           flow.selectedPersonnelOrg = key;
+           expandAssignmentAncestors("personnel", key);
+         }
+       }
+       renderAssignment();
+     }));
      $$("[data-org-add-under]", panels.assignment).forEach((button) => button.addEventListener("click", () => openOrgEditModal("add", button.dataset.orgAddUnder)));
      $$("[data-org-edit]", panels.assignment).forEach((button) => button.addEventListener("click", () => openOrgEditModal("edit", button.dataset.orgEdit)));
      $$("[data-org-inline-edit]", panels.assignment).forEach((button) => button.addEventListener("click", (event) => {
@@ -2033,11 +2236,81 @@
          renderAssignment();
        });
      });
-     $$("[data-personnel-enable]", panels.assignment).forEach((input) => input.addEventListener("change", () => { const action = ensureAssignmentFlow().personnelActions.find((item) => item.employeeId === input.dataset.personnelEnable); if (action) action.enabled = input.checked; }));
-    $$("[data-personnel-type]", panels.assignment).forEach((select) => select.addEventListener("change", () => { const employee = state.employees.find((item) => item.id === select.dataset.personnelType); ensurePersonnelAction(ensureAssignmentFlow(), employee).type = select.value; renderAssignment(); }));
-    $$("[data-personnel-org]", panels.assignment).forEach((select) => select.addEventListener("change", () => { const employee = state.employees.find((item) => item.id === select.dataset.personnelOrg); ensurePersonnelAction(ensureAssignmentFlow(), employee).targetOrgKey = select.value; }));
-    $$("[data-personnel-title]", panels.assignment).forEach((select) => select.addEventListener("change", () => { const employee = state.employees.find((item) => item.id === select.dataset.personnelTitle); ensurePersonnelAction(ensureAssignmentFlow(), employee).targetTitle = select.value; }));
-    $$("[data-personnel-note]", panels.assignment).forEach((input) => input.addEventListener("input", () => { const employee = state.employees.find((item) => item.id === input.dataset.personnelNote); ensurePersonnelAction(ensureAssignmentFlow(), employee).note = input.value; }));
+    $$("[data-personnel-pick]", panels.assignment).forEach((input) => input.addEventListener("change", () => {
+      const flow = ensureAssignmentFlow();
+      const set = new Set(flow.personnelPickerSelectedIds || []);
+      if (input.checked) set.add(input.dataset.personnelPick);
+      else set.delete(input.dataset.personnelPick);
+      flow.personnelPickerSelectedIds = Array.from(set);
+    }));
+    $("#personnelAddSelectedBtn", panels.assignment)?.addEventListener("click", () => {
+      const flow = ensureAssignmentFlow();
+      const projectedEmployees = getProjectedEmployees(flow);
+      (flow.personnelPickerSelectedIds || []).forEach((id) => {
+        const employee = projectedEmployees.find((item) => item.id === id) || state.employees.find((item) => item.id === id);
+        if (!employee) return;
+        const action = ensurePersonnelAction(flow, employee);
+        action.manual = true;
+        action.removed = false;
+      });
+      flow.personnelPickerSelectedIds = [];
+      renderAssignment();
+    });
+    $$("[data-personnel-remove]", panels.assignment).forEach((button) => button.addEventListener("click", () => {
+      const flow = ensureAssignmentFlow();
+      const action = flow.personnelActions.find((item) => item.employeeId === button.dataset.personnelRemove);
+      if (action) action.removed = true;
+      renderAssignment();
+    }));
+    $$("[data-personnel-type]", panels.assignment).forEach((input) => input.addEventListener("change", () => {
+      const flow = ensureAssignmentFlow();
+      const employee = getPersonnelEmployee(flow, input.dataset.personnelType);
+      if (!employee) return;
+      const action = ensurePersonnelAction(flow, employee);
+      setPersonnelTypeEnabled(action, input.dataset.personnelTypeValue, input.checked);
+      renderAssignment();
+    }));
+    $$("[data-personnel-org-text]", panels.assignment).forEach((input) => input.addEventListener("input", () => {
+      const flow = ensureAssignmentFlow();
+      const employee = getPersonnelEmployee(flow, input.dataset.personnelOrgText);
+      if (!employee) return;
+      const action = ensurePersonnelAction(flow, employee);
+      action.targetOrgText = input.value;
+      const match = getPersonnelOrgOptions(flow).find((item) => item.path === input.value.trim());
+      if (match) action.targetOrgKey = match.key;
+      renderAssignment();
+    }));
+    $$("[data-personnel-org-pick]", panels.assignment).forEach((button) => button.addEventListener("click", () => {
+      const flow = ensureAssignmentFlow();
+      const employee = getPersonnelEmployee(flow, button.dataset.personnelOrgPick);
+      if (!employee) return;
+      const action = ensurePersonnelAction(flow, employee);
+      const targetRow = getBlueprintRow(flow.orgDraft, button.dataset.personnelOrgKey);
+      if (!targetRow) return;
+      action.targetOrgKey = button.dataset.personnelOrgKey;
+      action.targetOrgText = getOrgRowPath(targetRow);
+      renderAssignment();
+    }));
+    $$("[data-personnel-title]", panels.assignment).forEach((select) => select.addEventListener("change", () => {
+      const flow = ensureAssignmentFlow();
+      const employee = getPersonnelEmployee(flow, select.dataset.personnelTitle);
+      if (!employee) return;
+      ensurePersonnelAction(flow, employee).targetTitle = select.value;
+      renderAssignment();
+    }));
+    $$("[data-personnel-grade]", panels.assignment).forEach((select) => select.addEventListener("change", () => {
+      const flow = ensureAssignmentFlow();
+      const employee = getPersonnelEmployee(flow, select.dataset.personnelGrade);
+      if (!employee) return;
+      ensurePersonnelAction(flow, employee).targetGrade = select.value;
+      renderAssignment();
+    }));
+    $$("[data-personnel-note]", panels.assignment).forEach((input) => input.addEventListener("input", () => {
+      const flow = ensureAssignmentFlow();
+      const employee = getPersonnelEmployee(flow, input.dataset.personnelNote);
+      if (!employee) return;
+      ensurePersonnelAction(flow, employee).note = input.value;
+    }));
   }
   function renderAssignment() {
     if (!state.assignmentFlow) renderAssignmentLanding();
@@ -2234,7 +2507,7 @@
     else if (view === "quick") { setPageTitle("사원 기본정보", "별도 탭에서 기본 인사정보만 빠르게 조회합니다"); toggleBaseSections(false, true, false); renderQuickRecord(); }
     else if (view === "org") { setPageTitle("조직도", "사원 배정 정보 기반으로 조직 구성을 조회합니다"); toggleBaseSections(false, false, true); }
     else if (view === "codes") { setPageTitle("코드관리", "조직코드와 기준코드를 조회하는 화면입니다"); toggleBaseSections(false, false, false); }
-    else if (view === "assignment") { setPageTitle("조직 관리", "조직개편 및 인사발령을 단계별로 편집하고 이력을 관리합니다"); toggleBaseSections(false, false, false); }
+    else if (view === "assignment") { setPageTitle("조직 관리", "조직개편 및 인사발령을 단계별로 편집하고 이력을 관리합니다"); toggleBaseSections(false, false, false); renderAssignment(); }
     syncViewQuery(view);
     updatePrimaryAction(view);
     renderNotesByView();
@@ -2516,7 +2789,7 @@
           num: "09",
           region: "orgchart",
           title: "3단계: 인사발령 편집",
-          desc: "조직개편 이후 조직 기준으로 구성원을 조회하고 부서이동, 소속제외, 조직장 임명, 직위변경을 입력한다.",
+          desc: "조직개편 이후 조직 기준으로 구성원을 조회하고 부서이동, 소속제외, 책임자 임면, 승급을 함께 입력한다.",
           detail: [
             ["주요 기능", "구성원 선택, 처리유형 지정, 발령 후 조직/직책 설정, 비고 입력"],
             ["처리 로직", "완료 시 조직개편 적용 결과와 합쳐 사원정보/발령이력 자동 갱신"],
@@ -2586,8 +2859,19 @@
     state.selectedId = employeeFromUrl;
   }
   const viewFromUrl = params.get("view");
+  const assignmentTabFromUrl = params.get("assignmentTab");
+  const assignmentStageFromUrl = params.get("assignmentStage");
+  if (assignmentTabFromUrl && ["org", "history", "deleted"].includes(assignmentTabFromUrl)) {
+    state.assignmentLandingTab = assignmentTabFromUrl;
+  }
+  if (viewFromUrl === "assignment" && assignmentStageFromUrl && ["1", "2", "3"].includes(assignmentStageFromUrl)) {
+    state.assignmentFlow = createAssignmentFlow();
+    state.assignmentFlow.stage = Number(assignmentStageFromUrl);
+  }
   if (viewFromUrl === "record") showHrView("record");
   else if (viewFromUrl === "quick") showHrView("quick");
+  else if (viewFromUrl === "org") showHrView("org");
+  else if (viewFromUrl === "assignment") showHrView("assignment");
   else showHrView("directory");
   const tab1 = $("#tab1");
   const tab2 = $("#tab2");
