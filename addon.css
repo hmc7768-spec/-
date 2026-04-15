@@ -101,6 +101,74 @@
   padding: 16px;
 }
 
+.codex-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.codex-code-head h4 {
+  margin: 0;
+}
+
+.codex-code-modal .codex-modal {
+  width: min(1120px, 92vw);
+}
+
+.codex-code-modal-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 16px;
+}
+
+.codex-code-modal-form {
+  display: grid;
+  gap: 12px;
+}
+
+.codex-code-modal-preview {
+  display: grid;
+}
+
+.codex-code-preview-tree {
+  display: grid;
+  gap: 8px;
+  max-height: 480px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.codex-code-preview-node {
+  display: grid;
+  gap: 8px;
+}
+
+.codex-code-preview-label {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #dbe3ef;
+  background: #fff;
+  font-size: 12px;
+  color: #25364d;
+}
+
+.codex-code-preview-node.is-focus > .codex-code-preview-label {
+  border-color: #7c4dff;
+  background: #f5f0ff;
+  color: #5d3fd3;
+  font-weight: 700;
+}
+
+.codex-code-preview-children {
+  display: grid;
+  gap: 8px;
+  padding-left: 16px;
+  border-left: 1px dashed #d7e0ef;
+  margin-left: 8px;
+}
+
 .codex-grid-2 {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
@@ -118,6 +186,10 @@
   gap: 12px;
 }
 
+.codex-panel-compact {
+  padding: 14px;
+}
+
 .codex-note-box {
   padding: 12px;
   border: 1px solid #e7edf5;
@@ -132,6 +204,36 @@
   display: block;
   color: #1e3a5f;
   margin-bottom: 6px;
+}
+
+.codex-note-box-compact {
+  padding: 10px 12px;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.codex-note-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.codex-code-table-wrap {
+  max-height: 540px;
+  overflow: auto;
+  border: 1px solid #edf2f8;
+  border-radius: 8px;
+}
+
+.codex-code-table-wrap table {
+  margin: 0;
+}
+
+.codex-code-history-mini {
+  max-height: 240px;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
 }
 
 .codex-assignment-shell,
@@ -1753,6 +1855,10 @@
   .codex-form-grid,
   .codex-grid-2,
   .codex-grid-2-tight {
+    grid-template-columns: 1fr;
+  }
+
+  .codex-code-modal-layout {
     grid-template-columns: 1fr;
   }
 
