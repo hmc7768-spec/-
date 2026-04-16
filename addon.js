@@ -169,6 +169,102 @@
     family: createMetaRegistry("JOB", familyCodes),
     type: createMetaRegistry("EMP", employeeTypes)
   };
+  const adminPermissionGroups = [
+    {
+      id: "basic",
+      label: "기본 정보",
+      items: [
+        { id: "company_info", label: "회사 정보", desc: "회사 기본정보를 조회하고 설정합니다." },
+        { id: "menu_config", label: "메뉴 설정", desc: "시스템 메뉴 노출 및 구성을 관리합니다." },
+        { id: "usage_status", label: "운영 현황", desc: "주요 사용 현황과 운영 상태를 확인합니다." }
+      ]
+    },
+    {
+      id: "users",
+      label: "사용자",
+      items: [
+        { id: "user_manage", label: "사용자 관리", desc: "사용자 등록 및 접속 권한을 관리합니다." },
+        { id: "user_group", label: "사용자 그룹 관리", desc: "부서/역할 기준 그룹을 관리합니다." },
+        { id: "admin_auth", label: "관리자 권한 설정", desc: "전체관리자 및 기능별 관리자 권한을 설정합니다." }
+      ]
+    },
+    {
+      id: "security",
+      label: "보안",
+      items: [
+        { id: "account_security", label: "계정 보안", desc: "계정 보호 정책을 관리합니다." },
+        { id: "mfa", label: "2단계 인증", desc: "추가 인증 정책과 적용 대상을 설정합니다." },
+        { id: "access_history", label: "접속 이력", desc: "관리자 접속 이력을 조회합니다." }
+      ]
+    },
+    {
+      id: "service",
+      label: "서비스 연동",
+      items: [
+        { id: "sso", label: "SSO 연동", desc: "외부 인증 서비스 연동을 설정합니다." },
+        { id: "integration", label: "외부 서비스 연동", desc: "연계 시스템별 사용 권한을 설정합니다." }
+      ]
+    }
+  ];
+  function createPermissionMap(enabled = []) {
+    const map = {};
+    adminPermissionGroups.forEach((group) => group.items.forEach((item) => { map[item.id] = enabled.includes(item.id); }));
+    return map;
+  }
+  const initialAdminCategories = [
+    {
+      id: "office_all",
+      section: "오피스 관리자",
+      label: "전체 관리자",
+      desc: "전체 시스템과 주요 보안/운영 권한을 가지는 관리자입니다.",
+      managers: [
+        { id: "ADM-001", name: "관리자", loginId: "admin", org: "-", registeredAt: "2026.04.10", permissions: createPermissionMap(adminPermissionGroups.flatMap((group) => group.items.map((item) => item.id))) },
+        { id: "ADM-002", name: "박기준", loginId: "baekgh0219", org: "인사팀", registeredAt: "2026.04.11", permissions: createPermissionMap(["company_info", "menu_config", "user_manage", "admin_auth", "account_security", "access_history"]) },
+        { id: "ADM-003", name: "송재윤", loginId: "sjy", org: "인사팀", registeredAt: "2026.04.12", permissions: createPermissionMap(["company_info", "usage_status", "user_manage", "user_group", "access_history"]) }
+      ]
+    },
+    {
+      id: "mail_ops",
+      section: "오피스 관리자",
+      label: "메일 운영 관리자",
+      desc: "메일 관련 운영과 정책을 담당합니다.",
+      managers: [
+        { id: "ADM-004", name: "황민철", loginId: "hwangmc0401", org: "인사팀", registeredAt: "2026.04.12", permissions: createPermissionMap(["menu_config", "usage_status", "user_manage", "access_history"]) }
+      ]
+    },
+    {
+      id: "security_admin",
+      section: "오피스 관리자",
+      label: "보안 관리자",
+      desc: "보안 정책, MFA, 접속 이력 점검 권한을 가집니다.",
+      managers: []
+    },
+    {
+      id: "hr_admin",
+      section: "서비스 관리자",
+      label: "인사 관리자",
+      desc: "인사시스템 화면별 메뉴 권한과 기능 권한을 관리합니다.",
+      managers: [
+        { id: "ADM-005", name: "최현지", loginId: "choihr01", org: "인사팀", registeredAt: "2026.04.13", permissions: createPermissionMap(["company_info", "usage_status", "user_manage", "user_group", "admin_auth", "integration"]) }
+      ]
+    },
+    {
+      id: "sales_admin",
+      section: "서비스 관리자",
+      label: "세일즈 관리자",
+      desc: "세일즈 연계 메뉴와 운영 권한을 담당합니다.",
+      managers: []
+    }
+  ];
+  function cloneAdminCategories(categories) {
+    return categories.map((category) => ({
+      ...category,
+      managers: (category.managers || []).map((manager) => ({
+        ...manager,
+        permissions: { ...(manager.permissions || {}) }
+      }))
+    }));
+  }
   function getOrgRowLevel(row) {
     if (row.part) return "L4";
     if (row.team) return "L3";
@@ -276,7 +372,7 @@
     return rows.map((row) => ({ ...row }));
   }
   const baseOrgBlueprint = createOrgBlueprint(orgRows);
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), orgBlueprint: cloneOrgBlueprint(baseOrgBlueprint), metaRegistry: JSON.parse(JSON.stringify(initialMetaRegistry)), codeHistory: [], codeDraft: null, currentPendingChangeKey: "", assignmentRecords: [], deletedOrgArchive: [], assignmentFlow: null, assignmentLandingTab: "org", assignmentLandingSearch: "", selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentMetaCodeSelection: "", currentCodeHistoryFilter: "all", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", directoryRetireDateFrom: "", directoryRetireDateTo: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), orgBlueprint: cloneOrgBlueprint(baseOrgBlueprint), metaRegistry: JSON.parse(JSON.stringify(initialMetaRegistry)), adminCategories: cloneAdminCategories(initialAdminCategories), currentAdminCategory: "office_all", currentAdminManagerId: "ADM-001", adminAddOpen: false, adminAddDraft: null, codeHistory: [], codeDraft: null, currentPendingChangeKey: "", assignmentRecords: [], deletedOrgArchive: [], assignmentFlow: null, assignmentLandingTab: "org", assignmentLandingSearch: "", selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentMetaCodeSelection: "", currentCodeHistoryFilter: "all", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", directoryRetireDateFrom: "", directoryRetireDateTo: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
   syncLegacyMetaArraysFromRegistry();
   syncEmployeeCodeRefs();
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -1158,13 +1254,19 @@
     target.close();
   });
   function ensurePanels() {
-    if (panels.codes && panels.assignment) return;
+    if (panels.codes && panels.assignment && panels.admin) return;
     const codeMenu = document.createElement("div");
     codeMenu.className = "hr-sidebar-item codex-sidebar-extra";
     codeMenu.innerHTML = '<span class="hr-sidebar-icon">🗂</span> 코드관리';
     refs.hrSidebar.appendChild(codeMenu);
+    const adminMenu = document.createElement("div");
+    adminMenu.className = "hr-sidebar-item codex-sidebar-extra";
+    adminMenu.innerHTML = '<span class="hr-sidebar-icon">🛡</span> 관리자';
+    refs.hrSidebar.appendChild(adminMenu);
     refs.sideItems = $$(".hr-sidebar-item");
     refs.sideItems[1]?.classList.add("codex-hidden");
+    refs.sideItems[6]?.classList.add("codex-hidden");
+    refs.sideItems[7]?.classList.add("codex-hidden");
     const codePanel = document.createElement("div");
     codePanel.className = "codex-panel codex-hidden";
     codePanel.id = "codexCodesPanel";
@@ -1173,10 +1275,17 @@
     assignmentPanel.className = "codex-panel codex-hidden";
     assignmentPanel.id = "codexAssignmentPanel";
     refs.hrContent.appendChild(assignmentPanel);
+    const adminPanel = document.createElement("div");
+    adminPanel.className = "codex-panel codex-hidden";
+    adminPanel.id = "codexAdminPanel";
+    refs.hrContent.appendChild(adminPanel);
     panels.codes = codePanel;
     panels.assignment = assignmentPanel;
+    panels.admin = adminPanel;
     panels.codeMenu = codeMenu;
+    panels.adminMenu = adminMenu;
     codeMenu.addEventListener("click", () => showHrView("codes"));
+    adminMenu.addEventListener("click", () => showHrView("admin"));
     refs.topItems[3]?.addEventListener("click", () => showHrView("assignment"));
     refs.sideItems[3]?.addEventListener("click", () => showHrView("assignment"));
   }
@@ -2259,6 +2368,18 @@
     if (level === "L3") return { hq: parent.hq, office: parent.office, team: name, part: "" };
     return { hq: parent.hq, office: parent.office, team: parent.team, part: name };
   }
+  function buildRowForLevel(parentKey, name, desiredDepth) {
+    const parent = parseOrgKey(parentKey || "ROOT");
+    if (desiredDepth <= 1) return { hq: name, office: "", team: "", part: "" };
+    if (desiredDepth === 2) return { hq: parent.hq, office: name, team: "", part: "" };
+    if (desiredDepth === 3) {
+      const office = parent.level === "L2" ? parent.office : "";
+      return { hq: parent.hq, office, team: name, part: "" };
+    }
+    const office = parent.level === "L2" ? parent.office : parent.office || "";
+    const team = parent.level === "L3" ? parent.team : parent.team || "";
+    return { hq: parent.hq, office, team, part: name };
+  }
   function getSubtreeDepth(rows, key) {
     const children = getChildrenRows(rows, key);
     if (!children.length) return 1;
@@ -2314,28 +2435,13 @@
     const previousRows = cloneOrgBlueprint(flow.orgDraft);
     const previousExpandedKeys = [...(flow.afterExpandedKeys || ["ROOT"])];
     let targetRow = targetParentKey === "ROOT" ? null : getBlueprintRow(flow.orgDraft, targetParentKey);
-    const sourceDepth = getOrgDepthByKey(orgKey);
-    let targetDepth = getOrgDepthByKey(targetParentKey);
     let resolvedPosition = position;
     let resolvedTargetKey = targetParentKey;
     let nextParentKey = (resolvedPosition === "before" || resolvedPosition === "after")
       ? (targetRow ? getParentKeyForRow(targetRow) : "ROOT")
-      : (targetRow && sourceDepth === targetDepth ? getParentKeyForRow(targetRow) : targetParentKey);
+      : targetParentKey;
     let nextLevel = getNextLevelByParentKey(nextParentKey);
     if (!nextLevel) return;
-    const subtreeDepth = getSubtreeDepth(flow.orgDraft, orgKey);
-    if ((getOrgDepthByKey(nextParentKey) + subtreeDepth) > 4) {
-      if (resolvedPosition === "into" && targetRow) {
-        resolvedPosition = "after";
-        resolvedTargetKey = getOrgRowKey(targetRow);
-        targetRow = getBlueprintRow(flow.orgDraft, resolvedTargetKey);
-        targetDepth = getOrgDepthByKey(resolvedTargetKey);
-        nextParentKey = targetRow ? getParentKeyForRow(targetRow) : "ROOT";
-        nextLevel = getNextLevelByParentKey(nextParentKey);
-      }
-    }
-    if (!nextLevel) return;
-    if ((getOrgDepthByKey(nextParentKey) + subtreeDepth) > 4) return;
     const subtreeKeys = [orgKey, ...getDescendantKeys(flow.orgDraft, orgKey)];
     const subtreeSourceKeys = flow.orgDraft
       .filter((row) => subtreeKeys.includes(getOrgRowKey(row)))
@@ -2344,23 +2450,29 @@
     const outsideRows = flow.orgDraft.filter((row) => !subtreeKeys.includes(getOrgRowKey(row))).map((row) => ({ ...row }));
     const sourceMap = new Map(subtreeRows.map((row) => [getOrgRowKey(row), row]));
     const rebuilt = [];
-    const rebuildNode = (currentKey, parentKey) => {
+    const sourceRootDepth = getOrgDepthByKey(orgKey);
+    const targetRootDepth = getOrgDepthByKey(nextParentKey) + 1;
+    const rebuildNode = (currentKey, parentKey, ancestorTrail = []) => {
       const current = sourceMap.get(currentKey);
       if (!current) return;
-      const nextRow = buildRowForParent(parentKey, getOrgRowName(current));
+      const sourceDepth = getOrgDepthByKey(currentKey);
+      const desiredDepth = Math.max(1, Math.min(4, targetRootDepth + (sourceDepth - sourceRootDepth)));
+      const fallbackParent = { key: nextParentKey, depth: getOrgDepthByKey(nextParentKey) };
+      const resolvedParent = [...ancestorTrail].reverse().find((item) => item.depth < desiredDepth) || fallbackParent;
+      const nextRow = buildRowForLevel(resolvedParent.key, getOrgRowName(current), desiredDepth);
       if (!nextRow) return;
       nextRow.sourceKey = current.sourceKey || currentKey;
       nextRow.displayOrder = current.displayOrder ?? 0;
       rebuilt.push(nextRow);
       const childParentKey = getOrgRowKey(nextRow);
-      getChildrenRows(subtreeRows, currentKey).forEach((child) => rebuildNode(getOrgRowKey(child), childParentKey));
+      const nextTrail = [...ancestorTrail, { key: childParentKey, depth: desiredDepth }];
+      getChildrenRows(subtreeRows, currentKey).forEach((child) => rebuildNode(getOrgRowKey(child), childParentKey, nextTrail));
     };
-    rebuildNode(orgKey, nextParentKey);
+    rebuildNode(orgKey, nextParentKey, []);
     const movedRoot = rebuilt.find((row) => (row.sourceKey || getOrgRowKey(row)) === (sourceRow.sourceKey || orgKey));
     if (movedRoot) {
       if (resolvedPosition === "before" && targetRow) movedRoot.displayOrder = (targetRow.displayOrder ?? 0) - 0.5;
       else if (resolvedPosition === "after" && targetRow) movedRoot.displayOrder = (targetRow.displayOrder ?? 0) + 0.5;
-      else if (targetRow && sourceDepth === targetDepth) movedRoot.displayOrder = (targetRow.displayOrder ?? 0) + 0.5;
       else movedRoot.displayOrder = getNextSiblingOrder(outsideRows, nextParentKey);
     }
     flow.orgDraft = normalizeBlueprint([...outsideRows, ...rebuilt]);
@@ -2481,6 +2593,184 @@
         ? `<div class="codex-panel"><table><thead><tr><th>일자</th><th>삭제 조직</th></tr></thead><tbody>${deletedRows || `<tr><td colspan="2">삭제 이력이 없습니다.</td></tr>`}</tbody></table></div>`
         : `<div class="codex-assignment-landing-grid"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>조직도</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(state.orgBlueprint, state.currentOrgNode, false, "landing")}</div></div><div class="codex-stack"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>부서 정보</h4><button type="button" class="hr-btn btn-primary" id="startAssignmentWizardBtn">조직개편/인사발령</button></div><table><tbody>${infoRows.map((row) => `<tr><th>${row[0]}</th><td>${row[1]}</td></tr>`).join("")}</tbody></table></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>구성원 정보</h4><input class="hr-search-input" id="assignmentLandingSearch" value="${state.assignmentLandingSearch || ""}" placeholder="이름, ID 검색"></div><table><thead><tr><th>이름</th><th>ID</th><th>직위</th><th>재직 상태</th></tr></thead><tbody>${memberRows || `<tr><td colspan="4">구성원이 없습니다.</td></tr>`}</tbody></table></div></div></div>`;
     panels.assignment.innerHTML = `<div class="codex-assignment-shell"><div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>조직 관리</h3><div style="font-size:11px;color:#9095b0">조직도, 조직개편/인사발령 이력, 삭제 조직 이력 조회</div></div></div>${tabs}<div class="codex-note-box" style="margin-top:16px"><strong>TIP</strong>조직개편/인사발령을 예약하면 해당 일자 기준으로 조직도와 인사정보가 함께 반영됩니다.</div><div style="margin-top:16px">${body}</div></div>`;
+  }
+  function getCurrentAdminCategory() {
+    return state.adminCategories.find((category) => category.id === state.currentAdminCategory) || state.adminCategories[0];
+  }
+  function getCurrentAdminManager() {
+    const category = getCurrentAdminCategory();
+    return (category?.managers || []).find((manager) => manager.id === state.currentAdminManagerId) || category?.managers?.[0] || null;
+  }
+  function ensureAdminSelection() {
+    const category = getCurrentAdminCategory();
+    if (!category) return;
+    if (!(category.managers || []).some((manager) => manager.id === state.currentAdminManagerId)) {
+      state.currentAdminManagerId = category.managers?.[0]?.id || "";
+    }
+  }
+  function renderAdmin() {
+    if (!panels.admin) return;
+    ensureAdminSelection();
+    const category = getCurrentAdminCategory();
+    const currentManager = getCurrentAdminManager();
+    const sectionGroups = state.adminCategories.reduce((acc, item) => {
+      if (!acc[item.section]) acc[item.section] = [];
+      acc[item.section].push(item);
+      return acc;
+    }, {});
+    const permissionRows = adminPermissionGroups.map((group) => `
+      <div class="codex-admin-perm-group">
+        <div class="codex-admin-perm-title">${group.label}</div>
+        ${group.items.map((item) => `
+          <label class="codex-admin-perm-item">
+            <input type="checkbox" data-admin-permission="${item.id}" ${currentManager?.permissions?.[item.id] ? "checked" : ""} ${currentManager ? "" : "disabled"}>
+            <div>
+              <strong>${item.label}</strong>
+              <span>${item.desc}</span>
+            </div>
+          </label>
+        `).join("")}
+      </div>
+    `).join("");
+    panels.admin.innerHTML = `
+      <div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7">
+        <div>
+          <h3>관리자 권한 설정</h3>
+          <div style="font-size:11px;color:#9095b0">전체관리자 및 기능별 관리자 계정을 등록하고 메뉴/기능별 권한을 설정합니다.</div>
+        </div>
+      </div>
+      <div class="codex-admin-layout" style="margin-top:16px">
+        <div class="codex-panel codex-admin-side">
+          ${Object.entries(sectionGroups).map(([section, items]) => `
+            <div class="hr-sidebar-section codex-admin-section">${section}</div>
+            ${items.map((item) => `
+              <button type="button" class="codex-admin-category ${item.id === category?.id ? "active" : ""}" data-admin-category="${item.id}">
+                <span>${item.label}</span>
+                <em>(${item.managers.length})</em>
+              </button>
+            `).join("")}
+          `).join("")}
+        </div>
+        <div class="codex-stack">
+          <div class="codex-panel">
+            <div class="codex-code-head">
+              <div>
+                <h4>${category?.label || "관리자"}</h4>
+                <div class="codex-admin-sub">${category?.desc || ""}</div>
+              </div>
+              <button type="button" class="hr-btn btn-primary" id="adminAddToggleBtn">관리자 추가</button>
+            </div>
+            <div class="codex-admin-add ${state.adminAddOpen ? "is-open" : ""}">
+              <div class="codex-form-grid">
+                <label><span>이름</span><input id="adminAddName" value="${state.adminAddDraft?.name || ""}"></label>
+                <label><span>아이디</span><input id="adminAddLoginId" value="${state.adminAddDraft?.loginId || ""}"></label>
+                <label><span>소속</span><input id="adminAddOrg" value="${state.adminAddDraft?.org || ""}" placeholder="예: 인사팀"></label>
+                <label><span>등록일</span><input id="adminAddDate" value="${state.adminAddDraft?.registeredAt || "2026.04.16"}"></label>
+              </div>
+              <div class="codex-modal-actions">
+                <button type="button" class="hr-btn btn-outline" id="adminAddCancelBtn">취소</button>
+                <button type="button" class="hr-btn btn-primary" id="adminAddSaveBtn">추가</button>
+              </div>
+            </div>
+            <table class="codex-admin-table">
+              <thead><tr><th>이름(아이디)</th><th>소속</th><th>등록일</th><th>관리</th></tr></thead>
+              <tbody>
+                ${(category?.managers || []).map((manager) => `
+                  <tr class="${manager.id === currentManager?.id ? "codex-table-selected" : ""}" data-admin-manager-row="${manager.id}">
+                    <td>${manager.name} <span class="codex-admin-login">(${manager.loginId})</span></td>
+                    <td>${manager.org}</td>
+                    <td>${manager.registeredAt}</td>
+                    <td><button type="button" class="hr-btn btn-outline btn-xs" data-admin-remove="${manager.id}">삭제</button></td>
+                  </tr>
+                `).join("") || `<tr><td colspan="4">등록된 관리자가 없습니다.</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+          <div class="codex-panel">
+            <div class="codex-code-head">
+              <h4>권한 설정</h4>
+              <button type="button" class="hr-btn btn-outline btn-xs" id="adminPermissionResetBtn" ${currentManager ? "" : "disabled"}>권한 초기화</button>
+            </div>
+            ${currentManager ? `<div class="codex-note-box codex-note-box-compact" style="margin-bottom:14px"><strong>${currentManager.name}(${currentManager.loginId})</strong>${currentManager.org} · 메뉴별/기능별 접근 권한을 설정합니다.</div>${permissionRows}` : `<div class="codex-note-box">관리자를 선택하면 권한을 설정할 수 있습니다.</div>`}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  function bindAdmin() {
+    if (!panels.admin || state.currentHrView !== "admin") return;
+    $$("[data-admin-category]", panels.admin).forEach((button) => button.addEventListener("click", () => {
+      state.currentAdminCategory = button.dataset.adminCategory;
+      state.currentAdminManagerId = "";
+      renderAdmin();
+      bindAdmin();
+    }));
+    $$("[data-admin-manager-row]", panels.admin).forEach((row) => row.addEventListener("click", () => {
+      state.currentAdminManagerId = row.dataset.adminManagerRow;
+      renderAdmin();
+      bindAdmin();
+    }));
+    $$("[data-admin-remove]", panels.admin).forEach((button) => button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const category = getCurrentAdminCategory();
+      category.managers = (category.managers || []).filter((manager) => manager.id !== button.dataset.adminRemove);
+      if (state.currentAdminManagerId === button.dataset.adminRemove) state.currentAdminManagerId = category.managers?.[0]?.id || "";
+      renderAdmin();
+      bindAdmin();
+    }));
+    $("#adminAddToggleBtn", panels.admin)?.addEventListener("click", () => {
+      state.adminAddOpen = !state.adminAddOpen;
+      state.adminAddDraft = state.adminAddOpen ? (state.adminAddDraft || { name: "", loginId: "", org: "", registeredAt: "2026.04.16" }) : null;
+      renderAdmin();
+      bindAdmin();
+    });
+    $("#adminAddCancelBtn", panels.admin)?.addEventListener("click", () => {
+      state.adminAddOpen = false;
+      state.adminAddDraft = null;
+      renderAdmin();
+      bindAdmin();
+    });
+    ["adminAddName", "adminAddLoginId", "adminAddOrg", "adminAddDate"].forEach((id) => {
+      $("#" + id, panels.admin)?.addEventListener("input", () => {
+        state.adminAddDraft = {
+          name: $("#adminAddName", panels.admin)?.value || "",
+          loginId: $("#adminAddLoginId", panels.admin)?.value || "",
+          org: $("#adminAddOrg", panels.admin)?.value || "",
+          registeredAt: $("#adminAddDate", panels.admin)?.value || "2026.04.16"
+        };
+      });
+    });
+    $("#adminAddSaveBtn", panels.admin)?.addEventListener("click", () => {
+      const draft = state.adminAddDraft || {};
+      if (!draft.name || !draft.loginId) return;
+      const category = getCurrentAdminCategory();
+      const manager = {
+        id: `ADM-${String(Date.now()).slice(-5)}`,
+        name: draft.name,
+        loginId: draft.loginId,
+        org: draft.org || "-",
+        registeredAt: draft.registeredAt || "2026.04.16",
+        permissions: createPermissionMap()
+      };
+      category.managers = [...(category.managers || []), manager];
+      state.currentAdminManagerId = manager.id;
+      state.adminAddOpen = false;
+      state.adminAddDraft = null;
+      renderAdmin();
+      bindAdmin();
+    });
+    $$("[data-admin-permission]", panels.admin).forEach((input) => input.addEventListener("change", () => {
+      const manager = getCurrentAdminManager();
+      if (!manager) return;
+      manager.permissions[input.dataset.adminPermission] = input.checked;
+    }));
+    $("#adminPermissionResetBtn", panels.admin)?.addEventListener("click", () => {
+      const manager = getCurrentAdminManager();
+      if (!manager) return;
+      manager.permissions = createPermissionMap();
+      renderAdmin();
+      bindAdmin();
+    });
   }
   function renderAssignmentStepOne(flow) {
     panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">조직개편 및 인사발령일과 처리 방식을 입력합니다.</div></div><div class="codex-stepper"><span class="active">1단계</span><span>2단계</span><span>3단계</span></div></div><div class="codex-panel" style="margin-top:16px"><div class="codex-form-grid"><label><span>조직개편 및 인사발령일</span><input id="wizardChangeDate" value="${flow.changeDate}" placeholder="YYYY.MM.DD"></label><label><span>처리 방식</span><div class="codex-inline-radio"><label><input type="radio" name="wizardMode" value="auto" ${flow.mode === "auto" ? "checked" : ""}>자동</label><label><input type="radio" name="wizardMode" value="manual" ${flow.mode === "manual" ? "checked" : ""}>수동</label></div></label><div class="codex-note-box span-2"><strong>자동</strong>입력한 날짜에 조직도와 임직원 정보가 자동 업데이트됩니다.</div><div class="codex-note-box span-2"><strong>수동</strong>관리자가 완료 시점에 직접 확정합니다.</div></div></div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="cancelAssignmentWizardBtn">취소</button><button type="button" class="hr-btn btn-primary" id="assignmentNextStepBtn">다음 단계</button></div></div>`;
@@ -3181,6 +3471,9 @@
       primaryButton.textContent = "인사기록카드 보기";
       primaryButton.style.display = "inline-flex";
       if (secondaryButton) secondaryButton.style.display = "none";
+    } else if (view === "admin") {
+      primaryButton.style.display = "none";
+      if (secondaryButton) secondaryButton.style.display = "none";
     } else {
       primaryButton.style.display = "none";
       if (secondaryButton) secondaryButton.style.display = "none";
@@ -3190,6 +3483,7 @@
     refs.topItems.forEach((item, index) => item.classList.toggle("active", (view === "directory" && index === 0) || (view === "record" && index === 1) || (view === "org" && index === 2) || (view === "assignment" && index === 3)));
     refs.sideItems.forEach((item, index) => { const active = (view === "directory" && index === 0) || (view === "record" && index === 1) || (view === "org" && index === 2) || (view === "assignment" && index === 3); item.classList.toggle("active", active); });
     panels.codeMenu?.classList.toggle("active", view === "codes");
+    panels.adminMenu?.classList.toggle("active", view === "admin");
   }
   function toggleBaseSections(directory, record, org) {
     refs.searchBar.style.display = directory ? "block" : "none";
@@ -3199,6 +3493,7 @@
     refs.cardWrap.style.display = record ? "grid" : "none";
     if (panels.codes) panels.codes.classList.toggle("codex-hidden", state.currentHrView !== "codes");
     if (panels.assignment) panels.assignment.classList.toggle("codex-hidden", state.currentHrView !== "assignment");
+    if (panels.admin) panels.admin.classList.toggle("codex-hidden", state.currentHrView !== "admin");
   }
   function showHrView(view) {
     state.currentHrView = view;
@@ -3209,11 +3504,12 @@
     else if (view === "org") { setPageTitle("조직도", "사원 배정 정보 기반으로 조직 구성을 조회합니다"); toggleBaseSections(false, false, true); }
     else if (view === "codes") { setPageTitle("코드관리", "조직코드와 기준코드를 조회하는 화면입니다"); toggleBaseSections(false, false, false); renderCodes(); }
     else if (view === "assignment") { setPageTitle("조직 관리", "조직개편 및 인사발령을 단계별로 편집하고 이력을 관리합니다"); toggleBaseSections(false, false, false); renderAssignment(); }
+    else if (view === "admin") { setPageTitle("관리자 권한 설정", "전체관리자와 기능별 관리자 계정 및 메뉴 권한을 관리합니다"); toggleBaseSections(false, false, false); renderAdmin(); bindAdmin(); }
     syncViewQuery(view);
     updatePrimaryAction(view);
     renderNotesByView();
   }
-  function renderAll() { syncLegacyMetaArraysFromRegistry(); syncEmployeeCodeRefs(); renderDirectorySearchBar(); renderStats(); renderTable(); renderOrg(); renderRecord(); renderCodes(); renderAssignment(); }
+  function renderAll() { syncLegacyMetaArraysFromRegistry(); syncEmployeeCodeRefs(); renderDirectorySearchBar(); renderStats(); renderTable(); renderOrg(); renderRecord(); renderCodes(); renderAssignment(); renderAdmin(); if (state.currentHrView === "admin") bindAdmin(); }
   function bindCoreActions() {
     refs.topItems[0]?.addEventListener("click", () => showHrView("directory"));
     refs.topItems[1]?.addEventListener("click", () => showHrView("record"));
@@ -3257,8 +3553,9 @@
   }
   function renderNotesByView() {
     if (typeof annotations === "undefined" || !refs.annoList || state.currentSystem !== 1) return;
-    const map = { directory: ["topbar", "sidebar", "searchbar", "stats", "emptable", "pagetitle"], record: ["topbar", "sidebar", "pagetitle", "hrcard"], org: ["topbar", "sidebar", "pagetitle", "orgchart"], codes: ["topbar", "sidebar", "pagetitle"], assignment: ["topbar", "sidebar", "pagetitle"] };
-    const base = (annotations[1] || []).filter((item) => map[state.currentHrView].includes(item.region));
+    const map = { directory: ["topbar", "sidebar", "searchbar", "stats", "emptable", "pagetitle"], record: ["topbar", "sidebar", "pagetitle", "hrcard"], org: ["topbar", "sidebar", "pagetitle", "orgchart"], codes: ["topbar", "sidebar", "pagetitle"], assignment: ["topbar", "sidebar", "pagetitle"], admin: ["topbar", "sidebar", "pagetitle"] };
+    const currentRegions = map[state.currentHrView] || ["topbar", "sidebar", "pagetitle"];
+    const base = (annotations[1] || []).filter((item) => currentRegions.includes(item.region));
     const overrides = {
       directory: {
         topbar: {
@@ -3368,6 +3665,23 @@
           title: "조직개편/인사발령 메인 액션",
           desc: "메인 화면에서 조직개편/인사발령 위저드를 시작하고, 단계별 완료 버튼으로 흐름을 진행한다.",
           detail: [["주요 기능", "위저드 시작, 단계별 다음/이전, 편집완료, 최종 완료"], ["처리 로직", "최종 완료 시 조직도/사원정보/코드관리/이력 전부 갱신"], ["검토 포인트", "중간 단계 저장 전에는 본 데이터와 임시데이터가 분리되어야 함"]]
+        }
+      },
+      admin: {
+        topbar: {
+          title: "상단 공통 프레임",
+          desc: "관리자 권한 설정 화면도 공통 프레임 안에서 동작하며, 관리자 범주를 바꿔도 현재 시스템 컨텍스트는 유지되어야 한다.",
+          detail: [["연계", "사원정보관리, 조직관리, 코드관리와 같은 운영 화면과 동일한 공통 헤더 사용"], ["검토 포인트", "관리자 화면 진입/복귀 시 현재 시스템 상태와 사용자 영역 표시가 흔들리지 않아야 함"]]
+        },
+        sidebar: {
+          title: "관리자 기능 진입 메뉴",
+          desc: "좌측 사이드 메뉴에서 관리자 권한 설정 화면으로 진입하며, 현재 단계에서 불필요한 통계 메뉴는 숨김 처리되어야 한다.",
+          detail: [["주요 기능", "사원명부, 조직도, 조직관리, 코드관리, 관리자 권한 설정 이동"], ["연계", "권한 설정 결과는 메뉴/기능 접근 제어 기준으로 사용"], ["검토 포인트", "불필요 메뉴 비노출, 관리자 메뉴 활성 하이라이트 정확성 확인"]]
+        },
+        pagetitle: {
+          title: "관리자 권한 설정 본문",
+          desc: "전체관리자와 기능별 관리자 목록을 관리하고, 메뉴/기능별 접근 권한을 설정하는 운영 화면이다.",
+          detail: [["주요 기능", "관리자 추가/삭제, 분류별 관리자 전환, 권한 체크박스 설정"], ["표시 데이터", "이름, 아이디, 소속, 등록일, 권한 그룹"], ["연계", "향후 메뉴별 접근 제어, 시스템 운영 권한 관리"], ["검토 포인트", "카테고리 전환, 관리자 선택, 권한 수정이 한 화면에서 자연스럽게 이어져야 함"]]
         }
       }
     };
@@ -3578,6 +3892,7 @@
   else if (viewFromUrl === "org") showHrView("org");
   else if (viewFromUrl === "codes") showHrView("codes");
   else if (viewFromUrl === "assignment") showHrView("assignment");
+  else if (viewFromUrl === "admin") showHrView("admin");
   else showHrView("directory");
   const tab1 = $("#tab1");
   const tab2 = $("#tab2");
