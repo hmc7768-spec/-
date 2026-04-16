@@ -146,6 +146,26 @@
   display: none;
 }
 
+.codex-sort-button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: #21395b;
+  cursor: pointer;
+}
+
+.codex-sort-button:hover {
+  color: #4f8ef7;
+}
+
+.status-badge.status-retired {
+  background: #f3f4f7;
+  color: #687487;
+}
+
 .codex-modal-actions {
   display: flex;
   justify-content: flex-end;
