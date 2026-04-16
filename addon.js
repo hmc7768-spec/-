@@ -193,6 +193,7 @@
       items: [
         { id: "directory_view_self", label: "사원명부 본인 열람", desc: "사원명부에서 본인 정보만 조회할 수 있습니다." },
         { id: "directory_view_all", label: "사원명부 전체 열람", desc: "사원명부의 전체 인원을 조회하고 통계 팝업까지 열람할 수 있습니다." },
+        { id: "directory_view_partial", label: "사원명부 일부 열람", desc: "지정한 조직 또는 구성원만 열람할 수 있습니다." },
         { id: "record_view_self", label: "인사기록카드 본인 열람", desc: "본인 인사정보카드와 기본 이력을 열람합니다." },
         { id: "record_view_all", label: "인사기록카드 전체 열람", desc: "전체 사원의 인사정보카드를 열람합니다." },
         { id: "org_view", label: "조직도 열람", desc: "조직도와 구성원 배치 현황을 조회합니다." },
@@ -261,7 +262,9 @@
       loginId: getEmployeeLoginId(employee),
       org: [employee.hq, employee.office, employee.team, employee.part].filter(Boolean).join(" > "),
       registeredAt,
-      permissions: createPermissionMap(permissionIds)
+      permissions: createPermissionMap(permissionIds),
+      viewScope: permissionIds.includes("directory_view_all") ? "all" : permissionIds.includes("directory_view_partial") ? "partial" : "self",
+      viewTargets: []
     };
   }
   function buildInitialAdminCategories(seedEmployees) {
@@ -509,7 +512,12 @@
         const selected = new Set(change.memberIds || []);
         category[bucket] = (category[bucket] || []).filter((member) => !selected.has(member.id));
       } else if (change.kind === "set-permissions") {
-        category[bucket] = (category[bucket] || []).map((member) => member.id === change.memberId ? { ...member, permissions: { ...(change.permissions || {}) } } : member);
+        category[bucket] = (category[bucket] || []).map((member) => member.id === change.memberId ? {
+          ...member,
+          permissions: { ...(change.permissions || {}) },
+          viewScope: change.viewScope || member.viewScope || "self",
+          viewTargets: JSON.parse(JSON.stringify(change.viewTargets || member.viewTargets || []))
+        } : member);
       }
     });
     state.adminDraft = next;
@@ -541,6 +549,7 @@
     } else if (change.kind === "set-permissions") {
       state.adminAddOpen = false;
       state.currentAdminManagerId = change.memberId || state.currentAdminManagerId;
+      state.adminScopeOpen = change.viewScope === "partial";
     } else if (change.kind === "remove-members") {
       state.adminAddOpen = false;
       state.adminMemberSelection = [...(change.memberIds || [])];
@@ -604,6 +613,8 @@
             memberName: change.memberName,
             memberId: change.memberId,
             permissions: { ...(change.permissions || {}) },
+            viewScope: change.viewScope || "",
+            viewTargets: JSON.parse(JSON.stringify(change.viewTargets || [])),
             summary: change.summary || ""
           }
         );
@@ -758,7 +769,7 @@
     return rows.map((row) => ({ ...row }));
   }
   const baseOrgBlueprint = createOrgBlueprint(orgRows);
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), orgBlueprint: cloneOrgBlueprint(baseOrgBlueprint), metaRegistry: JSON.parse(JSON.stringify(initialMetaRegistry)), adminCategories: cloneAdminCategories(initialAdminCategories), adminHistory: [], adminDraft: null, currentAdminPendingKey: "", currentAdminCategory: "all_admin", currentAdminRoleTab: "manager", currentAdminManagerId: "ADM-001", currentAdminOrgKey: "ROOT", adminExpandedKeys: ["ROOT"], adminAddOpen: false, adminAddQuery: "", adminCandidateSelection: [], adminMemberSelection: [], currentOperatorLoginId: initialOperatorLoginId, codeHistory: [], codeDraft: null, currentPendingChangeKey: "", assignmentRecords: [], deletedOrgArchive: [], assignmentFlow: null, assignmentLandingTab: "org", assignmentLandingSearch: "", selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentMetaCodeSelection: "", currentCodeHistoryFilter: "all", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", directoryRetireDateFrom: "", directoryRetireDateTo: "", directorySorts: [], hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), orgBlueprint: cloneOrgBlueprint(baseOrgBlueprint), metaRegistry: JSON.parse(JSON.stringify(initialMetaRegistry)), adminCategories: cloneAdminCategories(initialAdminCategories), adminHistory: [], adminDraft: null, currentAdminPendingKey: "", currentAdminCategory: "all_admin", currentAdminRoleTab: "manager", currentAdminManagerId: "ADM-001", currentAdminOrgKey: "ROOT", adminExpandedKeys: ["ROOT"], adminAddOpen: false, adminAddQuery: "", adminCandidateSelection: [], adminMemberSelection: [], adminScopeOpen: false, adminScopeQuery: "", adminScopeSelection: [], currentOperatorLoginId: initialOperatorLoginId, codeHistory: [], codeDraft: null, currentPendingChangeKey: "", assignmentRecords: [], deletedOrgArchive: [], assignmentFlow: null, assignmentLandingTab: "org", assignmentLandingSearch: "", selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentMetaCodeSelection: "", currentCodeHistoryFilter: "all", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", directoryRetireDateFrom: "", directoryRetireDateTo: "", directorySorts: [], hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
   syncLegacyMetaArraysFromRegistry();
   syncEmployeeCodeRefs();
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -974,7 +985,19 @@
       if (retireDateValue <= getCurrentBaseDateValue()) return "퇴직";
       if (employee?.status === "퇴직") return "재직";
     }
+    if (employee?.status === "휴직") {
+      const startValue = parseDateValue(getLeaveStartDate(employee));
+      const endValue = parseDateValue(getLeaveEndDate(employee));
+      const currentValue = getCurrentBaseDateValue();
+      if (startValue && currentValue < startValue) return "재직";
+      if (endValue && currentValue > endValue) return "재직";
+    }
     return employee?.status || "재직";
+  }
+  function getDisplayStatus(employee) {
+    const effective = getEffectiveStatus(employee);
+    if (effective === "휴직" && !isCurrentlyOnLeave(employee)) return "재직";
+    return effective;
   }
   function isCurrentlyOnLeave(employee) {
     if (getEffectiveStatus(employee) !== "휴직") return false;
@@ -1361,12 +1384,12 @@
   function renderEmployeeList(items, mode = "default") {
     if (!items.length) return `<div class="codex-note-box"><strong>대상자 없음</strong>선택한 조건에 해당하는 대상자가 없습니다.</div>`;
     if (mode === "leave") {
-      return `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>휴직유형</th><th>휴직기간</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${getLeaveType(employee)}</td><td>${getLeaveStartDate(employee) || "-"}${getLeaveEndDate(employee) ? ` ~ ${getLeaveEndDate(employee)}` : ""}</td><td>${getEffectiveStatus(employee)}</td></tr>`).join("")}</tbody></table>`;
+      return `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>휴직유형</th><th>휴직기간</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${isCurrentlyOnLeave(employee) ? getLeaveType(employee) : "-"}</td><td>${isCurrentlyOnLeave(employee) ? `${getLeaveStartDate(employee) || "-"}${getLeaveEndDate(employee) ? ` ~ ${getLeaveEndDate(employee)}` : ""}` : "-"}</td><td>${getDisplayStatus(employee)}</td></tr>`).join("")}</tbody></table>`;
     }
     if (mode === "retire") {
-      return `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>직급</th><th>퇴사일</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${employee.grade}</td><td>${employee.retireDate || "-"}</td><td>${getEffectiveStatus(employee)}</td></tr>`).join("")}</tbody></table>`;
+      return `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>직급</th><th>퇴사일</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${employee.grade}</td><td>${employee.retireDate || "-"}</td><td>${getDisplayStatus(employee)}</td></tr>`).join("")}</tbody></table>`;
     }
-    return `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>직급</th><th>입사일</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${getEffectiveStatus(employee)}</td></tr>`).join("")}</tbody></table>`;
+    return `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>직급</th><th>입사일</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${getDisplayStatus(employee)}</td></tr>`).join("")}</tbody></table>`;
   }
   function syncViewQuery(view) {
     const url = new URL(window.location.href);
@@ -1382,7 +1405,7 @@
   }
   function getDirectoryFilteredEmployees() {
     const keyword = state.directorySearchText.trim().toLowerCase();
-    const scopedEmployees = state.directoryStatus === "퇴직" ? state.employees.filter((employee) => getEffectiveStatus(employee) === "퇴직") : state.employees.filter((employee) => getEffectiveStatus(employee) !== "퇴직");
+    const scopedEmployees = state.directoryStatus === "퇴직" ? state.employees.filter((employee) => getDisplayStatus(employee) === "퇴직") : state.employees.filter((employee) => getDisplayStatus(employee) !== "퇴직");
     const filtered = scopedEmployees.filter((employee) => {
       const dept = deepestDept(employee);
       const deptPath = employeePath(employee);
@@ -1395,7 +1418,7 @@
       const textMatched = !keyword || [employee.id, employee.name, dept, deptPath, employee.grade, employee.title, getCompanyEmail(employee), employee.phone].filter(Boolean).join(" ").toLowerCase().includes(keyword);
       const deptMatched = !state.directoryDept.length || state.directoryDept.some((item) => deptPath.includes(item) || dept === item || employee.hq === item || employee.office === item || employee.team === item || employee.part === item);
       const gradeMatched = !state.directoryGrade.length || state.directoryGrade.includes(employee.grade);
-      const statusMatched = !state.directoryStatus || getEffectiveStatus(employee) === state.directoryStatus;
+      const statusMatched = !state.directoryStatus || getDisplayStatus(employee) === state.directoryStatus;
       const hireDateFromMatched = !hireDateFrom || (hireDateValue && hireDateValue >= hireDateFrom);
       const hireDateToMatched = !hireDateTo || (hireDateValue && hireDateValue <= hireDateTo);
       const retireDateFromMatched = !retireDateFrom || (retireDateValue && retireDateValue >= retireDateFrom);
@@ -1406,8 +1429,8 @@
     const sorted = [...filtered].sort((a, b) => {
       for (const sortItem of state.directorySorts) {
         const factor = sortItem.order;
-        const statusA = getEffectiveStatus(a);
-        const statusB = getEffectiveStatus(b);
+        const statusA = getDisplayStatus(a);
+        const statusB = getDisplayStatus(b);
         let result = 0;
         if (sortItem.key === "id") result = a.id.localeCompare(b.id, "ko");
         else if (sortItem.key === "name") result = a.name.localeCompare(b.name, "ko");
@@ -1896,7 +1919,7 @@
     const employee = state.employees.find((item) => item.id === employeeId);
     if (!employee) return;
     state.selectedId = employee.id;
-    quickProfileModal.body.innerHTML = `<div class="codex-quick-card"><div class="codex-quick-header"><div class="codex-quick-avatar">${employee.name[0]}</div><div class="codex-quick-header-body"><div class="codex-quick-name-row"><div class="codex-quick-name">${employee.name}</div></div><div class="codex-quick-role">${employee.grade}</div><div class="codex-quick-role">${employee.title || "팀원"}</div></div></div><div class="codex-quick-orgpath">${employeePath(employee)}</div><div class="codex-quick-divider"></div><div class="codex-quick-info-list"><div class="codex-quick-info-row"><div class="codex-quick-info-label">이메일</div><div class="codex-quick-info-value">${getCompanyEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">회사 전화</div><div class="codex-quick-info-value">${getCompanyPhone(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">개인 이메일</div><div class="codex-quick-info-value">${getPersonalEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴대 전화</div><div class="codex-quick-info-value">${employee.phone}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">입사일</div><div class="codex-quick-info-value">${employee.hireDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">사번</div><div class="codex-quick-info-value">${employee.id}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">생년월일</div><div class="codex-quick-info-value">${employee.birthDate.replaceAll(".", "-")}</div></div>${employee.status === "휴직" ? `<div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직유형</div><div class="codex-quick-info-value">${getLeaveType(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직기간</div><div class="codex-quick-info-value">${getLeaveStartDate(employee).replaceAll(".", "-")} ~ ${getLeaveEndDate(employee).replaceAll(".", "-")}</div></div>` : ""}<div class="codex-quick-info-row"><div class="codex-quick-info-label">주소</div><div class="codex-quick-info-value">${getAddress(employee)}</div></div></div></div>`;
+    quickProfileModal.body.innerHTML = `<div class="codex-quick-card"><div class="codex-quick-header"><div class="codex-quick-avatar">${employee.name[0]}</div><div class="codex-quick-header-body"><div class="codex-quick-name-row"><div class="codex-quick-name">${employee.name}</div></div><div class="codex-quick-role">${employee.grade}</div><div class="codex-quick-role">${employee.title || "팀원"}</div></div></div><div class="codex-quick-orgpath">${employeePath(employee)}</div><div class="codex-quick-divider"></div><div class="codex-quick-info-list"><div class="codex-quick-info-row"><div class="codex-quick-info-label">이메일</div><div class="codex-quick-info-value">${getCompanyEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">회사 전화</div><div class="codex-quick-info-value">${getCompanyPhone(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">개인 이메일</div><div class="codex-quick-info-value">${getPersonalEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴대 전화</div><div class="codex-quick-info-value">${employee.phone}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">입사일</div><div class="codex-quick-info-value">${employee.hireDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">사번</div><div class="codex-quick-info-value">${employee.id}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">생년월일</div><div class="codex-quick-info-value">${employee.birthDate.replaceAll(".", "-")}</div></div>${isCurrentlyOnLeave(employee) ? `<div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직유형</div><div class="codex-quick-info-value">${getLeaveType(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직기간</div><div class="codex-quick-info-value">${getLeaveStartDate(employee).replaceAll(".", "-")} ~ ${getLeaveEndDate(employee).replaceAll(".", "-")}</div></div>` : ""}<div class="codex-quick-info-row"><div class="codex-quick-info-label">주소</div><div class="codex-quick-info-value">${getAddress(employee)}</div></div></div></div>`;
     const goRecord = () => {
       quickProfileModal.close();
       statsModal.close();
@@ -1961,11 +1984,11 @@
   function renderStats() {
     const hireItems = getHireStatEmployees(state.hireStatMode);
     const retireItems = getRetireStatEmployees(state.hireStatMode);
-    const values = [state.employees.length, state.employees.filter((employee) => getEffectiveStatus(employee) === "재직").length, getLeaveStatEmployees("current").length, hireItems.length + retireItems.length];
+    const values = [state.employees.length, state.employees.filter((employee) => getDisplayStatus(employee) === "재직").length, getLeaveStatEmployees("current").length, hireItems.length + retireItems.length];
     $$(".hr-stat-value", refs.stats).forEach((node, index) => { if (values[index] !== undefined) node.textContent = String(values[index]); });
     const subTexts = [
       `▲ ${Math.max(1, Math.floor(state.employees.length / 20))}명 (이번 달)`,
-      `정규직 ${state.employees.filter((employee) => employee.employeeType === "정규직" && getEffectiveStatus(employee) === "재직").length} · 계약직 ${state.employees.filter((employee) => employee.employeeType === "계약직" && getEffectiveStatus(employee) === "재직").length} · 임원 ${state.employees.filter((employee) => employee.employeeType === "임원" && getEffectiveStatus(employee) === "재직").length}`,
+      `정규직 ${state.employees.filter((employee) => employee.employeeType === "정규직" && getDisplayStatus(employee) === "재직").length} · 계약직 ${state.employees.filter((employee) => employee.employeeType === "계약직" && getDisplayStatus(employee) === "재직").length} · 임원 ${state.employees.filter((employee) => employee.employeeType === "임원" && getDisplayStatus(employee) === "재직").length}`,
       "육아·병가 포함",
       `입사 ${hireItems.length} · 퇴사 ${retireItems.length} · ${getHireStatLabel(state.hireStatMode)}`
     ];
@@ -1996,7 +2019,7 @@
         });
       });
     }
-    tbody.innerHTML = employees.map((employee) => `<tr data-employee-id="${employee.id}"><td><button type="button" class="codex-link-button codex-id-button" data-quick-profile="${employee.id}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">${employee.id}</button></td><td><button type="button" class="codex-link-button emp-name" data-quick-profile="${employee.id}">${employee.name}</button></td><td>${deepestDept(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${statusBadge(getEffectiveStatus(employee))}</td><td><a href="#" data-action="detail" style="font-size:11px;color:#4f8ef7;text-decoration:none">상세보기</a></td></tr>`).join("");
+    tbody.innerHTML = employees.map((employee) => `<tr data-employee-id="${employee.id}"><td><button type="button" class="codex-link-button codex-id-button" data-quick-profile="${employee.id}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9095b0">${employee.id}</button></td><td><button type="button" class="codex-link-button emp-name" data-quick-profile="${employee.id}">${employee.name}</button></td><td>${deepestDept(employee)}</td><td>${employee.grade}</td><td>${employee.hireDate}</td><td>${statusBadge(getDisplayStatus(employee))}</td><td><a href="#" data-action="detail" style="font-size:11px;color:#4f8ef7;text-decoration:none">상세보기</a></td></tr>`).join("");
     tbody.onclick = (event) => {
       if (event.target.closest('[data-action="detail"]')) return;
       if (event.target.closest('[data-quick-profile]')) return;
@@ -2489,7 +2512,7 @@
       overview: sheetFieldTable([
         ["사원번호", employee.id, "그룹웨어 ID", employee.groupwareId || getGroupwareId(employee)],
         ["직급", employee.grade, "직책", employee.title],
-        ["직군", employee.jobFamily, "재직상태", getEffectiveStatus(employee)],
+        ["직군", employee.jobFamily, "재직상태", getDisplayStatus(employee)],
         ["소속", employeePath(employee), "회사 이메일", getCompanyEmail(employee)]
       ]),
       hire: sheetFieldTable([
@@ -2764,7 +2787,7 @@
       overview: sheetFieldTable([
         ["사원번호", employee.id, "그룹웨어 ID", employee.groupwareId || getGroupwareId(employee)],
         ["직급", employee.grade, "직책", employee.title],
-        ["직군", employee.jobFamily, "재직상태", getEffectiveStatus(employee)],
+        ["직군", employee.jobFamily, "재직상태", getDisplayStatus(employee)],
         ["회사 이메일", getCompanyEmail(employee), "회사 전화", getCompanyPhone(employee)],
         ["소속", employeePath(employee), "", ""]
       ]),
@@ -3497,7 +3520,7 @@
     const infoRows = selected.key === "ROOT"
       ? [["부서명", "오토플러스"], ["부서 코드", "ROOT"], ["부서 레벨", "ROOT"], ["최근 수정일", "2026.04.14 09:00"]]
       : [["부서명", getOrgRowName(selectedRow)], ["부서 코드", selectedRow?.code || "-"], ["부서 레벨", getOrgRowLevel(selectedRow)], ["최근 수정일", selectedRow?.updatedAt || "-"]];
-    const memberRows = selectedMembers.map((employee) => `<tr><td>${employee.name}</td><td>${employee.id}</td><td>${employee.title}</td><td>${getEffectiveStatus(employee)}</td></tr>`).join("");
+    const memberRows = selectedMembers.map((employee) => `<tr><td>${employee.name}</td><td>${employee.id}</td><td>${employee.title}</td><td>${getDisplayStatus(employee)}</td></tr>`).join("");
     const historyRows = state.assignmentRecords.map((record) => `<tr><td><button type="button" class="codex-link-btn" data-assignment-history="${record.date}">${record.date}</button></td><td>${record.orgSummary.created.length + record.orgSummary.updated.length + record.orgSummary.deleted.length}건</td><td>${record.personnelActions.length}건</td><td>${record.mode === "auto" ? "자동" : "수동"}</td><td>${record.status || "완료"}</td><td><div class="codex-inline-actions"><button type="button" class="hr-btn btn-xs btn-outline" data-assignment-history-edit="${record.date}">수정</button><button type="button" class="hr-btn btn-xs btn-outline" data-assignment-history-cancel="${record.date}" ${record.status === "취소" ? "disabled" : ""}>취소</button></div></td></tr>`).join("");
     const deletedRows = state.deletedOrgArchive.map((item) => `<tr><td>${item.date}</td><td>${item.path}</td></tr>`).join("");
     const tabs = `<div class="codex-assignment-tabs"><button type="button" class="codex-assignment-tab ${state.assignmentLandingTab === "org" ? "active" : ""}" data-assignment-tab="org">조직도</button><button type="button" class="codex-assignment-tab ${state.assignmentLandingTab === "history" ? "active" : ""}" data-assignment-tab="history">조직개편/인사발령 이력</button><button type="button" class="codex-assignment-tab ${state.assignmentLandingTab === "deleted" ? "active" : ""}" data-assignment-tab="deleted">삭제된 조직 목록</button></div>`;
@@ -3593,10 +3616,22 @@
   }
   function getAdminRoleNote(category, role = state.currentAdminRoleTab) {
     if (role === "viewer") {
-      if (category?.id === "directory_admin") return "열람자는 기본적으로 사원명부/인사기록카드 조회만 가능하며, 사원명부는 본인 정보 중심으로 열람합니다.";
+      if (category?.id === "directory_admin") return "열람자는 사원명부를 본인 / 전체 / 일부 범위로 나눠 관리할 수 있습니다. 일부 열람은 조직 또는 개별 구성원을 지정해 부여합니다.";
       return "열람자는 조회 권한 중심으로만 부여되며, 수정/반영 기능은 사용할 수 없습니다.";
     }
     return "관리자는 해당 메뉴의 전체 열람과 수정/반영 기능을 함께 수행할 수 있습니다.";
+  }
+  function getAdminViewScopeLabel(member) {
+    if (!member) return "-";
+    if (member.viewScope === "all") return "전체 열람";
+    if (member.viewScope === "partial") return "일부 열람";
+    return "본인 열람";
+  }
+  function getAdminViewTargetSummary(member) {
+    if (!member || member.viewScope !== "partial") return getAdminViewScopeLabel(member);
+    const targets = member.viewTargets || [];
+    if (!targets.length) return "일부 열람(대상 미지정)";
+    return targets.map((target) => target.label).join(", ");
   }
   function renderAdmin() {
     if (!panels.admin) return;
@@ -3621,7 +3656,9 @@
     const selectedOrgLabel = selectedOrgRow ? getOrgRowPath(selectedOrgRow) : "오토플러스";
     const selectedOrgMembers = getEmployeesInOrgKey(state.currentAdminOrgKey || "ROOT", true).filter((employee) => getEffectiveStatus(employee) !== "퇴직");
     const selectedCandidateEmployees = (state.adminCandidateSelection || []).map((employeeId) => state.employees.find((item) => item.id === employeeId)).filter(Boolean);
+    const selectedScopeEmployees = (state.adminScopeSelection || []).map((employeeId) => state.employees.find((item) => item.id === employeeId)).filter(Boolean);
     const pendingChanges = getAdminPendingChanges();
+    const showViewerScope = state.currentAdminRoleTab === "viewer" && category?.id === "directory_admin";
     const adminActions = `<div class="codex-secondary-actions">${hasPendingAdminChanges() ? `<button type="button" class="hr-btn btn-outline" id="adminDraftResetBtn">전체 취소</button><button type="button" class="hr-btn btn-primary" id="adminDraftApplyBtn">변경 적용 (${pendingChanges.length})</button>` : `<button type="button" class="hr-btn btn-outline" disabled>변경 예정 없음</button>`}</div>`;
     const pendingPanel = `<div class="codex-panel"><div class="codex-code-head"><h4>변경 예정 내역</h4><span class="codex-admin-sub">${pendingChanges.length}건</span></div>${pendingChanges.length ? pendingChanges.map((item) => `<div class="codex-note-box codex-note-box-compact ${item._key === state.currentAdminPendingKey ? "is-selected" : ""}" data-admin-pending-row="${item._key}"><strong>${item.categoryLabel || findAdminCategoryIn(adminCategories, item.categoryId)?.label || item.categoryId} · ${item.role === "viewer" ? "열람자" : "관리자"} · ${item.kind === "add-members" ? "추가" : item.kind === "remove-members" ? "제거" : "권한 변경"}</strong>${item.changedAt}${item.summary ? `<br>${item.summary}` : ""}<div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline btn-xs" data-admin-pending-edit="${item._key}">수정</button><button type="button" class="hr-btn btn-outline btn-xs" data-admin-pending-cancel="${item._key}">취소</button></div></div>`).join("") : `<div class="codex-note-box">저장 전 검토할 관리자 변경이 없습니다.</div>`}</div>`;
     const historyPanel = `<div class="codex-panel"><div class="codex-code-head"><h4>관리자 권한 변경 이력</h4><span class="codex-admin-sub">${state.adminHistory.length}건</span></div>${renderAdminHistoryTable()}</div>`;
@@ -3713,7 +3750,7 @@
                             <div>
                               <strong>${employee.name}</strong>
                               <span>${getEmployeeLoginId(employee)} · ${getCurrentOrgLabel(employee)}</span>
-                              <em>${employee.grade} · ${employee.title || "팀원"} · ${employee.status}</em>
+                              <em>${employee.grade} · ${employee.title || "팀원"} · ${getDisplayStatus(employee)}</em>
                             </div>
                           </label>
                         `).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">선택한 조직에 표시할 대상자가 없습니다.</div>`}
@@ -3748,17 +3785,18 @@
               <button type="button" class="hr-btn btn-outline btn-xs" id="adminBulkRemoveBtn" ${state.adminMemberSelection.length ? "" : "disabled"}>${getAdminRoleLabel()} 일괄 제거</button>
             </div>
             <table class="codex-admin-table">
-              <thead><tr><th style="width:38px"></th><th>이름(아이디)</th><th>소속</th><th>등록일</th><th>관리</th></tr></thead>
+              <thead><tr><th style="width:38px"></th><th>이름(아이디)</th><th>소속</th>${state.currentAdminRoleTab === "viewer" ? "<th>열람 범위</th>" : ""}<th>등록일</th><th>관리</th></tr></thead>
               <tbody>
                 ${currentMembers.map((manager) => `
                   <tr class="${manager.id === currentManager?.id ? "codex-table-selected" : ""}" data-admin-manager-row="${manager.id}">
                     <td><input type="checkbox" data-admin-member-check="${manager.id}" ${(state.adminMemberSelection || []).includes(manager.id) ? "checked" : ""}></td>
                     <td>${manager.name} <span class="codex-admin-login">(${manager.loginId})</span></td>
                     <td>${manager.org}</td>
+                    ${state.currentAdminRoleTab === "viewer" ? `<td>${getAdminViewTargetSummary(manager)}</td>` : ""}
                     <td>${manager.registeredAt}</td>
                     <td><button type="button" class="hr-btn btn-outline btn-xs" data-admin-remove="${manager.id}">삭제</button></td>
                   </tr>
-                `).join("") || `<tr><td colspan="5">등록된 ${getAdminRoleLabel()}가 없습니다.</td></tr>`}
+                `).join("") || `<tr><td colspan="${state.currentAdminRoleTab === "viewer" ? "6" : "5"}">등록된 ${getAdminRoleLabel()}가 없습니다.</td></tr>`}
               </tbody>
             </table>
           </div>
@@ -3767,7 +3805,7 @@
               <h4>권한 설정</h4>
               <button type="button" class="hr-btn btn-outline btn-xs" id="adminPermissionResetBtn" ${currentManager && !isViewerRole() ? "" : "disabled"}>권한 초기화</button>
             </div>
-            ${currentManager ? `<div class="codex-note-box codex-note-box-compact" style="margin-bottom:14px"><strong>${currentManager.name}(${currentManager.loginId})</strong> · ${currentManager.org} · 활성 권한 ${Object.values(currentManager.permissions || {}).filter(Boolean).length}개${isViewerRole() ? " · 열람자 권한은 조회 범위 중심으로 고정됩니다." : ""}</div>${permissionRows}` : `<div class="codex-note-box">${getAdminRoleLabel()}를 선택하면 권한을 확인할 수 있습니다.</div>`}
+            ${currentManager ? `<div class="codex-note-box codex-note-box-compact" style="margin-bottom:14px"><strong>${currentManager.name}(${currentManager.loginId})</strong> · ${currentManager.org} · 활성 권한 ${Object.values(currentManager.permissions || {}).filter(Boolean).length}개${isViewerRole() ? ` · 현재 범위: ${getAdminViewScopeLabel(currentManager)}` : ""}</div>${showViewerScope ? `<div class="codex-panel" style="margin-bottom:14px"><div class="codex-code-head"><h4>사원명부 열람 범위</h4><button type="button" class="hr-btn btn-outline btn-xs" id="adminScopeOpenBtn">${state.adminScopeOpen ? "대상 닫기" : "대상 편집"}</button></div><div class="codex-secondary-actions" style="margin-bottom:12px"><label><input type="radio" name="adminViewScope" value="self" ${currentManager.viewScope !== "all" && currentManager.viewScope !== "partial" ? "checked" : ""}> 본인 열람</label><label><input type="radio" name="adminViewScope" value="all" ${currentManager.viewScope === "all" ? "checked" : ""}> 전체 열람</label><label><input type="radio" name="adminViewScope" value="partial" ${currentManager.viewScope === "partial" ? "checked" : ""}> 일부 열람</label></div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px">현재 대상: ${getAdminViewTargetSummary(currentManager)}</div>${currentManager.viewScope === "partial" ? `<div class="codex-admin-add ${state.adminScopeOpen ? "is-open" : ""}"><div class="codex-admin-add-layout is-structured"><div class="codex-admin-picker codex-panel"><div class="codex-admin-picker-head"><div><strong>열람 대상 선택</strong><span>조직 단위로 추가하거나, 조직 내 일부 구성원만 선택해서 열람 범위를 지정합니다.</span></div></div><div class="codex-admin-org-layout"><div class="codex-admin-org-column"><div class="codex-admin-org-title">조직 선택</div><div class="codex-assignment-tree-wrap codex-admin-org-wrap">${buildAdminOrgTree(state.currentAdminOrgKey || "ROOT")}</div><button type="button" class="hr-btn btn-outline btn-xs" id="adminScopeAddOrgBtn" style="margin-top:10px">선택 조직 추가</button></div><div class="codex-admin-org-column"><div class="codex-admin-org-title">구성원 선택</div><div class="codex-admin-org-toolbar"><input id="adminScopeQuery" class="hr-search-input" value="${state.adminScopeQuery || ""}" placeholder="선택 조직 내 이름, 아이디, 사번 검색"><div class="codex-admin-selection-meta"><strong>${selectedOrgLabel}</strong><span>대상 ${selectedOrgMembers.length}명</span></div></div>${selectedOrgMembers.length ? `<div class="codex-admin-candidates is-table">${selectedOrgMembers.filter((employee) => !(state.adminScopeQuery || "") || [employee.name, employee.id, getEmployeeLoginId(employee)].join(" ").toLowerCase().includes((state.adminScopeQuery || "").toLowerCase())).map((employee) => `<label class="codex-admin-candidate"><input type="checkbox" data-admin-scope-check="${employee.id}" ${(state.adminScopeSelection || []).includes(employee.id) ? "checked" : ""}><div><strong>${employee.name}</strong><span>${getEmployeeLoginId(employee)} · ${getCurrentOrgLabel(employee)}</span><em>${employee.grade} · ${employee.title || "팀원"}</em></div></label>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">선택한 조직에 표시할 대상자가 없습니다.</div>`}</div></div></div><div class="codex-admin-selected codex-panel"><div class="codex-admin-selected-title">추가 예정 열람 대상 <span>${selectedScopeEmployees.length}명</span></div>${selectedScopeEmployees.length ? `<div class="codex-admin-selected-list">${selectedScopeEmployees.map((employee) => `<div class="codex-admin-selected-item"><div><strong>${employee.name}</strong><span>${getCurrentOrgLabel(employee)}</span></div><button type="button" class="hr-btn btn-outline btn-xs" data-admin-scope-chip-remove="${employee.id}">제외</button></div>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">조직 전체를 추가하거나 일부 구성원을 체크해 열람 대상으로 지정할 수 있습니다.</div>`}<div class="codex-modal-actions" style="margin-top:12px"><button type="button" class="hr-btn btn-outline" id="adminScopeCancelBtn">취소</button><button type="button" class="hr-btn btn-primary" id="adminScopeSaveBtn">대상 저장</button></div></div></div>` : ""}</div>` : ""}${permissionRows}` : `<div class="codex-note-box">${getAdminRoleLabel()}를 선택하면 권한을 확인할 수 있습니다.</div>`}
           </div>
           ${pendingPanel}
           ${historyPanel}
@@ -3830,10 +3868,19 @@
       renderAdmin();
       bindAdmin();
     });
-    $("#adminAddQuery", panels.admin)?.addEventListener("input", () => {
-      state.adminAddQuery = $("#adminAddQuery", panels.admin)?.value || "";
+    $("#adminAddQuery", panels.admin)?.addEventListener("input", (event) => {
+      const input = event.target;
+      const nextValue = input.value || "";
+      const start = input.selectionStart ?? nextValue.length;
+      const end = input.selectionEnd ?? nextValue.length;
+      state.adminAddQuery = nextValue;
       renderAdmin();
       bindAdmin();
+      const nextInput = $("#adminAddQuery", panels.admin);
+      if (nextInput) {
+        nextInput.focus({ preventScroll: true });
+        nextInput.setSelectionRange(start, end);
+      }
     });
     $$("[data-admin-org-toggle]", panels.admin).forEach((button) => button.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -3896,6 +3943,127 @@
       state.adminAddOpen = false;
       state.adminAddQuery = "";
       state.adminCandidateSelection = [];
+      renderAdmin();
+      bindAdmin();
+    });
+    $$('input[name="adminViewScope"]', panels.admin).forEach((input) => input.addEventListener("change", () => {
+      const category = getCurrentAdminCategory();
+      const manager = getCurrentAdminManager();
+      if (!category || !manager) return;
+      const nextScope = input.value;
+      const nextPermissions = { ...(manager.permissions || {}) };
+      nextPermissions.directory_view_self = nextScope === "self";
+      nextPermissions.directory_view_all = nextScope === "all";
+      nextPermissions.directory_view_partial = nextScope === "partial";
+      upsertAdminPendingChange({
+        key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
+        kind: "set-permissions",
+        categoryId: category.id,
+        categoryLabel: category.label,
+        role: state.currentAdminRoleTab,
+        managerId: manager.id,
+        permissions: nextPermissions,
+        viewScope: nextScope,
+        viewTargets: nextScope === "partial" ? (manager.viewTargets || []) : [],
+        summary: `${manager.name} 열람 범위 ${nextScope === "self" ? "본인" : nextScope === "all" ? "전체" : "일부"}`
+      });
+      rebuildAdminDraftFromPending();
+      state.adminScopeOpen = nextScope === "partial" ? state.adminScopeOpen : false;
+      state.adminScopeSelection = [];
+      renderAdmin();
+      bindAdmin();
+    }));
+    $("#adminScopeOpenBtn", panels.admin)?.addEventListener("click", () => {
+      state.adminScopeOpen = !state.adminScopeOpen;
+      state.adminScopeSelection = [];
+      renderAdmin();
+      bindAdmin();
+    });
+    $("#adminScopeQuery", panels.admin)?.addEventListener("input", (event) => {
+      const input = event.target;
+      const nextValue = input.value || "";
+      const start = input.selectionStart ?? nextValue.length;
+      const end = input.selectionEnd ?? nextValue.length;
+      state.adminScopeQuery = nextValue;
+      renderAdmin();
+      bindAdmin();
+      const nextInput = $("#adminScopeQuery", panels.admin);
+      if (nextInput) {
+        nextInput.focus({ preventScroll: true });
+        nextInput.setSelectionRange(start, end);
+      }
+    });
+    $$("[data-admin-scope-check]", panels.admin).forEach((input) => input.addEventListener("change", () => {
+      const employeeId = input.dataset.adminScopeCheck;
+      const current = new Set(state.adminScopeSelection || []);
+      if (input.checked) current.add(employeeId); else current.delete(employeeId);
+      state.adminScopeSelection = [...current];
+      renderAdmin();
+      bindAdmin();
+    }));
+    $$("[data-admin-scope-chip-remove]", panels.admin).forEach((button) => button.addEventListener("click", () => {
+      state.adminScopeSelection = (state.adminScopeSelection || []).filter((id) => id !== button.dataset.adminScopeChipRemove);
+      renderAdmin();
+      bindAdmin();
+    }));
+    $("#adminScopeAddOrgBtn", panels.admin)?.addEventListener("click", () => {
+      const category = getCurrentAdminCategory();
+      const manager = getCurrentAdminManager();
+      const row = state.currentAdminOrgKey === "ROOT" ? null : getBlueprintRow(state.orgBlueprint, state.currentAdminOrgKey);
+      if (!category || !manager) return;
+      const nextTargets = [...(manager.viewTargets || [])];
+      const target = { type: "org", key: state.currentAdminOrgKey || "ROOT", label: row ? getOrgRowPath(row) : "오토플러스" };
+      if (!nextTargets.some((item) => item.type === target.type && item.key === target.key)) nextTargets.push(target);
+      upsertAdminPendingChange({
+        key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
+        kind: "set-permissions",
+        categoryId: category.id,
+        categoryLabel: category.label,
+        role: state.currentAdminRoleTab,
+        managerId: manager.id,
+        permissions: { ...(manager.permissions || {}), directory_view_self: false, directory_view_all: false, directory_view_partial: true },
+        viewScope: "partial",
+        viewTargets: nextTargets,
+        summary: `${manager.name} 일부 열람 대상 변경`
+      });
+      rebuildAdminDraftFromPending();
+      renderAdmin();
+      bindAdmin();
+    });
+    $("#adminScopeCancelBtn", panels.admin)?.addEventListener("click", () => {
+      state.adminScopeOpen = false;
+      state.adminScopeSelection = [];
+      state.adminScopeQuery = "";
+      renderAdmin();
+      bindAdmin();
+    });
+    $("#adminScopeSaveBtn", panels.admin)?.addEventListener("click", () => {
+      const category = getCurrentAdminCategory();
+      const manager = getCurrentAdminManager();
+      if (!category || !manager) return;
+      const nextTargets = [...(manager.viewTargets || [])];
+      (state.adminScopeSelection || []).forEach((employeeId) => {
+        const employee = state.employees.find((item) => item.id === employeeId);
+        if (!employee) return;
+        const target = { type: "employee", key: employee.id, label: `${employee.name} (${getCurrentOrgLabel(employee)})` };
+        if (!nextTargets.some((item) => item.type === target.type && item.key === target.key)) nextTargets.push(target);
+      });
+      upsertAdminPendingChange({
+        key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
+        kind: "set-permissions",
+        categoryId: category.id,
+        categoryLabel: category.label,
+        role: state.currentAdminRoleTab,
+        managerId: manager.id,
+        permissions: { ...(manager.permissions || {}), directory_view_self: false, directory_view_all: false, directory_view_partial: true },
+        viewScope: "partial",
+        viewTargets: nextTargets,
+        summary: `${manager.name} 일부 열람 대상 저장`
+      });
+      rebuildAdminDraftFromPending();
+      state.adminScopeOpen = false;
+      state.adminScopeSelection = [];
+      state.adminScopeQuery = "";
       renderAdmin();
       bindAdmin();
     });
@@ -4315,7 +4483,19 @@
     $("#assignmentOrgNextStepBtn", panels.assignment)?.addEventListener("click", () => { const flow = ensureAssignmentFlow(); flow.orgSummary = summarizeOrgChangesForFlow(getFlowBaseRows(flow), flow.orgDraft, flow); flow.stage = 3; renderAssignment(); });
     $("#assignmentPersonnelDoneBtn", panels.assignment)?.addEventListener("click", () => renderAssignment());
     $("#assignmentFinishBtn", panels.assignment)?.addEventListener("click", () => applyAssignmentFlow(ensureAssignmentFlow()));
-    $("#personnelSearchInput", panels.assignment)?.addEventListener("input", (event) => { ensureAssignmentFlow().personnelSearch = event.target.value; renderAssignment(); });
+    $("#personnelSearchInput", panels.assignment)?.addEventListener("input", (event) => {
+      const input = event.target;
+      const nextValue = input.value;
+      const start = input.selectionStart ?? nextValue.length;
+      const end = input.selectionEnd ?? nextValue.length;
+      ensureAssignmentFlow().personnelSearch = nextValue;
+      renderAssignment();
+      const nextInput = $("#personnelSearchInput", panels.assignment);
+      if (nextInput) {
+        nextInput.focus({ preventScroll: true });
+        nextInput.setSelectionRange(start, end);
+      }
+    });
     $$("[data-assignment-history]", panels.assignment).forEach((button) => button.addEventListener("click", () => openAssignmentHistoryDetail(button.dataset.assignmentHistory)));
     $$("[data-assignment-history-edit]", panels.assignment).forEach((button) => button.addEventListener("click", () => startAssignmentHistoryEdit(button.dataset.assignmentHistoryEdit)));
     $$("[data-assignment-history-cancel]", panels.assignment).forEach((button) => button.addEventListener("click", () => cancelAssignmentHistory(button.dataset.assignmentHistoryCancel)));
