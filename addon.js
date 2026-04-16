@@ -1046,6 +1046,16 @@
     employee.leaveEndDate = relevant?.[2] || "";
     employee.leaveNote = relevant?.[3] || "";
   }
+  function computeCurrentEmploymentStatus(employee, selectedStatus = "재직", retireDate = "") {
+    const retireValue = parseDateValue(retireDate);
+    if (retireValue) {
+      return retireValue <= getCurrentBaseDateValue() ? "퇴직" : (selectedStatus === "퇴직" ? "재직" : selectedStatus);
+    }
+    const activeLeave = getActiveLeaveEntry(employee);
+    if (activeLeave) return "휴직";
+    if (selectedStatus === "휴직") return "재직";
+    return selectedStatus || "재직";
+  }
   function cycleDirectorySort(key) {
     const currentIndex = state.directorySorts.findIndex((item) => item.key === key);
     if (currentIndex === -1) {
