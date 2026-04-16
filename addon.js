@@ -230,18 +230,18 @@
   }
   function getDefaultAdminPermissionIds(categoryId, role) {
     const viewer = {
-      all_admin: ["menu_directory", "menu_record", "menu_org", "directory_view_self", "record_view_self", "org_view"],
+      all_admin: [],
       directory_admin: ["menu_directory", "directory_view_self"],
       record_admin: ["menu_record", "record_view_self"],
       org_admin: ["menu_org", "org_view"],
-      assignment_admin: ["menu_assignment", "assignment_view"],
+      assignment_admin: ["menu_assignment", "assignment_view", "history_view"],
       code_admin: ["menu_codes", "code_view"],
       auth_admin: ["menu_admin", "admin_view"]
     };
     const manager = {
       all_admin: adminPermissionGroups.flatMap((group) => group.items.map((item) => item.id)),
-      directory_admin: ["menu_directory", "directory_view_all", "record_view_self", "employee_create", "employee_edit", "export_allow"],
-      record_admin: ["menu_record", "record_view_all", "history_view", "employee_edit"],
+      directory_admin: ["menu_directory", "directory_view_all", "employee_create", "employee_edit", "export_allow"],
+      record_admin: ["menu_record", "record_view_all", "history_view", "employee_edit", "export_allow"],
       org_admin: ["menu_org", "org_view", "history_view"],
       assignment_admin: ["menu_assignment", "assignment_view", "assignment_execute", "history_view", "history_cancel"],
       code_admin: ["menu_codes", "code_view", "code_edit", "history_view"],
@@ -249,10 +249,17 @@
     };
     return [...new Set((role === "viewer" ? viewer[categoryId] : manager[categoryId]) || [])];
   }
+  function getAdminCategoryPermissionIds(categoryId, role = "manager") {
+    const defaults = getDefaultAdminPermissionIds(categoryId, role);
+    if (categoryId === "all_admin") return defaults;
+    const ids = new Set(defaults);
+    if (role === "viewer") ids.delete("export_allow");
+    return Array.from(ids);
+  }
   function getEmployeeLoginId(employee) {
     return employee?.groupwareId || employee?.id || "";
   }
-  function buildAdminMemberFromEmployee(employee, memberId, permissionIds, registeredAt, role = "manager") {
+  function buildAdminMemberFromEmployee(employee, memberId, permissionIds, registeredAt, role = "manager", options = {}) {
     if (!employee) return null;
     return {
       id: memberId,
@@ -262,6 +269,8 @@
       loginId: getEmployeeLoginId(employee),
       org: [employee.hq, employee.office, employee.team, employee.part].filter(Boolean).join(" > "),
       registeredAt,
+      expiresAt: completeDateInput(options.expiresAt || ""),
+      changeReason: String(options.changeReason || "").trim(),
       permissions: createPermissionMap(permissionIds),
       viewScope: permissionIds.includes("directory_view_all") ? "all" : permissionIds.includes("directory_view_partial") ? "partial" : "self",
       viewTargets: []
@@ -280,9 +289,7 @@
           buildAdminMemberFromEmployee(byName("김지원"), "ADM-001", allPerms, "2026.04.10", "manager"),
           buildAdminMemberFromEmployee(byName("최현우"), "ADM-002", getDefaultAdminPermissionIds("all_admin", "manager"), "2026.04.11", "manager")
         ].filter(Boolean),
-        viewers: [
-          buildAdminMemberFromEmployee(byName("정다은"), "ADV-001", getDefaultAdminPermissionIds("all_admin", "viewer"), "2026.04.12", "viewer")
-        ].filter(Boolean)
+        viewers: []
       },
       {
         id: "directory_admin",
@@ -313,34 +320,6 @@
         desc: "조직도 탐색과 구성원 배치 현황 조회를 관리합니다.",
         managers: [],
         viewers: []
-      },
-      {
-        id: "assignment_admin",
-        section: "메뉴별 관리자",
-        label: "조직관리 관리자",
-        desc: "조직개편 및 인사발령 생성/수정/완료와 이력 취소를 관리합니다.",
-        managers: [
-          buildAdminMemberFromEmployee(byName("최현우"), "ADM-005", getDefaultAdminPermissionIds("assignment_admin", "manager"), "2026.04.13", "manager")
-        ].filter(Boolean),
-        viewers: []
-      },
-      {
-        id: "code_admin",
-        section: "메뉴별 관리자",
-        label: "코드관리 관리자",
-        desc: "조직/직급/직책/직군/직원유형 기준정보를 관리합니다.",
-        managers: [],
-        viewers: []
-      },
-      {
-        id: "auth_admin",
-        section: "메뉴별 관리자",
-        label: "관리자 권한 관리자",
-        desc: "관리자 계정과 기능 권한 자체를 관리합니다.",
-        managers: [
-          buildAdminMemberFromEmployee(byName("김지원"), "ADM-006", getDefaultAdminPermissionIds("auth_admin", "manager"), "2026.04.13", "manager")
-        ].filter(Boolean),
-        viewers: []
       }
     ];
   }
@@ -351,11 +330,17 @@
       ...category,
       managers: (category.managers || []).map((manager) => ({
         ...manager,
-        permissions: { ...(manager.permissions || {}) }
+        expiresAt: completeDateInput(manager.expiresAt || ""),
+        changeReason: String(manager.changeReason || "").trim(),
+        permissions: { ...(manager.permissions || {}) },
+        viewTargets: JSON.parse(JSON.stringify(manager.viewTargets || []))
       })),
       viewers: (category.viewers || []).map((viewer) => ({
         ...viewer,
-        permissions: { ...(viewer.permissions || {}) }
+        expiresAt: completeDateInput(viewer.expiresAt || ""),
+        changeReason: String(viewer.changeReason || "").trim(),
+        permissions: { ...(viewer.permissions || {}) },
+        viewTargets: JSON.parse(JSON.stringify(viewer.viewTargets || []))
       }))
     }));
   }
@@ -402,7 +387,7 @@
           }
           map.get(key).roles.push({
             categoryId: category.id,
-            categoryLabel: category.label,
+            categoryLabel: getAdminCategoryDisplayName(category),
             role: bucket === "viewers" ? "viewer" : "manager"
           });
         });
@@ -418,6 +403,7 @@
       ["managers", "viewers"].forEach((bucket) => {
         (category[bucket] || []).forEach((member) => {
           if (member.loginId !== loginId) return;
+          if (member.expiresAt && parseDateValue(member.expiresAt) && parseDateValue(member.expiresAt) < getCurrentBaseDateValue()) return;
           assignments.push({
             categoryId: category.id,
             role: bucket === "viewers" ? "viewer" : "manager",
@@ -475,6 +461,85 @@
     panels.adminMenu?.classList.toggle("codex-hidden", !visibility.admin);
     $(".hr-top-user", refs.hrSystem)?.classList.toggle("codex-hidden", !visibility.admin);
   }
+  function getCurrentOperatorEmployee(categories = state.adminCategories) {
+    const loginId = state.currentOperatorLoginId;
+    if (!loginId) return null;
+    const direct = state.employees.find((employee) => getEmployeeLoginId(employee) === loginId);
+    if (direct) return direct;
+    const assignment = getCurrentOperatorAssignments(categories)[0];
+    return assignment?.member?.employeeId ? state.employees.find((employee) => employee.id === assignment.member.employeeId) || null : null;
+  }
+  function getAdminViewTargetKey(target) {
+    if (!target) return "";
+    if (target.type === "org") return `org:${target.key || ""}`;
+    if (target.type === "employee") return `employee:${target.employeeId || ""}`;
+    return "";
+  }
+  function normalizeAdminViewTargets(targets = []) {
+    const unique = new Map();
+    (targets || []).forEach((target) => {
+      if (!target) return;
+      const normalized = target.type === "org"
+        ? { type: "org", key: target.key || "ROOT", label: target.label || "오토플러스" }
+        : { type: "employee", employeeId: target.employeeId || "", label: target.label || "" };
+      const key = getAdminViewTargetKey(normalized);
+      if (!key) return;
+      if (!normalized.label && normalized.type === "employee") {
+        const employee = state.employees.find((item) => item.id === normalized.employeeId);
+        if (employee) normalized.label = `${employee.name} (${getCurrentOrgLabel(employee)})`;
+      }
+      unique.set(key, normalized);
+    });
+    return Array.from(unique.values()).sort((a, b) => a.label.localeCompare(b.label, "ko"));
+  }
+  function getVisibleEmployeesFromTargets(targets = []) {
+    const ids = new Set();
+    normalizeAdminViewTargets(targets).forEach((target) => {
+      if (target.type === "org") {
+        getEmployeesInOrgKey(target.key || "ROOT", true).forEach((employee) => ids.add(employee.id));
+      } else if (target.type === "employee" && target.employeeId) {
+        ids.add(target.employeeId);
+      }
+    });
+    return state.employees.filter((employee) => ids.has(employee.id));
+  }
+  function getCurrentDirectoryAccessibleEmployees(categories = state.adminCategories) {
+    if (!canAccessView("directory", categories)) return [];
+    const operator = getCurrentOperatorEmployee(categories);
+    const assignments = getCurrentOperatorAssignments(categories).filter((assignment) => assignment.member?.permissions?.menu_directory);
+    if (!assignments.length) return operator ? [operator] : [];
+    if (assignments.some((assignment) => assignment.member?.permissions?.directory_view_all || assignment.member?.viewScope === "all")) {
+      return state.employees.slice();
+    }
+    const ids = new Set();
+    assignments.forEach((assignment) => {
+      const member = assignment.member || {};
+      if (member.permissions?.directory_view_self || member.viewScope === "self") {
+        if (operator?.id) ids.add(operator.id);
+      }
+      if (member.permissions?.directory_view_partial || member.viewScope === "partial") {
+        getVisibleEmployeesFromTargets(member.viewTargets || []).forEach((employee) => ids.add(employee.id));
+      }
+    });
+    return state.employees.filter((employee) => ids.has(employee.id));
+  }
+  function getCurrentRecordAccessibleEmployees(categories = state.adminCategories) {
+    if (!canAccessView("record", categories)) return [];
+    const operator = getCurrentOperatorEmployee(categories);
+    if (hasCurrentPermission("record_view_all", categories)) return state.employees.slice();
+    if (hasCurrentPermission("record_view_self", categories) && operator) return [operator];
+    return [];
+  }
+  function canCurrentAccessEmployeeRecord(employee, categories = state.adminCategories) {
+    if (!employee) return false;
+    return getCurrentRecordAccessibleEmployees(categories).some((item) => item.id === employee.id);
+  }
+  function getFirstAccessibleRecordEmployee(categories = state.adminCategories) {
+    return getCurrentRecordAccessibleEmployees(categories)[0] || null;
+  }
+  function getScopedDirectoryEmployees() {
+    return getCurrentDirectoryAccessibleEmployees().filter((employee) => getEffectiveStatus(employee) !== "퇴직" || state.directoryStatus === "퇴직");
+  }
   function hasPendingAdminChanges() {
     return getAdminPendingChanges().length > 0;
   }
@@ -486,6 +551,11 @@
     const hours = String(now.getHours()).padStart(2, "0");
     const minutes = String(now.getMinutes()).padStart(2, "0");
     return `${year}.${month}.${day} ${hours}:${minutes}`;
+  }
+  const deferredUiTimers = {};
+  function scheduleInputRefresh(timerKey, callback, delay = 120) {
+    window.clearTimeout(deferredUiTimers[timerKey]);
+    deferredUiTimers[timerKey] = window.setTimeout(callback, delay);
   }
   function upsertAdminPendingChange(change) {
     const draft = ensureAdminDraft();
@@ -515,6 +585,8 @@
         category[bucket] = (category[bucket] || []).map((member) => member.id === change.memberId ? {
           ...member,
           permissions: { ...(change.permissions || {}) },
+          expiresAt: completeDateInput(change.expiresAt || member.expiresAt || ""),
+          changeReason: String(change.changeReason || member.changeReason || "").trim(),
           viewScope: change.viewScope || member.viewScope || "self",
           viewTargets: JSON.parse(JSON.stringify(change.viewTargets || member.viewTargets || []))
         } : member);
@@ -538,6 +610,9 @@
     state.currentAdminPendingKey = changeKey;
     state.currentAdminCategory = change.categoryId || state.currentAdminCategory;
     state.currentAdminRoleTab = change.role || state.currentAdminRoleTab;
+    if (state.currentAdminRoleTab === "viewer" && !adminCategorySupportsViewer(getCurrentAdminCategory())) {
+      state.currentAdminRoleTab = "manager";
+    }
     if (change.kind === "add-members") {
       state.adminAddOpen = true;
       state.adminAddQuery = "";
@@ -572,47 +647,54 @@
     if (!state.adminDraft?.pendingChanges?.length) return;
     state.adminCategories = cloneAdminCategories(state.adminDraft.categories);
     state.adminDraft.pendingChanges.slice().reverse().forEach((change) => {
+      const categoryLabel = getAdminCategoryDisplayName(findAdminCategoryIn(state.adminCategories, change.categoryId) || { id: change.categoryId, label: change.categoryId });
       if (change.kind === "add-members") {
         pushAdminHistory(
           "추가",
-          `${findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId} · ${change.role === "viewer" ? "열람자" : "관리자"}`,
+          `${categoryLabel} · ${change.role === "viewer" ? "열람자" : "관리자"}`,
           `${(change.members || []).map((member) => member.name).join(", ")} 등록`,
           {
             kind: change.kind,
             categoryId: change.categoryId,
-            categoryLabel: findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId,
+            categoryLabel,
             role: change.role,
             members: (change.members || []).map((member) => ({ name: member.name, loginId: member.loginId, org: member.org })),
+            expiresAt: completeDateInput(change.expiresAt || ""),
+            changeReason: String(change.changeReason || "").trim(),
             summary: change.summary || ""
           }
         );
       } else if (change.kind === "remove-members") {
         pushAdminHistory(
           "제거",
-          `${findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId} · ${change.role === "viewer" ? "열람자" : "관리자"}`,
+          `${categoryLabel} · ${change.role === "viewer" ? "열람자" : "관리자"}`,
           `${(change.memberNames || []).join(", ")} 제거`,
           {
             kind: change.kind,
             categoryId: change.categoryId,
-            categoryLabel: findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId,
+            categoryLabel,
             role: change.role,
             memberNames: [...(change.memberNames || [])],
+            expiresAt: completeDateInput(change.expiresAt || ""),
+            changeReason: String(change.changeReason || "").trim(),
             summary: change.summary || ""
           }
         );
       } else if (change.kind === "set-permissions") {
         pushAdminHistory(
           "권한변경",
-          `${findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId} · ${change.memberName}`,
+          `${categoryLabel} · ${change.memberName}`,
           change.role === "viewer" ? "열람 권한 재정의" : "관리 권한 재정의",
           {
             kind: change.kind,
             categoryId: change.categoryId,
-            categoryLabel: findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId,
+            categoryLabel,
             role: change.role,
             memberName: change.memberName,
             memberId: change.memberId,
             permissions: { ...(change.permissions || {}) },
+            expiresAt: completeDateInput(change.expiresAt || ""),
+            changeReason: String(change.changeReason || "").trim(),
             viewScope: change.viewScope || "",
             viewTargets: JSON.parse(JSON.stringify(change.viewTargets || [])),
             summary: change.summary || ""
@@ -657,6 +739,8 @@
       });
       rows.push(["활성 권한", enabled.length ? enabled.join(", ") : "없음"]);
     }
+    if (meta.expiresAt) rows.push(["임시 만료일", meta.expiresAt]);
+    if (meta.changeReason) rows.push(["변경 사유", meta.changeReason]);
     if (meta.summary) rows.push(["요약", meta.summary]);
     adminHistoryModal.body.innerHTML = `<div class="codex-sheet-focus"><table><tbody>${rows.map(([label, value]) => `<tr><th>${label}</th><td>${value}</td></tr>`).join("")}</tbody></table></div>`;
     adminHistoryModal.save.onclick = () => adminHistoryModal.close();
@@ -769,7 +853,7 @@
     return rows.map((row) => ({ ...row }));
   }
   const baseOrgBlueprint = createOrgBlueprint(orgRows);
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), orgBlueprint: cloneOrgBlueprint(baseOrgBlueprint), metaRegistry: JSON.parse(JSON.stringify(initialMetaRegistry)), adminCategories: cloneAdminCategories(initialAdminCategories), adminHistory: [], adminDraft: null, currentAdminPendingKey: "", currentAdminCategory: "all_admin", currentAdminRoleTab: "manager", currentAdminManagerId: "ADM-001", currentAdminOrgKey: "ROOT", adminExpandedKeys: ["ROOT"], adminAddOpen: false, adminAddQuery: "", adminCandidateSelection: [], adminMemberSelection: [], adminScopeOpen: false, adminScopeQuery: "", adminScopeSelection: [], currentOperatorLoginId: initialOperatorLoginId, codeHistory: [], codeDraft: null, currentPendingChangeKey: "", assignmentRecords: [], deletedOrgArchive: [], assignmentFlow: null, assignmentLandingTab: "org", assignmentLandingSearch: "", selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentMetaCodeSelection: "", currentCodeHistoryFilter: "all", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", directoryRetireDateFrom: "", directoryRetireDateTo: "", directorySorts: [], hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), orgBlueprint: cloneOrgBlueprint(baseOrgBlueprint), metaRegistry: JSON.parse(JSON.stringify(initialMetaRegistry)), adminCategories: cloneAdminCategories(initialAdminCategories), adminHistory: [], adminDraft: null, currentAdminPendingKey: "", currentAdminCategory: "all_admin", currentAdminRoleTab: "manager", currentAdminManagerId: "ADM-001", currentAdminOrgKey: "ROOT", adminExpandedKeys: ["ROOT"], adminAddOpen: false, adminAddQuery: "", adminCandidateSelection: [], adminMemberSelection: [], adminScopeOpen: false, adminScopeQuery: "", adminScopeSelection: [], adminCopyOpen: false, adminCopyQuery: "", adminCopySourceId: "", adminCompareOpen: false, adminCompareQuery: "", adminCompareSourceId: "", currentOperatorLoginId: initialOperatorLoginId, codeHistory: [], codeDraft: null, currentPendingChangeKey: "", assignmentRecords: [], deletedOrgArchive: [], assignmentFlow: null, assignmentLandingTab: "org", assignmentLandingSearch: "", selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentMetaCodeSelection: "", currentCodeHistoryFilter: "all", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", directoryRetireDateFrom: "", directoryRetireDateTo: "", directorySorts: [], hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
   syncLegacyMetaArraysFromRegistry();
   syncEmployeeCodeRefs();
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -1008,6 +1092,26 @@
     if (endValue && endValue < currentValue) return false;
     return true;
   }
+  function normalizeLeaveRows(rows) {
+    return (rows || [])
+      .map((row) => [String(row?.[0] || "").trim(), completeDateInput(row?.[1] || ""), completeDateInput(row?.[2] || ""), String(row?.[3] || "").trim()])
+      .filter((row) => row.some((value) => String(value || "").trim()))
+      .sort((a, b) => {
+        const aStart = parseDateValue(a[1]);
+        const bStart = parseDateValue(b[1]);
+        if (aStart !== bStart) return aStart - bStart;
+        return parseDateValue(a[2]) - parseDateValue(b[2]);
+      });
+  }
+  function validateLeaveRows(rows) {
+    for (const row of rows) {
+      const [type, startDate, endDate] = row;
+      if ((type || endDate) && !startDate) return "휴직유형이나 종료일을 입력한 경우 시작일도 함께 입력해 주세요.";
+      if (startDate && !type) return "휴직 시작일을 입력한 경우 휴직유형도 함께 입력해 주세요.";
+      if (startDate && endDate && parseDateValue(endDate) < parseDateValue(startDate)) return "휴직 종료일은 시작일보다 빠를 수 없습니다.";
+    }
+    return "";
+  }
   function getLeaveEntries(employee) {
     if (employee.leaveItems?.length) {
       return employee.leaveItems
@@ -1056,16 +1160,47 @@
     if (selectedStatus === "휴직") return "재직";
     return selectedStatus || "재직";
   }
+  function getLeavePhase(row) {
+    const startValue = parseDateValue(row?.[1]);
+    const endValue = parseDateValue(row?.[2]);
+    const currentValue = getCurrentBaseDateValue();
+    if (startValue && startValue > currentValue) return "예정";
+    if (endValue && endValue < currentValue) return "종료";
+    if (startValue || endValue) return "진행중";
+    return "-";
+  }
+  function getEmployeeLeaveSummary(employee) {
+    const relevant = getMostRelevantLeaveEntry(employee);
+    if (!relevant) return { type: "-", period: "-", phase: "-", note: "" };
+    const period = `${relevant[1] || "-"}${relevant[2] ? ` ~ ${relevant[2]}` : ""}`;
+    return {
+      type: relevant[0] || "휴직",
+      period,
+      phase: getLeavePhase(relevant),
+      note: relevant[3] || ""
+    };
+  }
+  function appendLeaveHistoryEntries(employee, leaveRows) {
+    employee.history = employee.history || [];
+    leaveRows.forEach((row) => {
+      const [type, startDate, endDate, note] = row;
+      const baseLabel = type || "휴직";
+      if (startDate && !employee.history.some((item) => item?.[0] === startDate && String(item?.[1] || "").includes(baseLabel) && String(item?.[1] || "").includes("시작"))) {
+        employee.history.unshift([startDate, `${baseLabel} 시작${note ? ` (${note})` : ""}`]);
+      }
+      if (endDate && !employee.history.some((item) => item?.[0] === endDate && String(item?.[1] || "").includes(baseLabel) && (String(item?.[1] || "").includes("종료") || String(item?.[1] || "").includes("복귀")))) {
+        employee.history.unshift([endDate, `${baseLabel} 종료${note ? ` (${note})` : ""}`]);
+      }
+    });
+  }
   function cycleDirectorySort(key) {
     const currentIndex = state.directorySorts.findIndex((item) => item.key === key);
     if (currentIndex === -1) {
-      state.directorySorts.unshift({ key, order: -1 });
+      state.directorySorts.push({ key, order: -1 });
       return;
     }
     if (state.directorySorts[currentIndex].order === -1) {
       state.directorySorts[currentIndex].order = 1;
-      const [item] = state.directorySorts.splice(currentIndex, 1);
-      state.directorySorts.unshift(item);
       return;
     }
     if (state.directorySorts[currentIndex].order === 1) {
@@ -1119,6 +1254,19 @@
     if (employee.maritalStatus) return employee.maritalStatus;
     const numeric = Number(employee.id.replace(/\D/g, "")) || 0;
     return numeric % 3 === 0 ? "기혼" : "미혼";
+  }
+  function getTenureText(employee) {
+    const hire = parseDateParts(employee.hireDate);
+    const current = parseDateParts(completeDateInput(String(getCurrentBaseDateValue())));
+    if (!hire.year || !hire.month || !current.year || !current.month) return "-";
+    let months = (current.year - hire.year) * 12 + (current.month - hire.month);
+    if ((current.day || 1) < (hire.day || 1)) months -= 1;
+    if (months < 0) months = 0;
+    return `${Math.floor(months / 12)}년 ${months % 12}개월`;
+  }
+  function getPrimaryDuty(employee) {
+    const latestCareer = getCareerHistory(employee)[0]?.[1];
+    return latestCareer || employee.memo || `${deepestDept(employee)} 담당`;
   }
   function getLeaveType(employee) {
     const entry = getMostRelevantLeaveEntry(employee);
@@ -1248,20 +1396,6 @@
       training: { 1: { format: "date" }, 2: { format: "date" } }
     };
     return configs[key]?.[index] || {};
-  }
-  function getTenureText(employee) {
-    const hireValue = parseDateValue(employee.hireDate);
-    if (!hireValue) return "-";
-    const hire = parseDateParts(employee.hireDate);
-    const current = parseDateParts(completeDateInput(String(getCurrentBaseDateValue())));
-    let months = (current.year - hire.year) * 12 + (current.month - hire.month);
-    if ((current.day || 1) < (hire.day || 1)) months -= 1;
-    if (months < 0) months = 0;
-    return `${Math.floor(months / 12)}년 ${months % 12}개월`;
-  }
-  function getPrimaryDuty(employee) {
-    const latestCareer = getCareerHistory(employee)[0]?.[1];
-    return latestCareer || employee.memo || `${deepestDept(employee)} 담당`;
   }
   function repeatableFieldHtml(key, column, index, value = "") {
     const config = getRepeatableFieldConfig(key, index);
@@ -1422,17 +1556,14 @@
     });
   }
   function getLeaveStatEvents(employee) {
-    const events = [];
-    const leaveStartDate = getLeaveStartDate(employee);
-    (employee.awardItems || []).forEach((item) => {
-      const date = item?.[2];
-      const label = `${item?.[0] || ""} ${item?.[1] || ""} ${item?.[3] || ""}`;
-      if (label.includes("휴직")) events.push({ date, label });
+    return getLeaveEntries(employee).flatMap((row) => {
+      const type = row[0] || "휴직";
+      const period = `${row[1] || "-"}${row[2] ? ` ~ ${row[2]}` : ""}`;
+      const events = [];
+      if (row[1]) events.push({ date: row[1], label: `${type} 시작 (${period})` });
+      if (row[2]) events.push({ date: row[2], label: `${type} 종료 (${period})` });
+      return events;
     });
-    if (getEffectiveStatus(employee) === "휴직" && leaveStartDate) {
-      events.push({ date: leaveStartDate, label: `${getLeaveType(employee)} (${getLeaveStartDate(employee)} ~ ${getLeaveEndDate(employee) || "미정"})` });
-    }
-    return events;
   }
   function matchesPeriod(year, month, mode, selectedYear, selectedMonth, selectedQuarter, selectedHalf) {
     if (!year || !month) return false;
@@ -1464,7 +1595,7 @@
   function renderEmployeeList(items, mode = "default") {
     if (!items.length) return `<div class="codex-note-box"><strong>대상자 없음</strong>선택한 조건에 해당하는 대상자가 없습니다.</div>`;
     if (mode === "leave") {
-      return `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>휴직유형</th><th>휴직기간</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${isCurrentlyOnLeave(employee) ? getLeaveType(employee) : "-"}</td><td>${isCurrentlyOnLeave(employee) ? `${getLeaveStartDate(employee) || "-"}${getLeaveEndDate(employee) ? ` ~ ${getLeaveEndDate(employee)}` : ""}` : "-"}</td><td>${getDisplayStatus(employee)}</td></tr>`).join("")}</tbody></table>`;
+      return `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>휴직유형</th><th>휴직기간</th><th>휴직단계</th><th>재직상태</th></tr></thead><tbody>${items.map((employee) => { const leaveSummary = getEmployeeLeaveSummary(employee); return `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${leaveSummary.type}</td><td>${leaveSummary.period}</td><td>${leaveSummary.phase}</td><td>${getDisplayStatus(employee)}</td></tr>`; }).join("")}</tbody></table>`;
     }
     if (mode === "retire") {
       return `<table><thead><tr><th>사번</th><th>성명</th><th>소속</th><th>직급</th><th>퇴사일</th><th>상태</th></tr></thead><tbody>${items.map((employee) => `<tr data-stat-employee="${employee.id}" class="${state.statModalSelection === employee.id ? "codex-table-selected" : ""}" style="cursor:pointer"><td>${employee.id}</td><td>${employee.name}</td><td>${employeePath(employee)}</td><td>${employee.grade}</td><td>${employee.retireDate || "-"}</td><td>${getDisplayStatus(employee)}</td></tr>`).join("")}</tbody></table>`;
@@ -1485,7 +1616,10 @@
   }
   function getDirectoryFilteredEmployees() {
     const keyword = state.directorySearchText.trim().toLowerCase();
-    const scopedEmployees = state.directoryStatus === "퇴직" ? state.employees.filter((employee) => getDisplayStatus(employee) === "퇴직") : state.employees.filter((employee) => getDisplayStatus(employee) !== "퇴직");
+    const sourceEmployees = getCurrentDirectoryAccessibleEmployees();
+    const scopedEmployees = state.directoryStatus === "퇴직"
+      ? sourceEmployees.filter((employee) => getDisplayStatus(employee) === "퇴직")
+      : sourceEmployees.filter((employee) => getDisplayStatus(employee) !== "퇴직");
     const filtered = scopedEmployees.filter((employee) => {
       const dept = deepestDept(employee);
       const deptPath = employeePath(employee);
@@ -1506,24 +1640,21 @@
       return textMatched && deptMatched && gradeMatched && statusMatched && hireDateFromMatched && hireDateToMatched && retireDateFromMatched && retireDateToMatched;
     });
     if (!state.directorySorts.length) return filtered;
-    const compareByKey = (a, b, key) => {
-      const statusA = getDisplayStatus(a);
-      const statusB = getDisplayStatus(b);
-      if (key === "id") return a.id.localeCompare(b.id, "ko");
-      if (key === "name") return a.name.localeCompare(b.name, "ko");
-      if (key === "dept") return employeePath(a).localeCompare(employeePath(b), "ko");
-      if (key === "grade") return gradeCodes.indexOf(a.grade) - gradeCodes.indexOf(b.grade);
-      if (key === "hireDate") return parseDateValue(a.hireDate) - parseDateValue(b.hireDate);
-      if (key === "status") return statusA.localeCompare(statusB, "ko");
-      return 0;
-    };
     const sorted = [...filtered].sort((a, b) => {
       for (const sortItem of state.directorySorts) {
         const factor = sortItem.order;
-        const result = compareByKey(a, b, sortItem.key);
+        const statusA = getDisplayStatus(a);
+        const statusB = getDisplayStatus(b);
+        let result = 0;
+        if (sortItem.key === "id") result = a.id.localeCompare(b.id, "ko");
+        else if (sortItem.key === "name") result = a.name.localeCompare(b.name, "ko");
+        else if (sortItem.key === "dept") result = deepestDept(a).localeCompare(deepestDept(b), "ko");
+        else if (sortItem.key === "grade") result = a.grade.localeCompare(b.grade, "ko");
+        else if (sortItem.key === "hireDate") result = parseDateValue(a.hireDate) - parseDateValue(b.hireDate);
+        else if (sortItem.key === "status") result = statusA.localeCompare(statusB, "ko");
         if (result !== 0) return factor * result;
       }
-      return a.id.localeCompare(b.id, "ko");
+      return 0;
     });
     return sorted;
   }
@@ -1702,7 +1833,19 @@
       renderDirectorySearchBar();
     });
     $("#directorySearchInput", refs.searchBar)?.addEventListener("input", (event) => {
-      state.directorySearchText = event.target.value;
+      const input = event.target;
+      const nextValue = input.value || "";
+      const start = input.selectionStart ?? nextValue.length;
+      const end = input.selectionEnd ?? nextValue.length;
+      state.directorySearchText = nextValue;
+      scheduleInputRefresh("directorySearchInput", () => {
+        renderTable();
+        const nextInput = $("#directorySearchInput", refs.searchBar);
+        if (nextInput) {
+          nextInput.focus({ preventScroll: true });
+          nextInput.setSelectionRange(start, end);
+        }
+      });
     });
     $("#directorySearchInput", refs.searchBar)?.addEventListener("keydown", (event) => {
       if (event.key !== "Enter") return;
@@ -2002,8 +2145,9 @@
     const employee = state.employees.find((item) => item.id === employeeId);
     if (!employee) return;
     state.selectedId = employee.id;
-    quickProfileModal.body.innerHTML = `<div class="codex-quick-card"><div class="codex-quick-header"><div class="codex-quick-avatar">${employee.name[0]}</div><div class="codex-quick-header-body"><div class="codex-quick-name-row"><div class="codex-quick-name">${employee.name}</div></div><div class="codex-quick-role">${employee.grade}</div><div class="codex-quick-role">${employee.title || "팀원"}</div><div class="codex-quick-profile-chips"><span class="codex-quick-chip">${employee.jobFamily}</span><span class="codex-quick-chip">${employee.employeeType}</span><span class="codex-quick-chip">근속 ${getTenureText(employee)}</span></div></div></div><div class="codex-quick-orgpath">${employeePath(employee)}</div><div class="codex-quick-divider"></div><div class="codex-quick-info-list"><div class="codex-quick-info-row"><div class="codex-quick-info-label">이메일</div><div class="codex-quick-info-value">${getCompanyEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">회사 전화</div><div class="codex-quick-info-value">${getCompanyPhone(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">개인 이메일</div><div class="codex-quick-info-value">${getPersonalEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴대 전화</div><div class="codex-quick-info-value">${employee.phone}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">입사일</div><div class="codex-quick-info-value">${employee.hireDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">사번</div><div class="codex-quick-info-value">${employee.id}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">생년월일</div><div class="codex-quick-info-value">${employee.birthDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">담당업무</div><div class="codex-quick-info-value">${getPrimaryDuty(employee)}</div></div>${isCurrentlyOnLeave(employee) ? `<div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직유형</div><div class="codex-quick-info-value">${getLeaveType(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직기간</div><div class="codex-quick-info-value">${getLeaveStartDate(employee).replaceAll(".", "-")} ~ ${getLeaveEndDate(employee).replaceAll(".", "-")}</div></div>` : ""}<div class="codex-quick-info-row"><div class="codex-quick-info-label">주소</div><div class="codex-quick-info-value">${getAddress(employee)}</div></div></div></div>`;
+    quickProfileModal.body.innerHTML = `<div class="codex-quick-card"><div class="codex-quick-header"><div class="codex-quick-avatar">${employee.name[0]}</div><div class="codex-quick-header-body"><div class="codex-quick-name-row"><div class="codex-quick-name">${employee.name}</div></div><div class="codex-quick-role">${employee.grade}</div><div class="codex-quick-role">${employee.title || "팀원"}</div></div></div><div class="codex-quick-orgpath">${employeePath(employee)}</div><div class="codex-quick-divider"></div><div class="codex-quick-info-list"><div class="codex-quick-info-row"><div class="codex-quick-info-label">직책</div><div class="codex-quick-info-value">${employee.title || "팀원"}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">직군</div><div class="codex-quick-info-value">${employee.jobFamily || "-"}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">근속년월</div><div class="codex-quick-info-value">${getTenureText(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">담당업무</div><div class="codex-quick-info-value">${getPrimaryDuty(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">이메일</div><div class="codex-quick-info-value">${getCompanyEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">회사 전화</div><div class="codex-quick-info-value">${getCompanyPhone(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">개인 이메일</div><div class="codex-quick-info-value">${getPersonalEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴대 전화</div><div class="codex-quick-info-value">${employee.phone}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">입사일</div><div class="codex-quick-info-value">${employee.hireDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">사번</div><div class="codex-quick-info-value">${employee.id}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">생년월일</div><div class="codex-quick-info-value">${employee.birthDate.replaceAll(".", "-")}</div></div>${getLeaveEntries(employee).length ? `<div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직내역</div><div class="codex-quick-info-value">${getLeaveEntries(employee).map((row) => `${row[0] || "휴직"} / ${row[1] || "-"} ~ ${row[2] || "미정"} / ${getLeavePhase(row)}${row[3] ? ` / ${row[3]}` : ""}`).join("<br>")}</div></div>` : ""}<div class="codex-quick-info-row"><div class="codex-quick-info-label">주소</div><div class="codex-quick-info-value">${getAddress(employee)}</div></div></div></div>`;
     const goRecord = () => {
+      if (!canCurrentAccessEmployeeRecord(employee)) return;
       quickProfileModal.close();
       statsModal.close();
       state.currentRecordTab = "overview";
@@ -2011,6 +2155,7 @@
     };
     quickProfileModal.save.onclick = () => quickProfileModal.close();
     quickHeadButton.onclick = goRecord;
+    quickHeadButton.classList.toggle("codex-hidden", !canCurrentAccessEmployeeRecord(employee));
     quickProfileModal.open();
   }
   statsModal.body.addEventListener("click", (event) => {
@@ -2065,13 +2210,15 @@
     refs.sideItems[3]?.addEventListener("click", () => showHrView("assignment"));
   }
   function renderStats() {
-    const hireItems = getHireStatEmployees(state.hireStatMode);
-    const retireItems = getRetireStatEmployees(state.hireStatMode);
-    const values = [state.employees.length, state.employees.filter((employee) => getDisplayStatus(employee) === "재직").length, getLeaveStatEmployees("current").length, hireItems.length + retireItems.length];
+    const visibleEmployees = getCurrentDirectoryAccessibleEmployees();
+    const visibleIds = new Set(visibleEmployees.map((employee) => employee.id));
+    const hireItems = getHireStatEmployees(state.hireStatMode).filter((employee) => visibleIds.has(employee.id));
+    const retireItems = getRetireStatEmployees(state.hireStatMode).filter((employee) => visibleIds.has(employee.id));
+    const values = [visibleEmployees.length, visibleEmployees.filter((employee) => getDisplayStatus(employee) === "재직").length, getLeaveStatEmployees("current").filter((employee) => visibleIds.has(employee.id)).length, hireItems.length + retireItems.length];
     $$(".hr-stat-value", refs.stats).forEach((node, index) => { if (values[index] !== undefined) node.textContent = String(values[index]); });
     const subTexts = [
-      `▲ ${Math.max(1, Math.floor(state.employees.length / 20))}명 (이번 달)`,
-      `정규직 ${state.employees.filter((employee) => employee.employeeType === "정규직" && getDisplayStatus(employee) === "재직").length} · 계약직 ${state.employees.filter((employee) => employee.employeeType === "계약직" && getDisplayStatus(employee) === "재직").length} · 임원 ${state.employees.filter((employee) => employee.employeeType === "임원" && getDisplayStatus(employee) === "재직").length}`,
+      `▲ ${Math.max(1, Math.floor(visibleEmployees.length / 20) || 1)}명 (이번 달)`,
+      `정규직 ${visibleEmployees.filter((employee) => employee.employeeType === "정규직" && getDisplayStatus(employee) === "재직").length} · 계약직 ${visibleEmployees.filter((employee) => employee.employeeType === "계약직" && getDisplayStatus(employee) === "재직").length} · 임원 ${visibleEmployees.filter((employee) => employee.employeeType === "임원" && getDisplayStatus(employee) === "재직").length}`,
       "육아·병가 포함",
       `입사 ${hireItems.length} · 퇴사 ${retireItems.length} · ${getHireStatLabel(state.hireStatMode)}`
     ];
@@ -2474,6 +2621,7 @@
     statsModal.save.style.display = "none";
     const cancelButton = $('[data-role="cancel"]', statsModal.root);
     if (cancelButton) cancelButton.textContent = "닫기";
+    const visibleIds = new Set(getCurrentDirectoryAccessibleEmployees().map((employee) => employee.id));
     if (type === "leave") {
       const modes = [
         { id: "current", label: "현재 기준" },
@@ -2487,7 +2635,7 @@
         ...getLeaveStatEvents(employee).map((event) => parseDateParts(event.date).year)
       ]).filter(Boolean)).sort((a, b) => b - a);
       if (!years.length) years.push(new Date().getFullYear());
-      const items = getLeaveStatEmployees(state.leaveStatMode);
+      const items = getLeaveStatEmployees(state.leaveStatMode).filter((employee) => visibleIds.has(employee.id));
       if (!state.statModalSelection && items[0]) state.statModalSelection = items[0].id;
       if (state.statModalSelection && !items.some((item) => item.id === state.statModalSelection)) state.statModalSelection = items[0]?.id || "";
       const periodControl = state.leaveStatMode === "month"
@@ -2534,8 +2682,8 @@
         { id: "year", label: "년도별" }
       ];
       const years = uniqueValues(state.employees.flatMap((employee) => [parseDateParts(employee.hireDate).year, parseDateParts(employee.retireDate).year]).filter(Boolean)).sort((a, b) => b - a);
-      const hireItems = getHireStatEmployees(state.hireStatMode);
-      const retireItems = getRetireStatEmployees(state.hireStatMode);
+      const hireItems = getHireStatEmployees(state.hireStatMode).filter((employee) => visibleIds.has(employee.id));
+      const retireItems = getRetireStatEmployees(state.hireStatMode).filter((employee) => visibleIds.has(employee.id));
       const items = [...hireItems, ...retireItems];
       if ((!state.statModalSelection || !items.some((item) => item.id === state.statModalSelection)) && items[0]) state.statModalSelection = items[0].id;
       const periodControl = state.hireStatMode === "month"
@@ -2577,9 +2725,17 @@
     }
   }
   function renderRecord() {
-    const employee = selectedEmployee();
+    let employee = selectedEmployee();
+    if (!canCurrentAccessEmployeeRecord(employee)) {
+      employee = getFirstAccessibleRecordEmployee();
+      if (employee) state.selectedId = employee.id;
+    }
     refs.cardWrap.style.gridTemplateColumns = "minmax(0, 1fr)";
     refs.cardWrap.style.width = "100%";
+    if (!employee || !canCurrentAccessEmployeeRecord(employee)) {
+      refs.cardWrap.innerHTML = `<div class="codex-note-box"><strong>열람 권한 없음</strong>현재 계정으로 열람 가능한 인사기록카드가 없습니다.</div>`;
+      return;
+    }
     const tab = state.currentRecordTab;
     const tabs = [
       ["overview", "기본정보"],
@@ -2611,7 +2767,7 @@
         ["개인 이메일", getPersonalEmail(employee), "회사 전화", getCompanyPhone(employee)],
         ["주소", getAddress(employee), "", ""]
       ]),
-      leave: previewGrid(["휴직유형", "시작일", "종료일", "비고"], getLeaveEntries(employee)),
+        leave: previewGrid(["휴직유형", "시작일", "종료일", "진행상태", "비고"], getLeaveEntries(employee).map((row) => [row[0], row[1], row[2], getLeavePhase(row), row[3]])),
       education: previewGrid(["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""])),
       career: previewGrid(["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""])),
       assignment: previewGrid(["발령구분", "발령일", "발령부서", "직급", "직책", "비고"], employee.history.map((item, index) => [index === employee.history.length - 1 ? "입사" : "발령", item[0], deepestDept(employee), employee.grade, employee.title, item[1]])),
@@ -2632,7 +2788,7 @@
       ];
     });
     const infoPreview = `<div class="codex-sheet-top"><div class="codex-sheet-logo">AUTOPLUS</div><div class="codex-sheet-top-main"><table><tbody><tr><th>부서</th><td>${employeePath(employee)}</td><th>성명</th><td>${employee.name}</td></tr><tr><th>직급</th><td>${employee.grade}</td><th>직책</th><td>${employee.title}</td></tr><tr><th>주민등록번호</th><td>${employee.residentNumber || getResidentNumber(employee)}</td><th>입사일</th><td>${employee.hireDate}</td></tr><tr><th>생년월일</th><td>${employee.birthDate}</td><th>직군</th><td>${employee.jobFamily}</td></tr><tr><th>직전승급일</th><td>${employee.assignmentDate}</td><th>근속년수</th><td>${Math.floor(Number(employee.careerMonths || 0) / 12)}년 ${Number(employee.careerMonths || 0) % 12}개월</td></tr><tr><th>내선번호</th><td>${getCompanyPhone(employee)}</td><th>결혼여부</th><td>${employee.maritalStatus || getMaritalStatus(employee)}</td></tr><tr><th>연락처</th><td>${employee.phone}</td><th>E-Mail</th><td>${getCompanyEmail(employee)}</td></tr><tr><th>그룹웨어 ID</th><td>${employee.groupwareId || getGroupwareId(employee)}</td><th>개인 이메일</th><td>${getPersonalEmail(employee)}</td></tr><tr><th>주소</th><td colspan="3">${getAddress(employee)}</td></tr></tbody></table></div></div>`;
-    const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"><div class="codex-record-sheet-head"><div class="codex-record-sheet-title">인사정보카드</div></div>${infoPreview}${buildSheetSection("휴직사항", "leave", ["휴직유형", "시작일", "종료일", "비고"], getLeaveEntries(employee), tab === "leave")}${buildSheetSection("학력사항", "education", ["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""]), tab === "education")}${buildSheetSection("경력사항", "career", ["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""]), tab === "career")}${buildSheetSection("가족사항", "family", ["관계", "성명", "생년월일"], getFamilyEntries(employee), tab === "family")}${buildSheetSection("자격증", "certificate", ["자격증명", "발급기관", "취득일"], getCertificateEntries(employee).map((item) => [item[1], item[2], item[3]]), tab === "certificate")}${buildSheetSection("상벌사항", "award", ["상벌구분", "상벌명", "발생일", "사유"], getAwardEntries(employee), tab === "award")}${buildSheetSection("승급사항", "promotion", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], getPromotionEntries(employee), tab === "promotion")}${buildSheetSection("발령사항", "assignment", ["발령구분", "발령일", "발령부서", "직군", "직원유형", "직급", "직책", "비고"], assignmentRows, tab === "assignment")}${buildSheetSection("교육사항", "training", ["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""]), tab === "training")}</div></div>`;
+const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"><div class="codex-record-sheet-head"><div class="codex-record-sheet-title">인사정보카드</div></div>${infoPreview}${buildSheetSection("휴직사항", "leave", ["휴직유형", "시작일", "종료일", "진행상태", "비고"], getLeaveEntries(employee).map((row) => [row[0], row[1], row[2], getLeavePhase(row), row[3]]), tab === "leave")}${buildSheetSection("학력사항", "education", ["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""]), tab === "education")}${buildSheetSection("경력사항", "career", ["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""]), tab === "career")}${buildSheetSection("가족사항", "family", ["관계", "성명", "생년월일"], getFamilyEntries(employee), tab === "family")}${buildSheetSection("자격증", "certificate", ["자격증명", "발급기관", "취득일"], getCertificateEntries(employee).map((item) => [item[1], item[2], item[3]]), tab === "certificate")}${buildSheetSection("상벌사항", "award", ["상벌구분", "상벌명", "발생일", "사유"], getAwardEntries(employee), tab === "award")}${buildSheetSection("승급사항", "promotion", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], getPromotionEntries(employee), tab === "promotion")}${buildSheetSection("발령사항", "assignment", ["발령구분", "발령일", "발령부서", "직군", "직원유형", "직급", "직책", "비고"], assignmentRows, tab === "assignment")}${buildSheetSection("교육사항", "training", ["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""]), tab === "training")}</div></div>`;
     refs.cardWrap.innerHTML = `<div class="codex-record-shell" style="grid-template-columns:minmax(0,1fr)">${detail}</div>`;
   }
   function escapePrintHtml(value) {
@@ -2858,6 +3014,7 @@
       overview: "기본정보 상세",
       hire: "입사정보 상세",
       personal: "신상정보 상세",
+      leave: "휴직사항 상세",
       education: "학력사항 상세",
       career: "경력사항 상세",
       family: "가족사항 상세",
@@ -2888,6 +3045,7 @@
         ["개인 이메일", getPersonalEmail(employee), "회사 전화", getCompanyPhone(employee)],
         ["주소", getAddress(employee), "", ""]
       ]),
+      leave: previewGrid(["휴직유형", "시작일", "종료일", "진행상태", "비고"], getLeaveEntries(employee).map((row) => [row[0], row[1], row[2], getLeavePhase(row), row[3]])),
       education: previewGrid(["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""])),
       career: previewGrid(["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""])),
       family: previewGrid(["관계", "성명", "생년월일"], getFamilyEntries(employee)),
@@ -3606,22 +3764,26 @@
       ? [["부서명", "오토플러스"], ["부서 코드", "ROOT"], ["부서 레벨", "ROOT"], ["최근 수정일", "2026.04.14 09:00"]]
       : [["부서명", getOrgRowName(selectedRow)], ["부서 코드", selectedRow?.code || "-"], ["부서 레벨", getOrgRowLevel(selectedRow)], ["최근 수정일", selectedRow?.updatedAt || "-"]];
     const memberRows = selectedMembers.map((employee) => `<tr><td>${employee.name}</td><td>${employee.id}</td><td>${employee.title}</td><td>${getDisplayStatus(employee)}</td></tr>`).join("");
-    const historyRows = state.assignmentRecords.map((record) => `<tr><td><button type="button" class="codex-link-btn" data-assignment-history="${record.date}">${record.date}</button></td><td>${record.orgSummary.created.length + record.orgSummary.updated.length + record.orgSummary.deleted.length}건</td><td>${record.personnelActions.length}건</td><td>${record.mode === "auto" ? "자동" : "수동"}</td><td>${record.status || "완료"}</td><td><div class="codex-inline-actions"><button type="button" class="hr-btn btn-xs btn-outline" data-assignment-history-edit="${record.date}">수정</button><button type="button" class="hr-btn btn-xs btn-outline" data-assignment-history-cancel="${record.date}" ${record.status === "취소" ? "disabled" : ""}>취소</button></div></td></tr>`).join("");
+    const historyRows = state.assignmentRecords.map((record) => `<tr><td><button type="button" class="codex-link-btn" data-assignment-history="${record.date}">${record.date}</button></td><td>${record.orgSummary.created.length + record.orgSummary.updated.length + record.orgSummary.deleted.length}건</td><td>${record.personnelActions.length}건</td><td>${record.mode === "auto" ? "자동" : "수동"}</td><td>${record.status || "완료"}</td><td><div class="codex-inline-actions"><button type="button" class="hr-btn btn-xs btn-outline" data-assignment-history-edit="${record.date}" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>수정</button><button type="button" class="hr-btn btn-xs btn-outline" data-assignment-history-cancel="${record.date}" ${record.status === "취소" || !hasCurrentPermission("history_cancel") ? "disabled" : ""}>취소</button></div></td></tr>`).join("");
     const deletedRows = state.deletedOrgArchive.map((item) => `<tr><td>${item.date}</td><td>${item.path}</td></tr>`).join("");
     const tabs = `<div class="codex-assignment-tabs"><button type="button" class="codex-assignment-tab ${state.assignmentLandingTab === "org" ? "active" : ""}" data-assignment-tab="org">조직도</button><button type="button" class="codex-assignment-tab ${state.assignmentLandingTab === "history" ? "active" : ""}" data-assignment-tab="history">조직개편/인사발령 이력</button><button type="button" class="codex-assignment-tab ${state.assignmentLandingTab === "deleted" ? "active" : ""}" data-assignment-tab="deleted">삭제된 조직 목록</button></div>`;
     const body = state.assignmentLandingTab === "history"
       ? `<div class="codex-panel"><table><thead><tr><th>인사발령일</th><th>조직개편</th><th>인사발령</th><th>처리방식</th><th>상태</th><th>관리</th></tr></thead><tbody>${historyRows || `<tr><td colspan="6">이력이 없습니다.</td></tr>`}</tbody></table></div>`
       : state.assignmentLandingTab === "deleted"
         ? `<div class="codex-panel"><table><thead><tr><th>일자</th><th>삭제 조직</th></tr></thead><tbody>${deletedRows || `<tr><td colspan="2">삭제 이력이 없습니다.</td></tr>`}</tbody></table></div>`
-        : `<div class="codex-assignment-landing-grid"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>조직도</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(state.orgBlueprint, state.currentOrgNode, false, "landing")}</div></div><div class="codex-stack"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>부서 정보</h4><button type="button" class="hr-btn btn-primary" id="startAssignmentWizardBtn">조직개편/인사발령</button></div><table><tbody>${infoRows.map((row) => `<tr><th>${row[0]}</th><td>${row[1]}</td></tr>`).join("")}</tbody></table></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>구성원 정보</h4><input class="hr-search-input" id="assignmentLandingSearch" value="${state.assignmentLandingSearch || ""}" placeholder="이름, ID 검색"></div><table><thead><tr><th>이름</th><th>ID</th><th>직위</th><th>재직 상태</th></tr></thead><tbody>${memberRows || `<tr><td colspan="4">구성원이 없습니다.</td></tr>`}</tbody></table></div></div></div>`;
+        : `<div class="codex-assignment-landing-grid"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>조직도</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(state.orgBlueprint, state.currentOrgNode, false, "landing")}</div></div><div class="codex-stack"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>부서 정보</h4><button type="button" class="hr-btn btn-primary" id="startAssignmentWizardBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>조직개편/인사발령</button></div><table><tbody>${infoRows.map((row) => `<tr><th>${row[0]}</th><td>${row[1]}</td></tr>`).join("")}</tbody></table></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>구성원 정보</h4><input class="hr-search-input" id="assignmentLandingSearch" value="${state.assignmentLandingSearch || ""}" placeholder="이름, ID 검색"></div><table><thead><tr><th>이름</th><th>ID</th><th>직위</th><th>재직 상태</th></tr></thead><tbody>${memberRows || `<tr><td colspan="4">구성원이 없습니다.</td></tr>`}</tbody></table></div></div></div>`;
     panels.assignment.innerHTML = `<div class="codex-assignment-shell"><div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>조직 관리</h3><div style="font-size:11px;color:#9095b0">조직도, 조직개편/인사발령 이력, 삭제 조직 이력 조회</div></div></div>${tabs}<div class="codex-note-box" style="margin-top:16px"><strong>TIP</strong>조직개편/인사발령을 예약하면 해당 일자 기준으로 조직도와 인사정보가 함께 반영됩니다.</div><div style="margin-top:16px">${body}</div></div>`;
   }
   function getCurrentAdminCategory() {
     const categories = getAdminCategoriesSource();
     return categories.find((category) => category.id === state.currentAdminCategory) || categories[0];
   }
+  function adminCategorySupportsViewer(category = getCurrentAdminCategory()) {
+    return !!category && category.id !== "all_admin";
+  }
   function getCurrentAdminMembers(category = getCurrentAdminCategory(), role = state.currentAdminRoleTab) {
     if (!category) return [];
+    if (role === "viewer" && !adminCategorySupportsViewer(category)) return [];
     return role === "viewer" ? (category.viewers || []) : (category.managers || []);
   }
   function getCurrentAdminManager() {
@@ -3629,6 +3791,10 @@
     return members.find((manager) => manager.id === state.currentAdminManagerId) || members[0] || null;
   }
   function ensureAdminSelection() {
+    const category = getCurrentAdminCategory();
+    if (state.currentAdminRoleTab === "viewer" && !adminCategorySupportsViewer(category)) {
+      state.currentAdminRoleTab = "manager";
+    }
     const members = getCurrentAdminMembers();
     if (!members.some((manager) => manager.id === state.currentAdminManagerId)) {
       state.currentAdminManagerId = members[0]?.id || "";
@@ -3700,11 +3866,189 @@
     return state.currentAdminRoleTab === "viewer";
   }
   function getAdminRoleNote(category, role = state.currentAdminRoleTab) {
+    if (category?.id === "all_admin") {
+      return "전체 운영 관리자는 전 메뉴와 운영 기능을 총괄하는 전사 관리자입니다. 열람 전용 계정은 두지 않고 관리자만 운영합니다.";
+    }
     if (role === "viewer") {
       if (category?.id === "directory_admin") return "열람자는 사원명부를 본인 / 전체 / 일부 범위로 나눠 관리할 수 있습니다. 일부 열람은 조직 또는 개별 구성원을 지정해 부여합니다.";
       return "열람자는 조회 권한 중심으로만 부여되며, 수정/반영 기능은 사용할 수 없습니다.";
     }
     return "관리자는 해당 메뉴의 전체 열람과 수정/반영 기능을 함께 수행할 수 있습니다.";
+  }
+  function getAdminCategoryDisplayName(category) {
+    if (!category) return "관리자";
+    const map = {
+      all_admin: "전체 운영 관리자",
+      directory_admin: "사원명부 운영",
+      record_admin: "인사기록카드 운영",
+      org_admin: "조직도 운영",
+      assignment_admin: "조직관리 운영",
+      code_admin: "기준코드 운영",
+      auth_admin: "권한관리 운영"
+    };
+    return map[category.id] || category.label || "관리자";
+  }
+  function getAdminPermissionGroupsForCategory(category, role = state.currentAdminRoleTab) {
+    const allowedIds = new Set(getAdminCategoryPermissionIds(category?.id || "", role));
+    return adminPermissionGroups
+      .map((group) => ({ ...group, items: group.items.filter((item) => allowedIds.has(item.id)) }))
+      .filter((group) => group.items.length);
+  }
+  function getAllAdminMembers(categories = getAdminCategoriesSource()) {
+    return (categories || []).flatMap((category) => [
+      ...(category.managers || []).map((member) => ({ ...member, categoryId: category.id, categoryName: getAdminCategoryDisplayName(category) })),
+      ...(category.viewers || []).map((member) => ({ ...member, categoryId: category.id, categoryName: getAdminCategoryDisplayName(category) }))
+    ]);
+  }
+  function getAdminCopyCandidates(query, currentMember, category = getCurrentAdminCategory(), role = state.currentAdminRoleTab) {
+    const q = String(query || "").trim().toLowerCase();
+    return getAllAdminMembers()
+      .filter((member) => member.id !== currentMember?.id)
+      .filter((member) => {
+        const haystack = [member.name, member.loginId, member.org, member.categoryName, member.role === "viewer" ? "열람자" : "관리자"].join(" ").toLowerCase();
+        return !q || haystack.includes(q);
+      })
+      .filter((member) => role !== "viewer" || member.permissions?.menu_directory || member.permissions?.directory_view_self || member.permissions?.directory_view_all || member.permissions?.directory_view_partial)
+      .slice(0, 16);
+  }
+  function buildCopiedPermissionPayload(category, role, sourceMember, currentMember) {
+    const allowedIds = new Set(getAdminCategoryPermissionIds(category?.id || "", role));
+    const enabled = Object.entries(sourceMember?.permissions || {})
+      .filter(([permissionId, enabledFlag]) => enabledFlag && allowedIds.has(permissionId))
+      .map(([permissionId]) => permissionId);
+    const permissions = createPermissionMap(enabled);
+    let viewScope = currentMember?.viewScope || "self";
+    let viewTargets = [];
+    if (role === "viewer" && category?.id === "directory_admin") {
+      viewScope = sourceMember?.viewScope || (sourceMember?.permissions?.directory_view_all ? "all" : sourceMember?.permissions?.directory_view_partial ? "partial" : "self");
+      viewTargets = viewScope === "partial" ? normalizeAdminViewTargets(sourceMember?.viewTargets || []) : [];
+      permissions.directory_view_self = viewScope === "self";
+      permissions.directory_view_all = viewScope === "all";
+      permissions.directory_view_partial = viewScope === "partial";
+    }
+    return { permissions, viewScope, viewTargets };
+  }
+  function getAdminPreviewData(category, member, role = state.currentAdminRoleTab) {
+    if (!category || !member) return null;
+    const permissions = member.permissions || {};
+    const menuLabels = adminPermissionGroups.find((group) => group.id === "menus")?.items.filter((item) => permissions[item.id]).map((item) => item.label) || [];
+    const actionLabels = adminPermissionGroups
+      .filter((group) => group.id === "actions" || group.id === "control")
+      .flatMap((group) => group.items.filter((item) => permissions[item.id]).map((item) => item.label));
+    const employee = member.employeeId ? state.employees.find((item) => item.id === member.employeeId) : null;
+    let directoryScope = "사원명부 접근 없음";
+    let directoryCount = 0;
+    if (permissions.menu_directory) {
+      if (permissions.directory_view_all || member.viewScope === "all") {
+        directoryCount = state.employees.length;
+        directoryScope = `전체 열람 (${directoryCount}명)`;
+      } else if (permissions.directory_view_partial || member.viewScope === "partial") {
+        directoryCount = getVisibleEmployeesFromTargets(member.viewTargets || []).length;
+        directoryScope = `일부 열람 (${directoryCount}명)`;
+      } else {
+        directoryCount = employee ? 1 : 0;
+        directoryScope = `본인 열람 (${directoryCount}명)`;
+      }
+    }
+    let recordScope = "인사기록카드 접근 없음";
+    if (permissions.menu_record) {
+      if (permissions.record_view_all) recordScope = `전체 열람 (${state.employees.length}명)`;
+      else if (permissions.record_view_self) recordScope = `본인 열람 (${employee ? 1 : 0}명)`;
+      else recordScope = "기록카드 범위 미지정";
+    }
+    return {
+      menus: menuLabels,
+      actions: actionLabels,
+      directoryScope,
+      recordScope,
+      viewTargetSummary: role === "viewer" && category.id === "directory_admin" ? getAdminViewTargetSummary(member) : "",
+      activePermissionCount: Object.values(permissions).filter(Boolean).length
+    };
+  }
+  function getAdminCompareSnapshot(category, member, role = state.currentAdminRoleTab) {
+    if (!category || !member) return null;
+    const allowedPermissionIds = new Set(getAdminCategoryPermissionIds(category.id, role));
+    const labelById = new Map(adminPermissionGroups.flatMap((group) => group.items.map((item) => [item.id, item.label])));
+    const enabledIds = Object.entries(member.permissions || {})
+      .filter(([permissionId, enabled]) => enabled && allowedPermissionIds.has(permissionId))
+      .map(([permissionId]) => permissionId);
+    return {
+      member,
+      enabledIds,
+      labels: enabledIds.map((permissionId) => labelById.get(permissionId) || permissionId).sort((a, b) => a.localeCompare(b, "ko")),
+      directoryScope: category.id === "directory_admin" && role === "viewer" ? getAdminViewTargetSummary(member) : "",
+      preview: getAdminPreviewData(category, member, role)
+    };
+  }
+  function getAdminCompareDiff(category, currentMember, compareMember, role = state.currentAdminRoleTab) {
+    const current = getAdminCompareSnapshot(category, currentMember, role);
+    const compare = getAdminCompareSnapshot(category, compareMember, role);
+    if (!current || !compare) return null;
+    const currentSet = new Set(current.enabledIds);
+    const compareSet = new Set(compare.enabledIds);
+    const labelById = new Map(adminPermissionGroups.flatMap((group) => group.items.map((item) => [item.id, item.label])));
+    const added = [...compareSet].filter((id) => !currentSet.has(id)).map((id) => labelById.get(id) || id).sort((a, b) => a.localeCompare(b, "ko"));
+    const removed = [...currentSet].filter((id) => !compareSet.has(id)).map((id) => labelById.get(id) || id).sort((a, b) => a.localeCompare(b, "ko"));
+    const shared = [...currentSet].filter((id) => compareSet.has(id)).map((id) => labelById.get(id) || id).sort((a, b) => a.localeCompare(b, "ko"));
+    return {
+      current,
+      compare,
+      added,
+      removed,
+      shared,
+      sameDirectoryScope: current.directoryScope === compare.directoryScope
+    };
+  }
+  function getAdminMemberPendingChange(category, role, memberId) {
+    if (!category || !memberId) return null;
+    const key = `perm|${category.id}|${role}|${memberId}`;
+    return getAdminPendingChanges().find((item) => item._key === key) || null;
+  }
+  function getAdminChangeDraftValues(category, role, member) {
+    const pending = getAdminMemberPendingChange(category, role, member?.id);
+    return {
+      changeReason: String(pending?.changeReason || member?.changeReason || "").trim(),
+      expiresAt: completeDateInput(pending?.expiresAt || member?.expiresAt || "")
+    };
+  }
+  function getAdminChangeMetaFromInputs() {
+    const reasonInput = $("#adminChangeReason", panels.admin);
+    const expireInput = $("#adminChangeExpireAt", panels.admin);
+    return {
+      changeReason: String(reasonInput?.value || "").trim(),
+      expiresAt: completeDateInput(expireInput?.value || "")
+    };
+  }
+  function getAdminAddMetaFromInputs() {
+    const reasonInput = $("#adminAddReason", panels.admin);
+    const expireInput = $("#adminAddExpireAt", panels.admin);
+    return {
+      changeReason: String(reasonInput?.value || "").trim(),
+      expiresAt: completeDateInput(expireInput?.value || "")
+    };
+  }
+  function getAdminCleanupNotes(category) {
+    if (!category) return [];
+    const common = [
+      "권한 화면에는 이 메뉴에서 실제 쓰는 권한만 노출합니다.",
+      "메뉴 접근, 조회 범위, 수정/반영, 이력/통제 권한을 분리해 혼선을 줄입니다."
+    ];
+    if (category.id === "all_admin") {
+      return [
+        "전체 운영 관리자는 관리자만 두고 열람 전용 계정은 제거합니다.",
+        "조직관리, 코드관리, 관리자 권한 관리는 전체 운영 관리자만 담당합니다.",
+        "전사 운영/통제 역할이므로 권한 축약 없이 전체 권한을 일괄 부여합니다.",
+        ...common
+      ];
+    }
+    if (category.id === "directory_admin") {
+      return [
+        "사원명부 운영은 열람자 범위를 본인, 전체, 일부 열람으로 세분화합니다.",
+        "일부 열람은 조직 단위와 개별 인원을 함께 저장할 수 있게 유지합니다.",
+        ...common
+      ];
+    }
+    return common;
   }
   function getAdminViewScopeLabel(member) {
     if (!member) return "-";
@@ -3714,17 +4058,23 @@
   }
   function getAdminViewTargetSummary(member) {
     if (!member || member.viewScope !== "partial") return getAdminViewScopeLabel(member);
-    const targets = member.viewTargets || [];
+    const targets = normalizeAdminViewTargets(member.viewTargets || []);
     if (!targets.length) return "일부 열람(대상 미지정)";
-    return targets.map((target) => target.label).join(", ");
+    const orgCount = targets.filter((target) => target.type === "org").length;
+    const employeeCount = targets.filter((target) => target.type === "employee").length;
+    const counts = [orgCount ? `조직 ${orgCount}` : "", employeeCount ? `개별 ${employeeCount}` : ""].filter(Boolean).join(" · ");
+    const preview = targets.slice(0, 3).map((target) => target.label).join(", ");
+    return counts ? `${counts}${preview ? ` · ${preview}` : ""}` : preview;
   }
   function renderAdmin() {
     if (!panels.admin) return;
     ensureAdminSelection();
     const adminCategories = getAdminCategoriesSource();
     const category = getCurrentAdminCategory();
+    const viewerSupported = adminCategorySupportsViewer(category);
     const currentManager = getCurrentAdminManager();
     const currentMembers = getCurrentAdminMembers(category);
+    const canAdminEdit = hasCurrentPermission("admin_edit");
     const allMembers = adminCategories.flatMap((item) => [...(item.managers || []), ...(item.viewers || [])]);
     const duplicateLogin = !!(state.adminCandidateSelection || []).length && (state.adminCandidateSelection || []).some((employeeId) => {
       const employee = state.employees.find((item) => item.id === employeeId);
@@ -3740,25 +4090,36 @@
     const selectedOrgRow = state.currentAdminOrgKey === "ROOT" ? null : getBlueprintRow(state.orgBlueprint, state.currentAdminOrgKey);
     const selectedOrgLabel = selectedOrgRow ? getOrgRowPath(selectedOrgRow) : "오토플러스";
     const selectedOrgMembers = getEmployeesInOrgKey(state.currentAdminOrgKey || "ROOT", true).filter((employee) => getEffectiveStatus(employee) !== "퇴직");
+    const filteredScopeMembers = selectedOrgMembers.filter((employee) => !(state.adminScopeQuery || "") || [employee.name, employee.id, getEmployeeLoginId(employee)].join(" ").toLowerCase().includes((state.adminScopeQuery || "").toLowerCase()));
     const selectedCandidateEmployees = (state.adminCandidateSelection || []).map((employeeId) => state.employees.find((item) => item.id === employeeId)).filter(Boolean);
     const selectedScopeEmployees = (state.adminScopeSelection || []).map((employeeId) => state.employees.find((item) => item.id === employeeId)).filter(Boolean);
+    const currentScopeTargets = normalizeAdminViewTargets(currentManager?.viewTargets || []);
     const pendingChanges = getAdminPendingChanges();
     const showViewerScope = state.currentAdminRoleTab === "viewer" && category?.id === "directory_admin";
-    const adminActions = `<div class="codex-secondary-actions">${hasPendingAdminChanges() ? `<button type="button" class="hr-btn btn-outline" id="adminDraftResetBtn">전체 취소</button><button type="button" class="hr-btn btn-primary" id="adminDraftApplyBtn">변경 적용 (${pendingChanges.length})</button>` : `<button type="button" class="hr-btn btn-outline" disabled>변경 예정 없음</button>`}</div>`;
-    const pendingPanel = `<div class="codex-panel"><div class="codex-code-head"><h4>변경 예정 내역</h4><span class="codex-admin-sub">${pendingChanges.length}건</span></div>${pendingChanges.length ? pendingChanges.map((item) => `<div class="codex-note-box codex-note-box-compact ${item._key === state.currentAdminPendingKey ? "is-selected" : ""}" data-admin-pending-row="${item._key}"><strong>${item.categoryLabel || findAdminCategoryIn(adminCategories, item.categoryId)?.label || item.categoryId} · ${item.role === "viewer" ? "열람자" : "관리자"} · ${item.kind === "add-members" ? "추가" : item.kind === "remove-members" ? "제거" : "권한 변경"}</strong>${item.changedAt}${item.summary ? `<br>${item.summary}` : ""}<div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline btn-xs" data-admin-pending-edit="${item._key}">수정</button><button type="button" class="hr-btn btn-outline btn-xs" data-admin-pending-cancel="${item._key}">취소</button></div></div>`).join("") : `<div class="codex-note-box">저장 전 검토할 관리자 변경이 없습니다.</div>`}</div>`;
+    const permissionGroups = getAdminPermissionGroupsForCategory(category, state.currentAdminRoleTab);
+    const cleanupNotes = getAdminCleanupNotes(category);
+    const copyCandidates = getAdminCopyCandidates(state.adminCopyQuery, currentManager, category, state.currentAdminRoleTab);
+    const copySourceMember = getAllAdminMembers().find((member) => member.id === state.adminCopySourceId) || null;
+    const compareCandidates = getAdminCopyCandidates(state.adminCompareQuery, currentManager, category, state.currentAdminRoleTab);
+    const compareSourceMember = getAllAdminMembers().find((member) => member.id === state.adminCompareSourceId) || null;
+    const compareDiff = getAdminCompareDiff(category, currentManager, compareSourceMember, state.currentAdminRoleTab);
+    const previewData = getAdminPreviewData(category, currentManager, state.currentAdminRoleTab);
+    const changeDraftValues = getAdminChangeDraftValues(category, state.currentAdminRoleTab, currentManager);
+    const adminActions = `<div class="codex-secondary-actions">${hasPendingAdminChanges() ? `<button type="button" class="hr-btn btn-outline" id="adminDraftResetBtn" ${canAdminEdit ? "" : "disabled"}>전체 취소</button><button type="button" class="hr-btn btn-primary" id="adminDraftApplyBtn" ${canAdminEdit ? "" : "disabled"}>변경 적용 (${pendingChanges.length})</button>` : `<button type="button" class="hr-btn btn-outline" disabled>변경 예정 없음</button>`}</div>`;
+    const pendingPanel = `<div class="codex-panel"><div class="codex-code-head"><h4>변경 예정 내역</h4><span class="codex-admin-sub">${pendingChanges.length}건</span></div>${pendingChanges.length ? pendingChanges.map((item) => `<div class="codex-note-box codex-note-box-compact ${item._key === state.currentAdminPendingKey ? "is-selected" : ""}" data-admin-pending-row="${item._key}"><strong>${item.categoryLabel || getAdminCategoryDisplayName(findAdminCategoryIn(adminCategories, item.categoryId) || { id: item.categoryId, label: item.categoryId })} · ${item.role === "viewer" ? "열람자" : "관리자"} · ${item.kind === "add-members" ? "추가" : item.kind === "remove-members" ? "제거" : "권한 변경"}</strong>${item.changedAt}${item.summary ? `<br>${item.summary}` : ""}<div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline btn-xs" data-admin-pending-edit="${item._key}">수정</button><button type="button" class="hr-btn btn-outline btn-xs" data-admin-pending-cancel="${item._key}">취소</button></div></div>`).join("") : `<div class="codex-note-box">저장 전 검토할 관리자 변경이 없습니다.</div>`}</div>`;
     const historyPanel = `<div class="codex-panel"><div class="codex-code-head"><h4>관리자 권한 변경 이력</h4><span class="codex-admin-sub">${state.adminHistory.length}건</span></div>${renderAdminHistoryTable()}</div>`;
-    const permissionRows = adminPermissionGroups.map((group) => `
+    const permissionRows = permissionGroups.map((group) => `
       <div class="codex-admin-perm-group">
         <div class="codex-admin-perm-head">
           <div class="codex-admin-perm-title">${group.label}</div>
           <div class="codex-secondary-actions">
-            <button type="button" class="hr-btn btn-outline btn-xs" data-admin-group-enable="${group.id}" ${currentManager && !isViewerRole() ? "" : "disabled"}>전체 선택</button>
-            <button type="button" class="hr-btn btn-outline btn-xs" data-admin-group-disable="${group.id}" ${currentManager && !isViewerRole() ? "" : "disabled"}>전체 해제</button>
+            <button type="button" class="hr-btn btn-outline btn-xs" data-admin-group-enable="${group.id}" ${currentManager && !isViewerRole() && canAdminEdit ? "" : "disabled"}>전체 선택</button>
+            <button type="button" class="hr-btn btn-outline btn-xs" data-admin-group-disable="${group.id}" ${currentManager && !isViewerRole() && canAdminEdit ? "" : "disabled"}>전체 해제</button>
           </div>
         </div>
         ${group.items.map((item) => `
           <label class="codex-admin-perm-item">
-            <input type="checkbox" data-admin-permission="${item.id}" ${currentManager?.permissions?.[item.id] ? "checked" : ""} ${currentManager && !isViewerRole() ? "" : "disabled"}>
+            <input type="checkbox" data-admin-permission="${item.id}" ${currentManager?.permissions?.[item.id] ? "checked" : ""} ${currentManager && !isViewerRole() && canAdminEdit ? "" : "disabled"}>
             <div>
               <strong>${item.label}</strong>
               <span>${item.desc}</span>
@@ -3771,7 +4132,7 @@
       <div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7">
         <div>
           <h3>관리자 권한 설정</h3>
-          <div style="font-size:11px;color:#9095b0">통합인사시스템 전용 관리자와 열람자를 등록하고, 메뉴/기능별 권한 범위를 관리합니다.</div>
+          <div style="font-size:11px;color:#9095b0">실제 운영 메뉴 기준으로 관리자와 열람자를 나누고, 조회범위와 수정권한을 세밀하게 관리합니다.</div>
         </div>
         ${adminActions}
       </div>
@@ -3781,8 +4142,8 @@
             <div class="hr-sidebar-section codex-admin-section">${section}</div>
             ${items.map((item) => `
               <button type="button" class="codex-admin-category ${item.id === category?.id ? "active" : ""}" data-admin-category="${item.id}">
-                <span>${item.label}</span>
-                <em>관 ${item.managers.length} / 열 ${item.viewers?.length || 0}</em>
+                <span>${getAdminCategoryDisplayName(item)}</span>
+                <em>${adminCategorySupportsViewer(item) ? `관 ${item.managers.length} / 열 ${item.viewers?.length || 0}` : `관 ${item.managers.length}`}</em>
               </button>
             `).join("")}
           `).join("")}
@@ -3791,20 +4152,21 @@
           <div class="codex-panel">
             <div class="codex-code-head">
               <div>
-                <h4>${category?.label || "관리자"}</h4>
+                <h4>${getAdminCategoryDisplayName(category)}</h4>
                 <div class="codex-admin-sub">${category?.desc || ""}</div>
               </div>
-              <button type="button" class="hr-btn btn-primary" id="adminAddToggleBtn">${getAdminRoleLabel()} 일괄 추가</button>
+              <button type="button" class="hr-btn btn-primary" id="adminAddToggleBtn" ${canAdminEdit ? "" : "disabled"}>${getAdminRoleLabel()} 일괄 추가</button>
             </div>
             <div class="codex-admin-role-tabs">
               <button type="button" class="codex-admin-role-tab ${state.currentAdminRoleTab === "manager" ? "active" : ""}" data-admin-role="manager">관리자</button>
-              <button type="button" class="codex-admin-role-tab ${state.currentAdminRoleTab === "viewer" ? "active" : ""}" data-admin-role="viewer">열람자</button>
+              ${viewerSupported ? `<button type="button" class="codex-admin-role-tab ${state.currentAdminRoleTab === "viewer" ? "active" : ""}" data-admin-role="viewer">열람자</button>` : `<button type="button" class="codex-admin-role-tab" disabled>열람자 미운영</button>`}
             </div>
             <div class="codex-admin-summary">
               <div class="codex-note-box codex-note-box-compact">
-                <strong>${category?.label || "관리자"}</strong> · ${roleSummary} · 전체 등록 인원 ${allMembers.length}명
+                <strong>${getAdminCategoryDisplayName(category)}</strong> · ${roleSummary} · 전체 등록 인원 ${allMembers.length}명
               </div>
               <div class="codex-note-box codex-note-box-compact">${getAdminRoleNote(category)}</div>
+              ${cleanupNotes.length ? `<div class="codex-note-box codex-note-box-compact"><strong>현재 운영 원칙</strong><br>${cleanupNotes.join("<br>")}</div>` : ""}
             </div>
               <div class="codex-admin-add ${state.adminAddOpen ? "is-open" : ""}">
                 <div class="codex-admin-add-layout is-structured">
@@ -3824,6 +4186,10 @@
                         <div class="codex-admin-org-title">구성원 선택</div>
                         <div class="codex-admin-org-toolbar">
                           <input id="adminAddQuery" class="hr-search-input" value="${state.adminAddQuery || ""}" placeholder="선택 조직 내 이름, 아이디, 사번 검색">
+                          <div class="codex-form-grid" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+                            <label><span>부여 사유</span><input id="adminAddReason" class="hr-search-input" placeholder="예: 인사팀 운영 대행"></label>
+                            <label><span>임시 만료일</span><input id="adminAddExpireAt" class="hr-search-input" placeholder="YYYYMMDD"></label>
+                          </div>
                           <div class="codex-admin-selection-meta">
                             <strong>${selectedOrgLabel}</strong>
                             <span>대상 ${selectedOrgMembers.length}명 · 검색 결과 ${candidateRows.length}명</span>
@@ -3888,9 +4254,13 @@
           <div class="codex-panel">
             <div class="codex-code-head">
               <h4>권한 설정</h4>
-              <button type="button" class="hr-btn btn-outline btn-xs" id="adminPermissionResetBtn" ${currentManager && !isViewerRole() ? "" : "disabled"}>권한 초기화</button>
+              <div class="codex-secondary-actions">
+                <button type="button" class="hr-btn btn-outline btn-xs" id="adminCopyToggleBtn" ${currentManager && canAdminEdit ? "" : "disabled"}>${state.adminCopyOpen ? "복사 닫기" : "권한 복사"}</button>
+                <button type="button" class="hr-btn btn-outline btn-xs" id="adminCompareToggleBtn" ${currentManager ? "" : "disabled"}>${state.adminCompareOpen ? "비교 닫기" : "권한 비교"}</button>
+                <button type="button" class="hr-btn btn-outline btn-xs" id="adminPermissionResetBtn" ${currentManager && !isViewerRole() && canAdminEdit ? "" : "disabled"}>권한 초기화</button>
+              </div>
             </div>
-            ${currentManager ? `<div class="codex-note-box codex-note-box-compact" style="margin-bottom:14px"><strong>${currentManager.name}(${currentManager.loginId})</strong> · ${currentManager.org} · 활성 권한 ${Object.values(currentManager.permissions || {}).filter(Boolean).length}개${isViewerRole() ? ` · 현재 범위: ${getAdminViewScopeLabel(currentManager)}` : ""}</div>${showViewerScope ? `<div class="codex-panel" style="margin-bottom:14px"><div class="codex-code-head"><h4>사원명부 열람 범위</h4><button type="button" class="hr-btn btn-outline btn-xs" id="adminScopeOpenBtn">${state.adminScopeOpen ? "대상 닫기" : "대상 편집"}</button></div><div class="codex-secondary-actions" style="margin-bottom:12px"><label><input type="radio" name="adminViewScope" value="self" ${currentManager.viewScope !== "all" && currentManager.viewScope !== "partial" ? "checked" : ""}> 본인 열람</label><label><input type="radio" name="adminViewScope" value="all" ${currentManager.viewScope === "all" ? "checked" : ""}> 전체 열람</label><label><input type="radio" name="adminViewScope" value="partial" ${currentManager.viewScope === "partial" ? "checked" : ""}> 일부 열람</label></div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px">현재 대상: ${getAdminViewTargetSummary(currentManager)}</div>${currentManager.viewScope === "partial" ? `<div class="codex-admin-add ${state.adminScopeOpen ? "is-open" : ""}"><div class="codex-admin-add-layout is-structured"><div class="codex-admin-picker codex-panel"><div class="codex-admin-picker-head"><div><strong>열람 대상 선택</strong><span>조직 단위로 추가하거나, 조직 내 일부 구성원만 선택해서 열람 범위를 지정합니다.</span></div></div><div class="codex-admin-org-layout"><div class="codex-admin-org-column"><div class="codex-admin-org-title">조직 선택</div><div class="codex-assignment-tree-wrap codex-admin-org-wrap">${buildAdminOrgTree(state.currentAdminOrgKey || "ROOT")}</div><button type="button" class="hr-btn btn-outline btn-xs" id="adminScopeAddOrgBtn" style="margin-top:10px">선택 조직 추가</button></div><div class="codex-admin-org-column"><div class="codex-admin-org-title">구성원 선택</div><div class="codex-admin-org-toolbar"><input id="adminScopeQuery" class="hr-search-input" value="${state.adminScopeQuery || ""}" placeholder="선택 조직 내 이름, 아이디, 사번 검색"><div class="codex-admin-selection-meta"><strong>${selectedOrgLabel}</strong><span>대상 ${selectedOrgMembers.length}명</span></div></div>${selectedOrgMembers.length ? `<div class="codex-admin-candidates is-table">${selectedOrgMembers.filter((employee) => !(state.adminScopeQuery || "") || [employee.name, employee.id, getEmployeeLoginId(employee)].join(" ").toLowerCase().includes((state.adminScopeQuery || "").toLowerCase())).map((employee) => `<label class="codex-admin-candidate"><input type="checkbox" data-admin-scope-check="${employee.id}" ${(state.adminScopeSelection || []).includes(employee.id) ? "checked" : ""}><div><strong>${employee.name}</strong><span>${getEmployeeLoginId(employee)} · ${getCurrentOrgLabel(employee)}</span><em>${employee.grade} · ${employee.title || "팀원"}</em></div></label>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">선택한 조직에 표시할 대상자가 없습니다.</div>`}</div></div></div><div class="codex-admin-selected codex-panel"><div class="codex-admin-selected-title">추가 예정 열람 대상 <span>${selectedScopeEmployees.length}명</span></div>${selectedScopeEmployees.length ? `<div class="codex-admin-selected-list">${selectedScopeEmployees.map((employee) => `<div class="codex-admin-selected-item"><div><strong>${employee.name}</strong><span>${getCurrentOrgLabel(employee)}</span></div><button type="button" class="hr-btn btn-outline btn-xs" data-admin-scope-chip-remove="${employee.id}">제외</button></div>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">조직 전체를 추가하거나 일부 구성원을 체크해 열람 대상으로 지정할 수 있습니다.</div>`}<div class="codex-modal-actions" style="margin-top:12px"><button type="button" class="hr-btn btn-outline" id="adminScopeCancelBtn">취소</button><button type="button" class="hr-btn btn-primary" id="adminScopeSaveBtn">대상 저장</button></div></div></div>` : ""}</div>` : ""}${permissionRows}` : `<div class="codex-note-box">${getAdminRoleLabel()}를 선택하면 권한을 확인할 수 있습니다.</div>`}
+            ${currentManager ? `<div class="codex-note-box codex-note-box-compact" style="margin-bottom:14px"><strong>${currentManager.name}(${currentManager.loginId})</strong> · ${currentManager.org} · 활성 권한 ${previewData?.activePermissionCount || 0}개${isViewerRole() ? ` · 현재 범위: ${getAdminViewScopeLabel(currentManager)}` : ""}${changeDraftValues.expiresAt ? ` · 만료일 ${changeDraftValues.expiresAt}` : ""}${changeDraftValues.changeReason ? `<br>최근 사유: ${changeDraftValues.changeReason}` : ""}</div><div class="codex-panel" style="margin-bottom:14px"><div class="codex-code-head"><h4>권한 변경 설정</h4><span class="codex-admin-sub">변경 사유와 임시 권한 만료일을 함께 기록합니다.</span></div><div class="codex-form-grid" style="grid-template-columns:repeat(2,minmax(0,1fr))"><label><span>권한 변경 사유</span><input id="adminChangeReason" value="${changeDraftValues.changeReason}" placeholder="예: 인사팀 대체 운영"></label><label><span>임시 만료일</span><input id="adminChangeExpireAt" value="${changeDraftValues.expiresAt}" placeholder="YYYYMMDD"></label></div></div>${state.adminCopyOpen ? `<div class="codex-panel" style="margin-bottom:14px"><div class="codex-code-head"><h4>권한 복사</h4><span class="codex-admin-sub">다른 관리자/열람자의 현재 설정을 그대로 가져옵니다.</span></div><input id="adminCopyQuery" class="hr-search-input" value="${state.adminCopyQuery || ""}" placeholder="이름, 아이디, 소속, 카테고리 검색" style="margin-bottom:12px">${copyCandidates.length ? `<div class="codex-admin-candidates is-table">${copyCandidates.map((member) => `<label class="codex-admin-candidate"><input type="radio" name="adminCopySource" data-admin-copy-source="${member.id}" ${state.adminCopySourceId === member.id ? "checked" : ""}><div><strong>${member.name}</strong><span>${member.loginId} · ${member.categoryName}</span><em>${member.org} · ${member.role === "viewer" ? "열람자" : "관리자"}</em></div></label>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">복사 가능한 권한 보유 사용자가 없습니다.</div>`}${copySourceMember ? `<div class="codex-note-box codex-note-box-compact" style="margin-top:12px"><strong>복사 원본</strong><br>${copySourceMember.name} (${copySourceMember.categoryName} / ${copySourceMember.role === "viewer" ? "열람자" : "관리자"})${copySourceMember.viewScope ? `<br>열람 범위: ${getAdminViewTargetSummary(copySourceMember)}` : ""}</div>` : ""}<div class="codex-modal-actions" style="margin-top:12px"><button type="button" class="hr-btn btn-outline" id="adminCopyCancelBtn">취소</button><button type="button" class="hr-btn btn-primary" id="adminCopyApplyBtn" ${copySourceMember && canAdminEdit ? "" : "disabled"}>현재 사용자에 복사</button></div></div>` : ""}${state.adminCompareOpen ? `<div class="codex-panel" style="margin-bottom:14px"><div class="codex-code-head"><h4>권한 비교</h4><span class="codex-admin-sub">현재 사용자와 다른 권한 보유자의 차이를 바로 확인합니다.</span></div><input id="adminCompareQuery" class="hr-search-input" value="${state.adminCompareQuery || ""}" placeholder="이름, 아이디, 소속, 카테고리 검색" style="margin-bottom:12px">${compareCandidates.length ? `<div class="codex-admin-candidates is-table">${compareCandidates.map((member) => `<label class="codex-admin-candidate"><input type="radio" name="adminCompareSource" data-admin-compare-source="${member.id}" ${state.adminCompareSourceId === member.id ? "checked" : ""}><div><strong>${member.name}</strong><span>${member.loginId} · ${member.categoryName}</span><em>${member.org} · ${member.role === "viewer" ? "열람자" : "관리자"}</em></div></label>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">비교 가능한 권한 보유 사용자가 없습니다.</div>`}${compareDiff ? `<div class="codex-note-box codex-note-box-compact" style="margin-top:12px"><strong>비교 결과</strong><br>비교 대상: ${compareSourceMember.name} (${compareSourceMember.categoryName})<br>추가 필요 권한: ${compareDiff.added.length ? compareDiff.added.join(", ") : "없음"}<br>현재만 가진 권한: ${compareDiff.removed.length ? compareDiff.removed.join(", ") : "없음"}<br>공통 권한: ${compareDiff.shared.length ? compareDiff.shared.join(", ") : "없음"}${showViewerScope ? `<br>열람 범위 비교: ${compareDiff.sameDirectoryScope ? "동일" : `${compareDiff.current.directoryScope || "-"} ↔ ${compareDiff.compare.directoryScope || "-"}`}` : ""}</div>` : ""}<div class="codex-modal-actions" style="margin-top:12px"><button type="button" class="hr-btn btn-outline" id="adminCompareCancelBtn">닫기</button></div></div>` : ""}${showViewerScope ? `<div class="codex-admin-scope-box"><div class="codex-code-head"><h4>사원명부 열람 범위</h4><button type="button" class="hr-btn btn-outline btn-xs" id="adminScopeOpenBtn" ${canAdminEdit ? "" : "disabled"}>${state.adminScopeOpen ? "대상 닫기" : "대상 편집"}</button></div><div class="codex-admin-scope-options"><label><input type="radio" name="adminViewScope" value="self" ${currentManager.viewScope !== "all" && currentManager.viewScope !== "partial" ? "checked" : ""} ${canAdminEdit ? "" : "disabled"}> 본인 열람</label><label><input type="radio" name="adminViewScope" value="all" ${currentManager.viewScope === "all" ? "checked" : ""} ${canAdminEdit ? "" : "disabled"}> 전체 열람</label><label><input type="radio" name="adminViewScope" value="partial" ${currentManager.viewScope === "partial" ? "checked" : ""} ${canAdminEdit ? "" : "disabled"}> 일부 열람</label></div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px">현재 대상: ${getAdminViewTargetSummary(currentManager)}</div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px"><strong>저장된 열람 대상</strong>${currentScopeTargets.length ? currentScopeTargets.map((target) => `<div class="codex-admin-selected-item"><div><strong>${target.type === "org" ? "조직" : "개별"}</strong><span>${target.label}</span></div><button type="button" class="hr-btn btn-outline btn-xs" data-admin-scope-target-remove="${getAdminViewTargetKey(target)}" ${canAdminEdit ? "" : "disabled"}>제외</button></div>`).join("") : `<div class="codex-admin-scope-empty">아직 지정된 열람 대상이 없습니다.</div>`}</div>${currentManager.viewScope === "partial" ? `<div class="codex-admin-add ${state.adminScopeOpen ? "is-open" : ""}"><div class="codex-admin-add-layout is-structured"><div class="codex-admin-picker codex-panel"><div class="codex-admin-picker-head"><div><strong>열람 대상 선택</strong><span>조직 단위로 추가하거나, 선택 조직 안에서 일부 구성원만 골라 열람 범위를 지정합니다.</span></div></div><div class="codex-admin-org-layout"><div class="codex-admin-org-column"><div class="codex-admin-org-title">조직 선택</div><div class="codex-assignment-tree-wrap codex-admin-org-wrap">${buildAdminOrgTree(state.currentAdminOrgKey || "ROOT")}</div><button type="button" class="hr-btn btn-outline btn-xs" id="adminScopeAddOrgBtn" style="margin-top:10px" ${canAdminEdit ? "" : "disabled"}>선택 조직 추가</button></div><div class="codex-admin-org-column"><div class="codex-admin-org-title">구성원 선택</div><div class="codex-admin-org-toolbar"><input id="adminScopeQuery" class="hr-search-input" value="${state.adminScopeQuery || ""}" placeholder="선택 조직 내 이름, 아이디, 사번 검색"><div class="codex-admin-selection-meta"><strong>${selectedOrgLabel}</strong><span>대상 ${selectedOrgMembers.length}명 · 검색 ${filteredScopeMembers.length}명</span></div></div>${selectedOrgMembers.length ? `<div class="codex-admin-candidates is-table">${filteredScopeMembers.map((employee) => `<label class="codex-admin-candidate"><input type="checkbox" data-admin-scope-check="${employee.id}" ${(state.adminScopeSelection || []).includes(employee.id) ? "checked" : ""} ${canAdminEdit ? "" : "disabled"}><div><strong>${employee.name}</strong><span>${getEmployeeLoginId(employee)} · ${getCurrentOrgLabel(employee)}</span><em>${employee.grade} · ${employee.title || "팀원"}</em></div></label>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">선택한 조직에 표시할 대상자가 없습니다.</div>`}</div></div></div><div class="codex-admin-selected codex-panel"><div class="codex-admin-selected-title">추가 예정 열람 대상 <span>${selectedScopeEmployees.length}명</span></div>${selectedScopeEmployees.length ? `<div class="codex-admin-selected-list">${selectedScopeEmployees.map((employee) => `<div class="codex-admin-selected-item"><div><strong>${employee.name}</strong><span>${getCurrentOrgLabel(employee)}</span></div><button type="button" class="hr-btn btn-outline btn-xs" data-admin-scope-chip-remove="${employee.id}" ${canAdminEdit ? "" : "disabled"}>제외</button></div>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">조직 전체를 추가하거나 일부 구성원을 체크해 열람 대상으로 지정할 수 있습니다.</div>`}<div class="codex-modal-actions" style="margin-top:12px"><button type="button" class="hr-btn btn-outline" id="adminScopeCancelBtn" ${canAdminEdit ? "" : "disabled"}>취소</button><button type="button" class="hr-btn btn-primary" id="adminScopeSaveBtn" ${canAdminEdit ? "" : "disabled"}>대상 저장</button></div></div></div>` : `<div class="codex-note-box codex-note-box-compact">열람 범위를 <strong>일부 열람</strong>으로 선택하면 여기서 조직과 인원을 지정할 수 있습니다.</div>`}</div>` : ""}<div class="codex-note-box codex-note-box-compact" style="margin-bottom:14px"><strong>권한 미리보기</strong><br>보이는 메뉴: ${previewData?.menus?.length ? previewData.menus.join(", ") : "없음"}<br>사원명부 범위: ${previewData?.directoryScope || "-"}<br>인사기록카드 범위: ${previewData?.recordScope || "-"}<br>실행 가능 기능: ${previewData?.actions?.length ? previewData.actions.join(", ") : "없음"}${previewData?.viewTargetSummary ? `<br>일부 열람 대상: ${previewData.viewTargetSummary}` : ""}</div>${permissionRows}` : `<div class="codex-note-box">${getAdminRoleLabel()}를 선택하면 권한을 확인할 수 있습니다.</div>`}
           </div>
           ${pendingPanel}
           ${historyPanel}
@@ -3900,6 +4270,7 @@
   }
   function bindAdmin() {
     if (!panels.admin || state.currentHrView !== "admin") return;
+    const canAdminEdit = hasCurrentPermission("admin_edit");
     $$("[data-admin-category]", panels.admin).forEach((button) => button.addEventListener("click", () => {
       state.currentAdminCategory = button.dataset.adminCategory;
       state.currentAdminManagerId = "";
@@ -3908,31 +4279,46 @@
       bindAdmin();
     }));
     $$("[data-admin-role]", panels.admin).forEach((button) => button.addEventListener("click", () => {
+      const category = getCurrentAdminCategory();
+      if (button.dataset.adminRole === "viewer" && !adminCategorySupportsViewer(category)) return;
       state.currentAdminRoleTab = button.dataset.adminRole;
       state.currentAdminManagerId = "";
       state.adminMemberSelection = [];
       renderAdmin();
       bindAdmin();
     }));
-    $$("[data-admin-manager-row]", panels.admin).forEach((row) => row.addEventListener("click", () => {
+    $$("[data-admin-manager-row]", panels.admin).forEach((row) => row.addEventListener("click", (event) => {
+      if (!event.target.closest("button")) {
+        const memberId = row.dataset.adminManagerRow;
+        const current = new Set(state.adminMemberSelection || []);
+        if (!event.target.closest("input")) {
+          if (current.has(memberId)) current.delete(memberId);
+          else current.add(memberId);
+          state.adminMemberSelection = [...current];
+        }
+      }
       state.currentAdminManagerId = row.dataset.adminManagerRow;
       renderAdmin();
       bindAdmin();
     }));
     $$("[data-admin-remove]", panels.admin).forEach((button) => button.addEventListener("click", (event) => {
       event.stopPropagation();
+      if (!canAdminEdit) return;
       const category = getCurrentAdminCategory();
       const key = getAdminRoleBucket(state.currentAdminRoleTab);
       const removedMember = (category[key] || []).find((manager) => manager.id === button.dataset.adminRemove);
       if (!removedMember) return;
+      const changeMeta = getAdminChangeMetaFromInputs();
       upsertAdminPendingChange({
         key: `remove|${category.id}|${state.currentAdminRoleTab}|${removedMember.id}`,
         kind: "remove-members",
         categoryId: category.id,
-        categoryLabel: category.label,
+        categoryLabel: getAdminCategoryDisplayName(category),
         role: state.currentAdminRoleTab,
         memberIds: [removedMember.id],
         memberNames: [removedMember.name],
+        changeReason: changeMeta.changeReason,
+        expiresAt: changeMeta.expiresAt,
         summary: `${removedMember.name} 제거`
       });
       rebuildAdminDraftFromPending();
@@ -3941,6 +4327,7 @@
       bindAdmin();
     }));
     $("#adminAddToggleBtn", panels.admin)?.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       state.adminAddOpen = !state.adminAddOpen;
       state.adminCandidateSelection = state.adminAddOpen ? (state.adminCandidateSelection || []) : [];
       if (state.adminAddOpen) expandAdminAncestors(state.currentAdminOrgKey || "ROOT");
@@ -3948,8 +4335,115 @@
       bindAdmin();
     });
     $("#adminAddCancelBtn", panels.admin)?.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       state.adminAddOpen = false;
       state.adminCandidateSelection = [];
+      renderAdmin();
+      bindAdmin();
+    });
+    $("#adminCopyToggleBtn", panels.admin)?.addEventListener("click", () => {
+      if (!canAdminEdit) return;
+      state.adminCopyOpen = !state.adminCopyOpen;
+      if (!state.adminCopyOpen) {
+        state.adminCopyQuery = "";
+        state.adminCopySourceId = "";
+      }
+      renderAdmin();
+      bindAdmin();
+    });
+    $("#adminCompareToggleBtn", panels.admin)?.addEventListener("click", () => {
+      state.adminCompareOpen = !state.adminCompareOpen;
+      if (!state.adminCompareOpen) {
+        state.adminCompareQuery = "";
+        state.adminCompareSourceId = "";
+      }
+      renderAdmin();
+      bindAdmin();
+    });
+    $("#adminCopyCancelBtn", panels.admin)?.addEventListener("click", () => {
+      if (!canAdminEdit) return;
+      state.adminCopyOpen = false;
+      state.adminCopyQuery = "";
+      state.adminCopySourceId = "";
+      renderAdmin();
+      bindAdmin();
+    });
+    $("#adminCompareCancelBtn", panels.admin)?.addEventListener("click", () => {
+      state.adminCompareOpen = false;
+      state.adminCompareQuery = "";
+      state.adminCompareSourceId = "";
+      renderAdmin();
+      bindAdmin();
+    });
+    $("#adminCopyQuery", panels.admin)?.addEventListener("input", (event) => {
+      const input = event.target;
+      const nextValue = input.value || "";
+      const start = input.selectionStart ?? nextValue.length;
+      const end = input.selectionEnd ?? nextValue.length;
+      state.adminCopyQuery = nextValue;
+      scheduleInputRefresh("adminCopyQuery", () => {
+        renderAdmin();
+        bindAdmin();
+        const nextInput = $("#adminCopyQuery", panels.admin);
+        if (nextInput) {
+          nextInput.focus({ preventScroll: true });
+          nextInput.setSelectionRange(start, end);
+        }
+      });
+    });
+    $("#adminCompareQuery", panels.admin)?.addEventListener("input", (event) => {
+      const input = event.target;
+      const nextValue = input.value || "";
+      const start = input.selectionStart ?? nextValue.length;
+      const end = input.selectionEnd ?? nextValue.length;
+      state.adminCompareQuery = nextValue;
+      scheduleInputRefresh("adminCompareQuery", () => {
+        renderAdmin();
+        bindAdmin();
+        const nextInput = $("#adminCompareQuery", panels.admin);
+        if (nextInput) {
+          nextInput.focus({ preventScroll: true });
+          nextInput.setSelectionRange(start, end);
+        }
+      });
+    });
+    $$("[data-admin-copy-source]", panels.admin).forEach((input) => input.addEventListener("change", () => {
+      state.adminCopySourceId = input.dataset.adminCopySource || "";
+      renderAdmin();
+      bindAdmin();
+    }));
+    $$("[data-admin-compare-source]", panels.admin).forEach((input) => input.addEventListener("change", () => {
+      state.adminCompareSourceId = input.dataset.adminCompareSource || "";
+      renderAdmin();
+      bindAdmin();
+    }));
+    $("#adminCopyApplyBtn", panels.admin)?.addEventListener("click", () => {
+      if (!canAdminEdit) return;
+      const category = getCurrentAdminCategory();
+      const manager = getCurrentAdminManager();
+      const sourceMember = getAllAdminMembers().find((member) => member.id === state.adminCopySourceId);
+      if (!category || !manager || !sourceMember) return;
+      const copied = buildCopiedPermissionPayload(category, state.currentAdminRoleTab, sourceMember, manager);
+      const changeMeta = getAdminChangeMetaFromInputs();
+      upsertAdminPendingChange({
+        key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
+        kind: "set-permissions",
+        categoryId: category.id,
+        categoryLabel: getAdminCategoryDisplayName(category),
+        role: state.currentAdminRoleTab,
+        memberId: manager.id,
+        memberName: manager.name,
+        permissions: copied.permissions,
+        viewScope: copied.viewScope,
+        viewTargets: copied.viewTargets,
+        changeReason: changeMeta.changeReason,
+        expiresAt: changeMeta.expiresAt,
+        summary: `${manager.name} 권한을 ${sourceMember.name} 기준으로 복사`
+      });
+      rebuildAdminDraftFromPending();
+      state.adminCopyOpen = false;
+      state.adminCopyQuery = "";
+      state.adminCopySourceId = "";
       renderAdmin();
       bindAdmin();
     });
@@ -3959,13 +4453,15 @@
       const start = input.selectionStart ?? nextValue.length;
       const end = input.selectionEnd ?? nextValue.length;
       state.adminAddQuery = nextValue;
-      renderAdmin();
-      bindAdmin();
-      const nextInput = $("#adminAddQuery", panels.admin);
-      if (nextInput) {
-        nextInput.focus({ preventScroll: true });
-        nextInput.setSelectionRange(start, end);
-      }
+      scheduleInputRefresh("adminAddQuery", () => {
+        renderAdmin();
+        bindAdmin();
+        const nextInput = $("#adminAddQuery", panels.admin);
+        if (nextInput) {
+          nextInput.focus({ preventScroll: true });
+          nextInput.setSelectionRange(start, end);
+        }
+      });
     });
     $$("[data-admin-org-toggle]", panels.admin).forEach((button) => button.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -3997,30 +4493,35 @@
       bindAdmin();
     }));
     $$("[data-admin-chip-remove]", panels.admin).forEach((button) => button.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       state.adminCandidateSelection = (state.adminCandidateSelection || []).filter((id) => id !== button.dataset.adminChipRemove);
       renderAdmin();
       bindAdmin();
     }));
     $("#adminAddSaveBtn", panels.admin)?.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       const selectedIds = state.adminCandidateSelection || [];
       if (!selectedIds.length) return;
       const category = getCurrentAdminCategory();
       const role = state.currentAdminRoleTab;
+      const addMeta = getAdminAddMetaFromInputs();
       const existingLoginIds = new Set(getAdminCategoriesSource().flatMap((item) => [...(item.managers || []), ...(item.viewers || [])]).map((member) => member.loginId));
       const added = selectedIds.map((employeeId, index) => {
         const employee = state.employees.find((item) => item.id === employeeId);
         if (!employee || existingLoginIds.has(getEmployeeLoginId(employee))) return null;
         const idPrefix = role === "viewer" ? "ADV" : "ADM";
-        return buildAdminMemberFromEmployee(employee, `${idPrefix}-${String(Date.now() + index).slice(-5)}`, getDefaultAdminPermissionIds(category.id, role), "2026.04.16", role);
+        return buildAdminMemberFromEmployee(employee, `${idPrefix}-${String(Date.now() + index).slice(-5)}`, getAdminCategoryPermissionIds(category.id, role), "2026.04.16", role, addMeta);
       }).filter(Boolean);
       if (!added.length) return;
       upsertAdminPendingChange({
         key: `add|${category.id}|${role}|${added.map((member) => member.employeeId).join(",")}`,
         kind: "add-members",
         categoryId: category.id,
-        categoryLabel: category.label,
+        categoryLabel: getAdminCategoryDisplayName(category),
         role,
         members: added,
+        changeReason: addMeta.changeReason,
+        expiresAt: addMeta.expiresAt,
         summary: `${added.map((member) => member.name).join(", ")} 추가`
       });
       rebuildAdminDraftFromPending();
@@ -4032,10 +4533,12 @@
       bindAdmin();
     });
     $$('input[name="adminViewScope"]', panels.admin).forEach((input) => input.addEventListener("change", () => {
+      if (!canAdminEdit) return;
       const category = getCurrentAdminCategory();
       const manager = getCurrentAdminManager();
       if (!category || !manager) return;
       const nextScope = input.value;
+      const changeMeta = getAdminChangeMetaFromInputs();
       const nextPermissions = { ...(manager.permissions || {}) };
       nextPermissions.directory_view_self = nextScope === "self";
       nextPermissions.directory_view_all = nextScope === "all";
@@ -4044,12 +4547,15 @@
         key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
         kind: "set-permissions",
         categoryId: category.id,
-        categoryLabel: category.label,
+        categoryLabel: getAdminCategoryDisplayName(category),
         role: state.currentAdminRoleTab,
-        managerId: manager.id,
+        memberId: manager.id,
+        memberName: manager.name,
         permissions: nextPermissions,
         viewScope: nextScope,
-        viewTargets: nextScope === "partial" ? (manager.viewTargets || []) : [],
+        viewTargets: nextScope === "partial" ? normalizeAdminViewTargets(manager.viewTargets || []) : [],
+        changeReason: changeMeta.changeReason,
+        expiresAt: changeMeta.expiresAt,
         summary: `${manager.name} 열람 범위 ${nextScope === "self" ? "본인" : nextScope === "all" ? "전체" : "일부"}`
       });
       rebuildAdminDraftFromPending();
@@ -4059,6 +4565,7 @@
       bindAdmin();
     }));
     $("#adminScopeOpenBtn", panels.admin)?.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       state.adminScopeOpen = !state.adminScopeOpen;
       state.adminScopeSelection = [];
       renderAdmin();
@@ -4070,13 +4577,15 @@
       const start = input.selectionStart ?? nextValue.length;
       const end = input.selectionEnd ?? nextValue.length;
       state.adminScopeQuery = nextValue;
-      renderAdmin();
-      bindAdmin();
-      const nextInput = $("#adminScopeQuery", panels.admin);
-      if (nextInput) {
-        nextInput.focus({ preventScroll: true });
-        nextInput.setSelectionRange(start, end);
-      }
+      scheduleInputRefresh("adminScopeQuery", () => {
+        renderAdmin();
+        bindAdmin();
+        const nextInput = $("#adminScopeQuery", panels.admin);
+        if (nextInput) {
+          nextInput.focus({ preventScroll: true });
+          nextInput.setSelectionRange(start, end);
+        }
+      });
     });
     $$("[data-admin-scope-check]", panels.admin).forEach((input) => input.addEventListener("change", () => {
       const employeeId = input.dataset.adminScopeCheck;
@@ -4087,28 +4596,58 @@
       bindAdmin();
     }));
     $$("[data-admin-scope-chip-remove]", panels.admin).forEach((button) => button.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       state.adminScopeSelection = (state.adminScopeSelection || []).filter((id) => id !== button.dataset.adminScopeChipRemove);
       renderAdmin();
       bindAdmin();
     }));
-    $("#adminScopeAddOrgBtn", panels.admin)?.addEventListener("click", () => {
+    $$("[data-admin-scope-target-remove]", panels.admin).forEach((button) => button.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       const category = getCurrentAdminCategory();
       const manager = getCurrentAdminManager();
-      const row = state.currentAdminOrgKey === "ROOT" ? null : getBlueprintRow(state.orgBlueprint, state.currentAdminOrgKey);
       if (!category || !manager) return;
-      const nextTargets = [...(manager.viewTargets || [])];
-      const target = { type: "org", key: state.currentAdminOrgKey || "ROOT", label: row ? getOrgRowPath(row) : "오토플러스" };
-      if (!nextTargets.some((item) => item.type === target.type && item.key === target.key)) nextTargets.push(target);
+      const nextTargets = normalizeAdminViewTargets((manager.viewTargets || []).filter((target) => getAdminViewTargetKey(target) !== button.dataset.adminScopeTargetRemove));
+      const changeMeta = getAdminChangeMetaFromInputs();
       upsertAdminPendingChange({
         key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
         kind: "set-permissions",
         categoryId: category.id,
-        categoryLabel: category.label,
+        categoryLabel: getAdminCategoryDisplayName(category),
         role: state.currentAdminRoleTab,
-        managerId: manager.id,
+        memberId: manager.id,
+        memberName: manager.name,
         permissions: { ...(manager.permissions || {}), directory_view_self: false, directory_view_all: false, directory_view_partial: true },
         viewScope: "partial",
         viewTargets: nextTargets,
+        changeReason: changeMeta.changeReason,
+        expiresAt: changeMeta.expiresAt,
+        summary: `${manager.name} 일부 열람 대상 조정`
+      });
+      rebuildAdminDraftFromPending();
+      renderAdmin();
+      bindAdmin();
+    }));
+    $("#adminScopeAddOrgBtn", panels.admin)?.addEventListener("click", () => {
+      if (!canAdminEdit) return;
+      const category = getCurrentAdminCategory();
+      const manager = getCurrentAdminManager();
+      const row = state.currentAdminOrgKey === "ROOT" ? null : getBlueprintRow(state.orgBlueprint, state.currentAdminOrgKey);
+      if (!category || !manager) return;
+      const nextTargets = normalizeAdminViewTargets([...(manager.viewTargets || []), { type: "org", key: state.currentAdminOrgKey || "ROOT", label: row ? getOrgRowPath(row) : "오토플러스" }]);
+      const changeMeta = getAdminChangeMetaFromInputs();
+      upsertAdminPendingChange({
+        key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
+        kind: "set-permissions",
+        categoryId: category.id,
+        categoryLabel: getAdminCategoryDisplayName(category),
+        role: state.currentAdminRoleTab,
+        memberId: manager.id,
+        memberName: manager.name,
+        permissions: { ...(manager.permissions || {}), directory_view_self: false, directory_view_all: false, directory_view_partial: true },
+        viewScope: "partial",
+        viewTargets: nextTargets,
+        changeReason: changeMeta.changeReason,
+        expiresAt: changeMeta.expiresAt,
         summary: `${manager.name} 일부 열람 대상 변경`
       });
       rebuildAdminDraftFromPending();
@@ -4116,6 +4655,7 @@
       bindAdmin();
     });
     $("#adminScopeCancelBtn", panels.admin)?.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       state.adminScopeOpen = false;
       state.adminScopeSelection = [];
       state.adminScopeQuery = "";
@@ -4123,26 +4663,30 @@
       bindAdmin();
     });
     $("#adminScopeSaveBtn", panels.admin)?.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       const category = getCurrentAdminCategory();
       const manager = getCurrentAdminManager();
       if (!category || !manager) return;
+      const changeMeta = getAdminChangeMetaFromInputs();
       const nextTargets = [...(manager.viewTargets || [])];
       (state.adminScopeSelection || []).forEach((employeeId) => {
         const employee = state.employees.find((item) => item.id === employeeId);
         if (!employee) return;
-        const target = { type: "employee", key: employee.id, label: `${employee.name} (${getCurrentOrgLabel(employee)})` };
-        if (!nextTargets.some((item) => item.type === target.type && item.key === target.key)) nextTargets.push(target);
+        nextTargets.push({ type: "employee", employeeId: employee.id, label: `${employee.name} (${getCurrentOrgLabel(employee)})` });
       });
       upsertAdminPendingChange({
         key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
         kind: "set-permissions",
         categoryId: category.id,
-        categoryLabel: category.label,
+        categoryLabel: getAdminCategoryDisplayName(category),
         role: state.currentAdminRoleTab,
-        managerId: manager.id,
+        memberId: manager.id,
+        memberName: manager.name,
         permissions: { ...(manager.permissions || {}), directory_view_self: false, directory_view_all: false, directory_view_partial: true },
         viewScope: "partial",
-        viewTargets: nextTargets,
+        viewTargets: normalizeAdminViewTargets(nextTargets),
+        changeReason: changeMeta.changeReason,
+        expiresAt: changeMeta.expiresAt,
         summary: `${manager.name} 일부 열람 대상 저장`
       });
       rebuildAdminDraftFromPending();
@@ -4167,19 +4711,23 @@
       bindAdmin();
     });
     $("#adminBulkRemoveBtn", panels.admin)?.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       const category = getCurrentAdminCategory();
       const selected = new Set(state.adminMemberSelection || []);
       const key = getAdminRoleBucket(state.currentAdminRoleTab);
       const removedMembers = (category[key] || []).filter((member) => selected.has(member.id));
       if (!removedMembers.length) return;
+      const changeMeta = getAdminChangeMetaFromInputs();
       upsertAdminPendingChange({
         key: `remove|${category.id}|${state.currentAdminRoleTab}|${removedMembers.map((member) => member.id).join(",")}`,
         kind: "remove-members",
         categoryId: category.id,
-        categoryLabel: category.label,
+        categoryLabel: getAdminCategoryDisplayName(category),
         role: state.currentAdminRoleTab,
         memberIds: removedMembers.map((member) => member.id),
         memberNames: removedMembers.map((member) => member.name),
+        changeReason: changeMeta.changeReason,
+        expiresAt: changeMeta.expiresAt,
         summary: `${removedMembers.length}명 일괄 제거`
       });
       rebuildAdminDraftFromPending();
@@ -4189,19 +4737,23 @@
       bindAdmin();
     });
     $$("[data-admin-permission]", panels.admin).forEach((input) => input.addEventListener("change", () => {
+      if (!canAdminEdit) return;
       const manager = getCurrentAdminManager();
       if (!manager || isViewerRole()) return;
       const nextPermissions = { ...(manager.permissions || {}), [input.dataset.adminPermission]: input.checked };
       const category = getCurrentAdminCategory();
+      const changeMeta = getAdminChangeMetaFromInputs();
       upsertAdminPendingChange({
         key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
         kind: "set-permissions",
         categoryId: category.id,
-        categoryLabel: category.label,
+        categoryLabel: getAdminCategoryDisplayName(category),
         role: state.currentAdminRoleTab,
         memberId: manager.id,
         memberName: manager.name,
         permissions: nextPermissions,
+        changeReason: changeMeta.changeReason,
+        expiresAt: changeMeta.expiresAt,
         summary: `${manager.name} 권한 변경`
       });
       rebuildAdminDraftFromPending();
@@ -4209,21 +4761,25 @@
       bindAdmin();
     }));
     $$("[data-admin-group-enable]", panels.admin).forEach((button) => button.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       const manager = getCurrentAdminManager();
       const group = adminPermissionGroups.find((item) => item.id === button.dataset.adminGroupEnable);
       if (!manager || !group || isViewerRole()) return;
       const nextPermissions = { ...(manager.permissions || {}) };
       group.items.forEach((item) => { nextPermissions[item.id] = true; });
       const category = getCurrentAdminCategory();
+      const changeMeta = getAdminChangeMetaFromInputs();
       upsertAdminPendingChange({
         key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
         kind: "set-permissions",
         categoryId: category.id,
-        categoryLabel: category.label,
+        categoryLabel: getAdminCategoryDisplayName(category),
         role: state.currentAdminRoleTab,
         memberId: manager.id,
         memberName: manager.name,
         permissions: nextPermissions,
+        changeReason: changeMeta.changeReason,
+        expiresAt: changeMeta.expiresAt,
         summary: `${manager.name} 권한 일괄 선택`
       });
       rebuildAdminDraftFromPending();
@@ -4231,21 +4787,25 @@
       bindAdmin();
     }));
     $$("[data-admin-group-disable]", panels.admin).forEach((button) => button.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       const manager = getCurrentAdminManager();
       const group = adminPermissionGroups.find((item) => item.id === button.dataset.adminGroupDisable);
       if (!manager || !group || isViewerRole()) return;
       const nextPermissions = { ...(manager.permissions || {}) };
       group.items.forEach((item) => { nextPermissions[item.id] = false; });
       const category = getCurrentAdminCategory();
+      const changeMeta = getAdminChangeMetaFromInputs();
       upsertAdminPendingChange({
         key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
         kind: "set-permissions",
         categoryId: category.id,
-        categoryLabel: category.label,
+        categoryLabel: getAdminCategoryDisplayName(category),
         role: state.currentAdminRoleTab,
         memberId: manager.id,
         memberName: manager.name,
         permissions: nextPermissions,
+        changeReason: changeMeta.changeReason,
+        expiresAt: changeMeta.expiresAt,
         summary: `${manager.name} 권한 일괄 해제`
       });
       rebuildAdminDraftFromPending();
@@ -4253,19 +4813,23 @@
       bindAdmin();
     }));
     $("#adminPermissionResetBtn", panels.admin)?.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       const manager = getCurrentAdminManager();
       const category = getCurrentAdminCategory();
       if (!manager || isViewerRole()) return;
-      const nextPermissions = createPermissionMap(getDefaultAdminPermissionIds(category.id, "manager"));
+      const nextPermissions = createPermissionMap(getAdminCategoryPermissionIds(category.id, "manager"));
+      const changeMeta = getAdminChangeMetaFromInputs();
       upsertAdminPendingChange({
         key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
         kind: "set-permissions",
         categoryId: category.id,
-        categoryLabel: category.label,
+        categoryLabel: getAdminCategoryDisplayName(category),
         role: state.currentAdminRoleTab,
         memberId: manager.id,
         memberName: manager.name,
         permissions: nextPermissions,
+        changeReason: changeMeta.changeReason,
+        expiresAt: changeMeta.expiresAt,
         summary: `${manager.name} 권한 초기화`
       });
       rebuildAdminDraftFromPending();
@@ -4276,9 +4840,11 @@
       removeAdminPendingChange(button.dataset.adminPendingCancel);
     }));
     $("#adminDraftApplyBtn", panels.admin)?.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       applyAdminDraft();
     });
     $("#adminDraftResetBtn", panels.admin)?.addEventListener("click", () => {
+      if (!canAdminEdit) return;
       discardAdminDraft();
       renderAdmin();
       bindAdmin();
@@ -4312,7 +4878,7 @@
   }
   function renderAssignmentStepTwo(flow) {
     const selectedAfter = getBlueprintRow(flow.orgDraft, flow.selectedAfterOrg) || null;
-    panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">Before / After 조직을 비교하며 명칭 변경, 이동, 신설, 폐지를 편집합니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="active">2단계</span><span>3단계</span></div></div><div class="codex-assignment-before-after"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>Before</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(state.orgBlueprint, flow.selectedBeforeOrg, false, "before")}</div></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>After</h4><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" data-org-add-under="${flow.selectedAfterOrg || "ROOT"}">추가</button><button type="button" class="hr-btn btn-outline" ${selectedAfter ? `data-org-edit="${flow.selectedAfterOrg}"` : "disabled"}>수정</button><button type="button" class="hr-btn btn-outline" ${selectedAfter ? `data-org-delete="${flow.selectedAfterOrg}"` : "disabled"}>삭제</button></div></div><div class="codex-assignment-tree-wrap is-after-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedAfterOrg, false, "after")}</div></div></div><div style="margin-top:16px">${renderOrgSummaryTable(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentOrgEditDoneBtn">편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentOrgNextStepBtn">다음 단계</button></div></div></div>`;
+    panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">Before / After 조직을 비교하며 명칭 변경, 이동, 신설, 폐지를 편집합니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="active">2단계</span><span>3단계</span></div></div><div class="codex-assignment-before-after"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>Before</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(state.orgBlueprint, flow.selectedBeforeOrg, false, "before")}</div></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>After</h4><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" data-org-add-under="${flow.selectedAfterOrg || "ROOT"}" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>추가</button><button type="button" class="hr-btn btn-outline" ${selectedAfter ? `data-org-edit="${flow.selectedAfterOrg}"` : "disabled"} ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>수정</button><button type="button" class="hr-btn btn-outline" ${selectedAfter ? `data-org-delete="${flow.selectedAfterOrg}"` : "disabled"} ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>삭제</button></div></div><div class="codex-assignment-tree-wrap is-after-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedAfterOrg, false, "after")}</div></div></div><div style="margin-top:16px">${renderOrgSummaryTable(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentOrgEditDoneBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentOrgNextStepBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>다음 단계</button></div></div></div>`;
   }
   function renderPersonnelSummary(flow) {
     const actions = getActivePersonnelActions(flow).map((action) => {
@@ -4352,7 +4918,7 @@
       const suggestionRows = suggestions.map((item) => `<button type="button" class="codex-org-suggest-item" data-personnel-org-pick="${employee.id}" data-personnel-org-key="${item.key}"><span>${item.path}</span></button>`).join("");
       return `<tr><td><button type="button" class="codex-icon-btn" data-personnel-remove="${employee.id}" title="목록에서 제외">🗑</button></td><td>${beforeEmployee.name}</td><td>${beforeEmployee.id}</td><td>${employeePath(beforeEmployee)}</td><td>${beforeEmployee.title}</td><td>${beforeEmployee.grade}</td><td><label><input type="checkbox" data-personnel-type="${employee.id}" data-personnel-type-value="부서 이동" ${hasPersonnelType(action, "부서 이동") ? "checked" : ""}>부서 이동</label><label><input type="checkbox" data-personnel-type="${employee.id}" data-personnel-type-value="소속 제외" ${hasPersonnelType(action, "소속 제외") ? "checked" : ""}>소속 제외</label><label><input type="checkbox" data-personnel-type="${employee.id}" data-personnel-type-value="책임자 임면" ${hasPersonnelType(action, "책임자 임면") ? "checked" : ""}>책임자 임면</label><label><input type="checkbox" data-personnel-type="${employee.id}" data-personnel-type-value="승급" ${hasPersonnelType(action, "승급") ? "checked" : ""}>승급</label></td><td><div class="codex-org-suggest-field"><input data-personnel-org-text="${employee.id}" value="${getPersonnelInputValue(flow, action)}" placeholder="발령 후 조직 검색"><div class="codex-org-suggest-list ${suggestionRows ? "is-open" : ""}">${suggestionRows || ""}</div></div></td><td><select data-personnel-title="${employee.id}">${titleCodes.map((item) => `<option value="${item}" ${item === action.targetTitle ? "selected" : ""}>${item}</option>`).join("")}</select></td><td><select data-personnel-grade="${employee.id}">${gradeCodes.map((item) => `<option value="${item}" ${item === (action.targetGrade || beforeEmployee.grade) ? "selected" : ""}>${item}</option>`).join("")}</select></td><td><input data-personnel-note="${employee.id}" value="${action.note || ""}" placeholder="비고"></td></tr>`;
     }).join("");
-    panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">변동 조직 인원은 자동 반영되고, 필요한 인원은 좌측 조직도에서 추가할 수 있습니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="done">2단계</span><span class="active">3단계</span></div></div><div class="codex-assignment-before-after codex-assignment-stage3-layout"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>조직도</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT", false, "personnel")}</div><div class="codex-panel" style="margin-top:12px"><div class="codex-assignment-section-head"><h4>구성원 선택</h4><button type="button" class="hr-btn btn-outline" id="personnelAddSelectedBtn">선택 추가</button></div><input class="hr-search-input" id="personnelSearchInput" value="${flow.personnelSearch || ""}" placeholder="이름, ID 검색"><div class="codex-personnel-picker">${pickerRows || `<div class="codex-note-box">해당 조직에 구성원이 없습니다.</div>`}</div></div></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>구성원 정보</h4><div></div></div><div class="codex-assignment-table-wrap"><table class="codex-assignment-member-table"><thead><tr><th></th><th>이름</th><th>ID</th><th>발령 전 조직</th><th>발령 전 직책</th><th>발령 전 직급</th><th>처리 유형</th><th>발령 후 조직</th><th>발령 후 직책</th><th>발령 후 직급</th><th>비고</th></tr></thead><tbody>${memberRows || `<tr><td colspan="11">발령 대상자가 없습니다.</td></tr>`}</tbody></table></div></div></div><div style="margin-top:16px">${renderPersonnelSummary(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentPersonnelDoneBtn">편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentFinishBtn">완료</button></div></div></div>`;
+    panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">변동 조직 인원은 자동 반영되고, 필요한 인원은 좌측 조직도에서 추가할 수 있습니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="done">2단계</span><span class="active">3단계</span></div></div><div class="codex-assignment-before-after codex-assignment-stage3-layout"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>조직도</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT", false, "personnel")}</div><div class="codex-panel" style="margin-top:12px"><div class="codex-assignment-section-head"><h4>구성원 선택</h4><button type="button" class="hr-btn btn-outline" id="personnelAddSelectedBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>선택 추가</button></div><input class="hr-search-input" id="personnelSearchInput" value="${flow.personnelSearch || ""}" placeholder="이름, ID 검색"><div class="codex-personnel-picker">${pickerRows || `<div class="codex-note-box">해당 조직에 구성원이 없습니다.</div>`}</div></div></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>구성원 정보</h4><div></div></div><div class="codex-assignment-table-wrap"><table class="codex-assignment-member-table"><thead><tr><th></th><th>이름</th><th>ID</th><th>발령 전 조직</th><th>발령 전 직책</th><th>발령 전 직급</th><th>처리 유형</th><th>발령 후 조직</th><th>발령 후 직책</th><th>발령 후 직급</th><th>비고</th></tr></thead><tbody>${memberRows || `<tr><td colspan="11">발령 대상자가 없습니다.</td></tr>`}</tbody></table></div></div></div><div style="margin-top:16px">${renderPersonnelSummary(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentPersonnelDoneBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentFinishBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>완료</button></div></div></div>`;
   }
   function openOrgEditModal(mode, orgKey = "ROOT") {
     const flow = ensureAssignmentFlow();
@@ -4471,19 +5037,49 @@
     if (!record) return;
     $("h3", recordDetailModal.root).textContent = `${date} 인사발령 상세`;
     const activeActions = (record.personnelActions || []).map((item) => ({ ...item, enabled: true, removed: false }));
-    recordDetailModal.body.innerHTML = `${renderOrgSummaryTable({ orgSummary: record.orgSummary })}${renderPersonnelSummary({ personnelActions: activeActions, orgDraft: record.afterRows || state.orgBlueprint })}<div class="codex-inline-actions" style="margin-top:16px"><button type="button" class="hr-btn btn-outline" id="assignmentHistoryEditBtn">수정</button><button type="button" class="hr-btn btn-outline" id="assignmentHistoryCancelBtn" ${record.status === "취소" ? "disabled" : ""}>취소</button></div>`;
+    recordDetailModal.body.innerHTML = `${renderOrgSummaryTable({ orgSummary: record.orgSummary })}${renderPersonnelSummary({ personnelActions: activeActions, orgDraft: record.afterRows || state.orgBlueprint })}<div class="codex-inline-actions" style="margin-top:16px"><button type="button" class="hr-btn btn-outline" id="assignmentHistoryEditBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>수정</button><button type="button" class="hr-btn btn-outline" id="assignmentHistoryCancelBtn" ${record.status === "취소" || !hasCurrentPermission("history_cancel") ? "disabled" : ""}>취소</button></div>`;
     recordDetailModal.save.onclick = () => recordDetailModal.close();
     recordDetailModal.open();
     $("#assignmentHistoryEditBtn", recordDetailModal.body)?.addEventListener("click", () => {
+      if (!hasCurrentPermission("assignment_execute")) return;
       recordDetailModal.close();
       startAssignmentHistoryEdit(date);
     });
     $("#assignmentHistoryCancelBtn", recordDetailModal.body)?.addEventListener("click", () => {
+      if (!hasCurrentPermission("history_cancel")) return;
       recordDetailModal.close();
       cancelAssignmentHistory(date);
     });
   }
+  function resolveFallbackOrgRow(rows, currentRow) {
+    if (!currentRow) return null;
+    const candidates = [
+      currentRow.part ? ["L3", currentRow.hq, currentRow.office, currentRow.team, ""].join("|") : "",
+      currentRow.team ? ["L2", currentRow.hq, currentRow.office, "", ""].join("|") : "",
+      currentRow.office ? ["L1", currentRow.hq, "", "", ""].join("|") : ""
+    ].filter(Boolean);
+    for (const key of candidates) {
+      const row = getBlueprintRow(rows, key);
+      if (row) return row;
+    }
+    return null;
+  }
+  function applyEmployeeOrgFromRow(employee, row) {
+    if (!employee) return;
+    if (!row) {
+      employee.hq = "오토플러스";
+      employee.office = "";
+      employee.team = "";
+      employee.part = "";
+      return;
+    }
+    employee.hq = row.hq;
+    employee.office = row.office;
+    employee.team = row.team;
+    employee.part = row.part;
+  }
   function applyAssignmentFlow(flow) {
+    syncPersonnelActionsForStage(flow);
     const nextBlueprint = normalizeBlueprint(flow.orgDraft);
     const previousBlueprint = state.orgBlueprint.map((row) => ({ ...row }));
     const previousByKey = new Map(previousBlueprint.map((row) => [getOrgRowKey(row), row]));
@@ -4493,32 +5089,29 @@
     state.employees.forEach((employee) => {
       const currentRow = previousByKey.get(getEmployeeNodeKey(employee));
       const remappedRow = currentRow ? nextBySource.get(currentRow.sourceKey || getOrgRowKey(currentRow)) : null;
-      if (remappedRow) {
+      const fallbackRow = !remappedRow && currentRow ? resolveFallbackOrgRow(nextBlueprint, currentRow) : null;
+      const nextRow = remappedRow || fallbackRow;
+      if (nextRow || currentRow) {
         const beforePath = employeePath(employee);
-        employee.hq = remappedRow.hq;
-        employee.office = remappedRow.office;
-        employee.team = remappedRow.team;
-        employee.part = remappedRow.part;
+        applyEmployeeOrgFromRow(employee, nextRow);
         if (beforePath !== employeePath(employee) && !explicitActionIds.has(employee.id)) {
           employee.assignmentDate = flow.changeDate;
-          appendAssignmentDrivenHistory(employee, { type: "조직개편", assignDate: flow.changeDate, reason: "조직개편 반영", nextDept: employeePath(employee) || "조직 없음", nextGrade: employee.grade, nextTitle: employee.title, nextStatus: employee.status });
+          appendAssignmentDrivenHistory(employee, { type: "조직개편", assignDate: flow.changeDate, reason: remappedRow ? "조직개편 반영" : "삭제 조직 상위 조직으로 자동 재배치", nextDept: employeePath(employee) || "조직 없음", nextGrade: employee.grade, nextTitle: employee.title, nextStatus: employee.status });
         }
       }
     });
     getActivePersonnelActions(flow).forEach((action) => {
       const employee = state.employees.find((item) => item.id === action.employeeId);
+      const beforeEmployee = getPersonnelBaseEmployee(flow, action.employeeId);
+      const beforeRow = beforeEmployee ? previousByKey.get(getEmployeeNodeKey(beforeEmployee)) : null;
       if (!employee) return;
       const targetRow = getBlueprintRow(state.orgBlueprint, action.targetOrgKey);
       if (hasPersonnelType(action, "소속 제외")) {
-        employee.hq = "오토플러스";
-        employee.office = "";
-        employee.team = "";
-        employee.part = "";
+        applyEmployeeOrgFromRow(employee, null);
       } else if (hasPersonnelType(action, "부서 이동") && targetRow) {
-        employee.hq = targetRow.hq;
-        employee.office = targetRow.office;
-        employee.team = targetRow.team;
-        employee.part = targetRow.part;
+        applyEmployeeOrgFromRow(employee, targetRow);
+      } else if (hasPersonnelType(action, "부서 이동") && !targetRow) {
+        applyEmployeeOrgFromRow(employee, resolveFallbackOrgRow(state.orgBlueprint, beforeRow));
       }
       if (hasPersonnelType(action, "책임자 임면")) employee.title = action.targetTitle || employee.title;
       if (hasPersonnelType(action, "승급")) employee.grade = action.targetGrade || employee.grade;
@@ -4549,8 +5142,26 @@
       setAssignmentExpanded(prefix, key, !isExpanded);
       renderAssignment();
     }));
-    $("#startAssignmentWizardBtn", panels.assignment)?.addEventListener("click", () => { state.assignmentFlow = createAssignmentFlow(); renderAssignment(); });
-    $("#assignmentLandingSearch", panels.assignment)?.addEventListener("input", (event) => { state.assignmentLandingSearch = event.target.value; renderAssignment(); });
+    $("#startAssignmentWizardBtn", panels.assignment)?.addEventListener("click", () => {
+      if (!hasCurrentPermission("assignment_execute")) return;
+      state.assignmentFlow = createAssignmentFlow();
+      renderAssignment();
+    });
+    $("#assignmentLandingSearch", panels.assignment)?.addEventListener("input", (event) => {
+      const input = event.target;
+      const nextValue = input.value || "";
+      const start = input.selectionStart ?? nextValue.length;
+      const end = input.selectionEnd ?? nextValue.length;
+      state.assignmentLandingSearch = nextValue;
+      scheduleInputRefresh("assignmentLandingSearch", () => {
+        renderAssignment();
+        const nextInput = $("#assignmentLandingSearch", panels.assignment);
+        if (nextInput) {
+          nextInput.focus({ preventScroll: true });
+          nextInput.setSelectionRange(start, end);
+        }
+      });
+    });
     $("#cancelAssignmentWizardBtn", panels.assignment)?.addEventListener("click", () => { state.assignmentFlow = null; renderAssignment(); });
     $("#wizardChangeDate", panels.assignment)?.addEventListener("input", (event) => {
       const flow = ensureAssignmentFlow();
@@ -4564,22 +5175,24 @@
     });
     $("#assignmentNextStepBtn", panels.assignment)?.addEventListener("click", () => { const flow = ensureAssignmentFlow(); flow.changeDate = $("#wizardChangeDate")?.value || flow.changeDate; flow.mode = document.querySelector('input[name="wizardMode"]:checked')?.value || flow.mode; flow.stage = 2; renderAssignment(); });
     $("#assignmentPrevStepBtn", panels.assignment)?.addEventListener("click", () => { const flow = ensureAssignmentFlow(); flow.stage = Math.max(1, flow.stage - 1); renderAssignment(); });
-    $("#assignmentOrgEditDoneBtn", panels.assignment)?.addEventListener("click", () => { const flow = ensureAssignmentFlow(); flow.orgSummary = summarizeOrgChangesForFlow(getFlowBaseRows(flow), flow.orgDraft, flow); renderAssignment(); });
-    $("#assignmentOrgNextStepBtn", panels.assignment)?.addEventListener("click", () => { const flow = ensureAssignmentFlow(); flow.orgSummary = summarizeOrgChangesForFlow(getFlowBaseRows(flow), flow.orgDraft, flow); flow.stage = 3; renderAssignment(); });
+    $("#assignmentOrgEditDoneBtn", panels.assignment)?.addEventListener("click", () => { if (!hasCurrentPermission("assignment_execute")) return; const flow = ensureAssignmentFlow(); flow.orgSummary = summarizeOrgChangesForFlow(getFlowBaseRows(flow), flow.orgDraft, flow); renderAssignment(); });
+    $("#assignmentOrgNextStepBtn", panels.assignment)?.addEventListener("click", () => { if (!hasCurrentPermission("assignment_execute")) return; const flow = ensureAssignmentFlow(); flow.orgSummary = summarizeOrgChangesForFlow(getFlowBaseRows(flow), flow.orgDraft, flow); flow.stage = 3; renderAssignment(); });
     $("#assignmentPersonnelDoneBtn", panels.assignment)?.addEventListener("click", () => renderAssignment());
-    $("#assignmentFinishBtn", panels.assignment)?.addEventListener("click", () => applyAssignmentFlow(ensureAssignmentFlow()));
+    $("#assignmentFinishBtn", panels.assignment)?.addEventListener("click", () => { if (!hasCurrentPermission("assignment_execute")) return; applyAssignmentFlow(ensureAssignmentFlow()); });
     $("#personnelSearchInput", panels.assignment)?.addEventListener("input", (event) => {
       const input = event.target;
       const nextValue = input.value;
       const start = input.selectionStart ?? nextValue.length;
       const end = input.selectionEnd ?? nextValue.length;
       ensureAssignmentFlow().personnelSearch = nextValue;
-      renderAssignment();
-      const nextInput = $("#personnelSearchInput", panels.assignment);
-      if (nextInput) {
-        nextInput.focus({ preventScroll: true });
-        nextInput.setSelectionRange(start, end);
-      }
+      scheduleInputRefresh("personnelSearchInput", () => {
+        renderAssignment();
+        const nextInput = $("#personnelSearchInput", panels.assignment);
+        if (nextInput) {
+          nextInput.focus({ preventScroll: true });
+          nextInput.setSelectionRange(start, end);
+        }
+      });
     });
     $$("[data-assignment-history]", panels.assignment).forEach((button) => button.addEventListener("click", () => openAssignmentHistoryDetail(button.dataset.assignmentHistory)));
     $$("[data-assignment-history-edit]", panels.assignment).forEach((button) => button.addEventListener("click", () => startAssignmentHistoryEdit(button.dataset.assignmentHistoryEdit)));
@@ -4870,7 +5483,8 @@
     const careerRows = [["", "", "", ""]];
     const familyRows = [["", "", ""]];
     const certificateRows = [["", "", ""]];
-    createModal.body.innerHTML = `<div class="codex-form-grid"><div class="codex-photo-field span-2"><span>증명사진</span><div class="codex-photo-upload"><div class="codex-photo-preview" id="createPhotoPreview"></div><label class="codex-photo-input"><input id="createPhotoFile" type="file" accept="image/*">사진 업로드</label></div></div><label><span>사원번호</span><input id="createId" placeholder="예: EMP-0101"></label><label><span>사원명</span><input id="createName"></label><label><span>그룹웨어 ID</span><input id="createGroupwareId" placeholder="예: hong.gildong"></label><label><span>주민등록번호</span><input id="createResidentNumber" placeholder="예: 950101-1234567"></label>${renderOrgPicker("create", { hq: "경영관리본부", office: "경영지원실", team: "인사팀", part: "" })}<label><span>직급</span><select id="createGrade">${gradeCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>직책</span><select id="createTitle">${titleCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>직군</span><select id="createFamily">${familyCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>직원유형</span><select id="createEmployeeType">${employeeTypes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>재직상태</span><select id="createStatus"><option value="재직">재직</option><option value="휴직">휴직</option><option value="퇴직">퇴직</option></select></label><label><span>퇴사일</span><input id="createRetireDate" placeholder="YYYYMMDD"></label><label><span>입사일</span><input id="createHireDate" value="2026.04.13"></label><label><span>생년월일</span><input id="createBirthDate" value="1995.01.01"></label><label><span>결혼여부</span><select id="createMaritalStatus"><option>미혼</option><option>기혼</option></select></label><label><span>연락처</span><input id="createPhone" value="010-0000-0000"></label><label><span>회사 전화</span><input id="createCompanyPhone" value="02-6200-0000"></label><label><span>회사 이메일</span><input id="createCompanyEmail" placeholder="example@autoplus.co.kr"></label><label><span>개인 이메일</span><input id="createPersonalEmail" placeholder="example@gmail.com"></label><label class="span-2"><span>주소</span><input id="createAddress" value="서울특별시"></label><label><span>최종학력</span><input id="createEducation" value="미입력"></label><label class="codex-disabled-field"><span>입사시 직급</span><input id="createHireGrade" readonly></label><label class="codex-disabled-field"><span>입사시 직원유형</span><input id="createHireEmployeeType" readonly></label><label class="codex-disabled-field"><span>입사시 직군</span><input id="createHireFamily" readonly></label>${renderOrgPicker("createHire", { hq: "경영관리본부", office: "경영지원실", team: "인사팀", part: "" }, true, "codex-disabled-field")}<label><span>계약기간</span><input id="createContractPeriod" placeholder="계약직인 경우 입력"></label><label><span>인정경력(개월)</span><input id="createCareerMonths" value="0"></label><label><span>부서배정일</span><input id="createAssignmentDate" value="2026.04.13"></label><label class="span-2"><span>인사 메모</span><textarea id="createMemo" rows="3">신규 등록 사원</textarea></label><div class="codex-note-box span-2"><strong>신규입사 기준</strong>입사시 정보는 신규 등록 시 현재 입력한 인사정보를 자동 상속합니다. 별도 수정이 필요하면 저장 후 인사기록카드 수정에서 변경합니다.</div>${repeatableEditorHtml("학력사항", "createEducation", ["학교명", "재학기간", "전공", "비고"], educationRows)}${repeatableEditorHtml("경력사항", "createCareer", ["회사명", "기간", "담당업무", "비고"], careerRows)}${repeatableEditorHtml("가족사항", "createFamilyRows", ["관계", "성명", "생년월일"], familyRows)}${repeatableEditorHtml("자격증", "createCertificate", ["자격증명", "발급기관", "취득일"], certificateRows)}</div>`;
+    const leaveRows = [["", "", "", ""]];
+    createModal.body.innerHTML = `<div class="codex-form-grid"><div class="codex-photo-field span-2"><span>증명사진</span><div class="codex-photo-upload"><div class="codex-photo-preview" id="createPhotoPreview"></div><label class="codex-photo-input"><input id="createPhotoFile" type="file" accept="image/*">사진 업로드</label></div></div><label><span>사원번호</span><input id="createId" placeholder="예: EMP-0101"></label><label><span>사원명</span><input id="createName"></label><label><span>그룹웨어 ID</span><input id="createGroupwareId" placeholder="예: hong.gildong"></label><label><span>주민등록번호</span><input id="createResidentNumber" placeholder="예: 950101-1234567"></label>${renderOrgPicker("create", { hq: "경영관리본부", office: "경영지원실", team: "인사팀", part: "" })}<label><span>직급</span><select id="createGrade">${gradeCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>직책</span><select id="createTitle">${titleCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>직군</span><select id="createFamily">${familyCodes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>직원유형</span><select id="createEmployeeType">${employeeTypes.map((item) => `<option value="${item}">${item}</option>`).join("")}</select></label><label><span>재직상태</span><select id="createStatus"><option value="재직">재직</option><option value="휴직">휴직</option><option value="퇴직">퇴직</option></select></label><label><span>퇴사일</span><input id="createRetireDate" placeholder="YYYYMMDD"></label><label><span>입사일</span><input id="createHireDate" value="2026.04.13"></label><label><span>생년월일</span><input id="createBirthDate" value="1995.01.01"></label><label><span>결혼여부</span><select id="createMaritalStatus"><option>미혼</option><option>기혼</option></select></label><label><span>연락처</span><input id="createPhone" value="010-0000-0000"></label><label><span>회사 전화</span><input id="createCompanyPhone" value="02-6200-0000"></label><label><span>회사 이메일</span><input id="createCompanyEmail" placeholder="example@autoplus.co.kr"></label><label><span>개인 이메일</span><input id="createPersonalEmail" placeholder="example@gmail.com"></label><label class="span-2"><span>주소</span><input id="createAddress" value="서울특별시"></label><label><span>최종학력</span><input id="createEducation" value="미입력"></label><label class="codex-disabled-field"><span>입사시 직급</span><input id="createHireGrade" readonly></label><label class="codex-disabled-field"><span>입사시 직원유형</span><input id="createHireEmployeeType" readonly></label><label class="codex-disabled-field"><span>입사시 직군</span><input id="createHireFamily" readonly></label>${renderOrgPicker("createHire", { hq: "경영관리본부", office: "경영지원실", team: "인사팀", part: "" }, true, "codex-disabled-field")}<label><span>계약기간</span><input id="createContractPeriod" placeholder="계약직인 경우 입력"></label><label><span>인정경력(개월)</span><input id="createCareerMonths" value="0"></label><label><span>부서배정일</span><input id="createAssignmentDate" value="2026.04.13"></label><label class="span-2"><span>인사 메모</span><textarea id="createMemo" rows="3">신규 등록 사원</textarea></label><div class="codex-note-box span-2"><strong>신규입사 기준</strong>입사시 정보는 신규 등록 시 현재 입력한 인사정보를 자동 상속합니다. 별도 수정이 필요하면 저장 후 인사기록카드 수정에서 변경합니다.</div>${repeatableEditorHtml("휴직사항", "createLeave", ["휴직유형", "시작일", "종료일", "비고"], leaveRows)}${repeatableEditorHtml("학력사항", "createEducation", ["학교명", "재학기간", "전공", "비고"], educationRows)}${repeatableEditorHtml("경력사항", "createCareer", ["회사명", "기간", "담당업무", "비고"], careerRows)}${repeatableEditorHtml("가족사항", "createFamilyRows", ["관계", "성명", "생년월일"], familyRows)}${repeatableEditorHtml("자격증", "createCertificate", ["자격증명", "발급기관", "취득일"], certificateRows)}</div>`;
     bindOrgPicker(createModal.body, "create", syncCreateHireFields);
     bindContractToggle("#createEmployeeType", "#createContractPeriod");
     bindRepeatableEditors(createModal.body);
@@ -4888,7 +5502,8 @@
     const promotionRows = getPromotionEntries(employee);
     const historyRows = employee.history;
     const trainingRows = employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""]);
-    editModal.body.innerHTML = `<div class="codex-form-grid"><div class="codex-photo-field span-2"><span>증명사진</span><div class="codex-photo-upload"><div class="codex-photo-preview" id="editPhotoPreview"></div><label class="codex-photo-input"><input id="editPhotoFile" type="file" accept="image/*">사진 업로드</label></div></div><label><span>사원번호</span><input value="${employee.id}" readonly></label><label><span>사원명</span><input id="editName" value="${employee.name}"></label><label><span>그룹웨어 ID</span><input id="editGroupwareId" value="${employee.groupwareId || getGroupwareId(employee)}"></label><label><span>주민등록번호</span><input id="editResidentNumber" value="${employee.residentNumber || getResidentNumber(employee)}"></label>${renderOrgPicker("edit", { hq: employee.hq || "", office: employee.office || "", team: employee.team || "", part: employee.part || "" })}<label><span>직급</span><select id="editGrade">${gradeCodes.map((item) => `<option value="${item}" ${item === employee.grade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직책</span><select id="editTitle">${titleCodes.map((item) => `<option value="${item}" ${item === employee.title ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직군</span><select id="editFamily">${familyCodes.map((item) => `<option value="${item}" ${item === employee.jobFamily ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직원유형</span><select id="editEmployeeType">${employeeTypes.map((item) => `<option value="${item}" ${item === employee.employeeType ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>계약기간</span><input id="editContractPeriod" value="${employee.contractPeriod || ""}"></label><label><span>재직상태</span><select id="editStatus"><option value="재직" ${getEffectiveStatus(employee) === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${getEffectiveStatus(employee) === "휴직" ? "selected" : ""}>휴직</option><option value="퇴직" ${getEffectiveStatus(employee) === "퇴직" ? "selected" : ""}>퇴직</option></select></label><label><span>퇴사일</span><input id="editRetireDate" value="${employee.retireDate || ""}" placeholder="YYYYMMDD"></label><label><span>생년월일</span><input id="editBirthDate" value="${employee.birthDate}"></label><label><span>입사일</span><input id="editHireDate" value="${employee.hireDate}"></label><label><span>결혼여부</span><select id="editMaritalStatus"><option ${((employee.maritalStatus || getMaritalStatus(employee)) === "미혼") ? "selected" : ""}>미혼</option><option ${((employee.maritalStatus || getMaritalStatus(employee)) === "기혼") ? "selected" : ""}>기혼</option></select></label><label><span>연락처</span><input id="editPhone" value="${employee.phone}"></label><label><span>회사 전화</span><input id="editCompanyPhone" value="${getCompanyPhone(employee)}"></label><label><span>회사 이메일</span><input id="editCompanyEmail" value="${getCompanyEmail(employee)}"></label><label><span>개인 이메일</span><input id="editPersonalEmail" value="${getPersonalEmail(employee)}"></label><label class="span-2"><span>주소</span><input id="editAddress" value="${getAddress(employee)}"></label><label><span>최종학력</span><input id="editEducation" value="${employee.education}"></label><label><span>입사시 직급</span><select id="editHireGrade">${gradeCodes.map((item) => `<option value="${item}" ${item === employee.hireGrade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>입사시 직원유형</span><select id="editHireEmployeeType">${employeeTypes.map((item) => `<option value="${item}" ${(item === (employee.hireEmployeeType || employee.employeeType)) ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>입사시 직군</span><select id="editHireFamily">${familyCodes.map((item) => `<option value="${item}" ${(item === (employee.hireJobFamily || employee.jobFamily)) ? "selected" : ""}>${item}</option>`).join("")}</select></label>${renderOrgPicker("editHire", { hq: employee.hireHq || employee.hq || "", office: employee.hireOffice || employee.office || "", team: employee.hireTeam || employee.team || "", part: employee.hirePart || employee.part || "" })}<label><span>인정경력(개월)</span><input id="editCareerMonths" value="${employee.careerMonths}"></label><label><span>부서배정일</span><input id="editAssignmentDate" value="${employee.assignmentDate}"></label><label class="span-2"><span>인사 메모</span><textarea id="editMemo" rows="3">${employee.memo}</textarea></label><div class="codex-note-box span-2"><strong>이력 입력 방식</strong>각 항목은 칸에 맞게 입력하고, 필요한 경우 행 추가로 여러 건을 관리합니다.</div>${repeatableEditorHtml("학력사항", "education", ["학교명", "재학기간", "전공", "비고"], educationRows)}${repeatableEditorHtml("경력사항", "career", ["회사명", "기간", "담당업무", "비고"], careerRows)}${repeatableEditorHtml("가족사항", "family", ["관계", "성명", "생년월일"], familyRows)}${repeatableEditorHtml("자격증", "certificate", ["자격증명", "발급기관", "취득일"], certificateRows)}${repeatableEditorHtml("상벌사항", "award", ["상벌구분", "상벌명", "발생일", "사유"], awardRows)}${repeatableEditorHtml("승급사항", "promotion", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], promotionRows)}${repeatableEditorHtml("발령사항", "history", ["발령일", "비고"], historyRows)}${repeatableEditorHtml("교육사항", "training", ["교육명", "시작일", "종료일", "교육기관", "비고"], trainingRows)}</div>`;
+    const leaveRows = getLeaveEntries(employee);
+    editModal.body.innerHTML = `<div class="codex-form-grid"><div class="codex-photo-field span-2"><span>증명사진</span><div class="codex-photo-upload"><div class="codex-photo-preview" id="editPhotoPreview"></div><label class="codex-photo-input"><input id="editPhotoFile" type="file" accept="image/*">사진 업로드</label></div></div><label><span>사원번호</span><input value="${employee.id}" readonly></label><label><span>사원명</span><input id="editName" value="${employee.name}"></label><label><span>그룹웨어 ID</span><input id="editGroupwareId" value="${employee.groupwareId || getGroupwareId(employee)}"></label><label><span>주민등록번호</span><input id="editResidentNumber" value="${employee.residentNumber || getResidentNumber(employee)}"></label>${renderOrgPicker("edit", { hq: employee.hq || "", office: employee.office || "", team: employee.team || "", part: employee.part || "" })}<label><span>직급</span><select id="editGrade">${gradeCodes.map((item) => `<option value="${item}" ${item === employee.grade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직책</span><select id="editTitle">${titleCodes.map((item) => `<option value="${item}" ${item === employee.title ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직군</span><select id="editFamily">${familyCodes.map((item) => `<option value="${item}" ${item === employee.jobFamily ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직원유형</span><select id="editEmployeeType">${employeeTypes.map((item) => `<option value="${item}" ${item === employee.employeeType ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>계약기간</span><input id="editContractPeriod" value="${employee.contractPeriod || ""}"></label><label><span>재직상태</span><select id="editStatus"><option value="재직" ${getDisplayStatus(employee) === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${getDisplayStatus(employee) === "휴직" ? "selected" : ""}>휴직</option><option value="퇴직" ${getDisplayStatus(employee) === "퇴직" ? "selected" : ""}>퇴직</option></select></label><label><span>퇴사일</span><input id="editRetireDate" value="${employee.retireDate || ""}" placeholder="YYYYMMDD"></label><label><span>생년월일</span><input id="editBirthDate" value="${employee.birthDate}"></label><label><span>입사일</span><input id="editHireDate" value="${employee.hireDate}"></label><label><span>결혼여부</span><select id="editMaritalStatus"><option ${((employee.maritalStatus || getMaritalStatus(employee)) === "미혼") ? "selected" : ""}>미혼</option><option ${((employee.maritalStatus || getMaritalStatus(employee)) === "기혼") ? "selected" : ""}>기혼</option></select></label><label><span>연락처</span><input id="editPhone" value="${employee.phone}"></label><label><span>회사 전화</span><input id="editCompanyPhone" value="${getCompanyPhone(employee)}"></label><label><span>회사 이메일</span><input id="editCompanyEmail" value="${getCompanyEmail(employee)}"></label><label><span>개인 이메일</span><input id="editPersonalEmail" value="${getPersonalEmail(employee)}"></label><label class="span-2"><span>주소</span><input id="editAddress" value="${getAddress(employee)}"></label><label><span>최종학력</span><input id="editEducation" value="${employee.education}"></label><label><span>입사시 직급</span><select id="editHireGrade">${gradeCodes.map((item) => `<option value="${item}" ${item === employee.hireGrade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>입사시 직원유형</span><select id="editHireEmployeeType">${employeeTypes.map((item) => `<option value="${item}" ${(item === (employee.hireEmployeeType || employee.employeeType)) ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>입사시 직군</span><select id="editHireFamily">${familyCodes.map((item) => `<option value="${item}" ${(item === (employee.hireJobFamily || employee.jobFamily)) ? "selected" : ""}>${item}</option>`).join("")}</select></label>${renderOrgPicker("editHire", { hq: employee.hireHq || employee.hq || "", office: employee.hireOffice || employee.office || "", team: employee.hireTeam || employee.team || "", part: employee.hirePart || employee.part || "" })}<label><span>인정경력(개월)</span><input id="editCareerMonths" value="${employee.careerMonths}"></label><label><span>부서배정일</span><input id="editAssignmentDate" value="${employee.assignmentDate}"></label><label class="span-2"><span>인사 메모</span><textarea id="editMemo" rows="3">${employee.memo}</textarea></label><div class="codex-note-box span-2"><strong>이력 입력 방식</strong>각 항목은 칸에 맞게 입력하고, 필요한 경우 행 추가로 여러 건을 관리합니다.</div>${repeatableEditorHtml("휴직사항", "leave", ["휴직유형", "시작일", "종료일", "비고"], leaveRows)}${repeatableEditorHtml("학력사항", "education", ["학교명", "재학기간", "전공", "비고"], educationRows)}${repeatableEditorHtml("경력사항", "career", ["회사명", "기간", "담당업무", "비고"], careerRows)}${repeatableEditorHtml("가족사항", "family", ["관계", "성명", "생년월일"], familyRows)}${repeatableEditorHtml("자격증", "certificate", ["자격증명", "발급기관", "취득일"], certificateRows)}${repeatableEditorHtml("상벌사항", "award", ["상벌구분", "상벌명", "발생일", "사유"], awardRows)}${repeatableEditorHtml("승급사항", "promotion", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], promotionRows)}${repeatableEditorHtml("발령사항", "history", ["발령일", "비고"], historyRows)}${repeatableEditorHtml("교육사항", "training", ["교육명", "시작일", "종료일", "교육기관", "비고"], trainingRows)}</div>`;
     bindOrgPicker(editModal.body, "edit");
     bindOrgPicker(editModal.body, "editHire");
     bindContractToggle("#editEmployeeType", "#editContractPeriod");
@@ -4897,6 +5512,10 @@
     bindPhotoUpload(editModal.body, "#editPhotoFile", "#editPhotoPreview", employee.photoDataUrl || "");
   }
   function saveCreate() {
+    if (!hasCurrentPermission("employee_create")) {
+      window.alert("신규 사원 등록 권한이 없습니다.");
+      return;
+    }
     const manualId = $("#createId").value.trim();
     const selectedStatus = $("#createStatus").value;
     const retireDate = completeDateInput($("#createRetireDate").value);
@@ -4915,10 +5534,20 @@
       $("#createRetireDate")?.focus();
       return;
     }
+    const leaveRows = normalizeLeaveRows(collectRepeatableRows(createModal.body, "createLeave", 4));
+    const leaveValidationMessage = validateLeaveRows(leaveRows);
+    if (leaveValidationMessage) {
+      window.alert(leaveValidationMessage);
+      return;
+    }
+    if (selectedStatus === "휴직" && !leaveRows.length) {
+      window.alert("휴직 상태를 선택한 경우 휴직사항을 한 건 이상 입력해 주세요.");
+      return;
+    }
     const retireDateValue = parseDateValue(retireDate);
     const finalStatus = retireDateValue
       ? (retireDateValue <= getCurrentBaseDateValue() ? "퇴직" : (selectedStatus === "퇴직" ? "재직" : selectedStatus))
-      : selectedStatus;
+      : (selectedStatus === "휴직" && leaveRows.some((row) => parseDateValue(row[1]) <= getCurrentBaseDateValue() && (!parseDateValue(row[2]) || parseDateValue(row[2]) >= getCurrentBaseDateValue())) ? "휴직" : selectedStatus);
     const employee = {
       id: manualId,
       name: $("#createName").value || "신규사원",
@@ -4954,6 +5583,7 @@
       maritalStatus: $("#createMaritalStatus").value,
       hireEmployeeType: $("#createHireEmployeeType").value || $("#createEmployeeType").value,
       hireJobFamily: $("#createHireFamily").value || $("#createFamily").value,
+      leaveItems: leaveRows,
       history: [[completeDateInput($("#createHireDate").value || "2026.04.13"), "신규 등록"]],
       educationHistory: [],
       educationItems: collectRepeatableRows(createModal.body, "createEducation", 4).map((row) => [row[1], `${row[0]} ${row[2]}`.trim()]),
@@ -4964,7 +5594,10 @@
       promotionItems: [["입사", completeDateInput($("#createHireDate").value || "2026.04.13"), [$("#createHireHq").value || $("#createHq").value, $("#createHireOffice").value || $("#createOffice").value, $("#createHireTeam").value || $("#createTeam").value, $("#createHirePart").value || $("#createPart").value].filter(Boolean).join(" > "), $("#createHireGrade").value || $("#createGrade").value, $("#createTitle").value, "신규 입사"]],
       photoDataUrl: createModal.body.dataset.photoDataUrl || ""
     };
+    syncEmployeeLeaveSummary(employee);
+    employee.status = computeCurrentEmploymentStatus(employee, selectedStatus, retireDate);
     if (finalStatus === "퇴직" && retireDate) employee.history.unshift([retireDate, "퇴직 처리"]);
+    appendLeaveHistoryEntries(employee, leaveRows);
     if (!employee.history.length) employee.history = [["2026.04.13", "신규 등록"]];
     if (!employee.educationItems.length) employee.educationItems = [["2015.03 ~ 2019.02", $("#createEducation").value || "학력 정보 미입력"]];
     if (!employee.careerHistory.length) employee.careerHistory = [["2024.01 ~ 2026.03", "인정경력 산정 전 기본값"]];
@@ -4976,11 +5609,25 @@
   }
   function saveEdit() {
     const employee = selectedEmployee();
+    if (!hasCurrentPermission("employee_edit") || !canCurrentAccessEmployeeRecord(employee)) {
+      window.alert("인사기록카드 수정 권한이 없습니다.");
+      return;
+    }
     const selectedStatus = $("#editStatus").value;
     const retireDate = completeDateInput($("#editRetireDate").value);
     if (selectedStatus === "퇴직" && !retireDate) {
       window.alert("퇴직 처리 시 퇴사일을 입력해 주세요.");
       $("#editRetireDate")?.focus();
+      return;
+    }
+    const leaveRows = normalizeLeaveRows(collectRepeatableRows(editModal.body, "leave", 4));
+    const leaveValidationMessage = validateLeaveRows(leaveRows);
+    if (leaveValidationMessage) {
+      window.alert(leaveValidationMessage);
+      return;
+    }
+    if (selectedStatus === "휴직" && !leaveRows.length) {
+      window.alert("휴직 상태를 선택한 경우 휴직사항을 한 건 이상 입력해 주세요.");
       return;
     }
     employee.name = $("#editName").value;
@@ -5007,7 +5654,7 @@
     const retireDateValue = parseDateValue(retireDate);
     employee.status = retireDateValue
       ? (retireDateValue <= getCurrentBaseDateValue() ? "퇴직" : (selectedStatus === "퇴직" ? "재직" : selectedStatus))
-      : selectedStatus;
+      : (selectedStatus === "휴직" && leaveRows.some((row) => parseDateValue(row[1]) <= getCurrentBaseDateValue() && (!parseDateValue(row[2]) || parseDateValue(row[2]) >= getCurrentBaseDateValue())) ? "휴직" : selectedStatus);
     employee.retireDate = retireDate;
     employee.hireGrade = $("#editHireGrade").value;
     employee.hireEmployeeType = $("#editHireEmployeeType").value;
@@ -5018,6 +5665,7 @@
     employee.hirePart = $("#editHirePart").value.trim();
     employee.careerMonths = $("#editCareerMonths").value;
     employee.assignmentDate = completeDateInput($("#editAssignmentDate").value);
+    employee.leaveItems = leaveRows;
     employee.educationItems = collectRepeatableRows(editModal.body, "education", 4).map((row) => [row[1], `${row[0]} ${row[2]}`.trim()]);
     employee.careerHistory = collectRepeatableRows(editModal.body, "career", 4).map((row) => [row[1], row[2] || row[3] || ""]);
     employee.familyItems = collectRepeatableRows(editModal.body, "family", 3);
@@ -5028,9 +5676,12 @@
     employee.educationHistory = collectRepeatableRows(editModal.body, "training", 5).map((row) => [row[1], row[0]]);
     employee.memo = $("#editMemo").value;
     employee.photoDataUrl = editModal.body.dataset.photoDataUrl || employee.photoDataUrl || "";
+    syncEmployeeLeaveSummary(employee);
+    employee.status = computeCurrentEmploymentStatus(employee, selectedStatus, retireDate);
     if (employee.status === "퇴직" && retireDate && !(employee.history || []).some((row) => row?.[0] === retireDate && String(row?.[1] || "").includes("퇴직"))) {
       employee.history.unshift([retireDate, "퇴직 처리"]);
     }
+    appendLeaveHistoryEntries(employee, leaveRows);
     employee.history.unshift(["2026.04.13", "인사기록카드 수정"]);
     editModal.close();
     renderAll();
@@ -5046,10 +5697,10 @@
     if (!primaryButton) return;
     if (view === "directory") {
       primaryButton.textContent = "➕ 신규 등록";
-      primaryButton.style.display = "inline-flex";
+      primaryButton.style.display = hasCurrentPermission("employee_create") ? "inline-flex" : "none";
       if (secondaryButton) {
         secondaryButton.textContent = "📤 Excel 내보내기";
-        secondaryButton.style.display = "inline-flex";
+        secondaryButton.style.display = hasCurrentPermission("export_allow") ? "inline-flex" : "none";
       }
     } else if (view === "assignment") {
       primaryButton.style.display = "none";
@@ -5107,7 +5758,7 @@
     refs.sideItems[1]?.addEventListener("click", () => showHrView("record"));
     refs.sideItems[2]?.addEventListener("click", () => showHrView("org"));
     $(".hr-top-user", refs.hrSystem)?.addEventListener("click", () => showHrView("admin"));
-    document.addEventListener("click", (event) => { const detail = event.target.closest('[data-action="detail"]'); if (detail) { event.preventDefault(); const row = detail.closest("tr"); const id = row?.dataset.employeeId; if (id) { state.selectedId = id; state.currentRecordTab = "overview"; renderRecord(); showHrView("record"); } } });
+    document.addEventListener("click", (event) => { const detail = event.target.closest('[data-action="detail"]'); if (detail) { event.preventDefault(); const row = detail.closest("tr"); const id = row?.dataset.employeeId; if (id) { const employee = state.employees.find((item) => item.id === id); if (!canCurrentAccessEmployeeRecord(employee)) return; state.selectedId = id; state.currentRecordTab = "overview"; renderRecord(); showHrView("record"); } } });
     document.addEventListener("click", (event) => {
       const recordDetail = event.target.closest("[data-record-detail]");
       if (!recordDetail) return;
@@ -5132,13 +5783,18 @@
     pageActionWrap?.prepend(recordPrintButton);
     pageActionWrap?.prepend(recordEditButton);
     const syncRecordActionButtons = () => {
-      const visible = state.currentHrView === "record";
+      const visible = state.currentHrView === "record" && hasCurrentPermission("employee_edit") && canCurrentAccessEmployeeRecord(selectedEmployee());
       recordEditButton.classList.toggle("codex-hidden", !visible);
       recordPrintButton.classList.toggle("codex-hidden", !visible);
     };
     const observer = new MutationObserver(syncRecordActionButtons);
     observer.observe(refs.pageTitle, { childList: true, subtree: true });
-    recordEditButton.addEventListener("click", () => { fillEditForm(); editModal.open(); });
+    recordEditButton.addEventListener("click", () => {
+      if (!hasCurrentPermission("employee_edit")) return;
+      if (!canCurrentAccessEmployeeRecord(selectedEmployee())) return;
+      fillEditForm();
+      editModal.open();
+    });
     recordPrintButton.addEventListener("click", () => openRecordPrintView());
     syncRecordActionButtons();
     $$(".hr-stat-card", refs.stats).forEach((card) => {
@@ -5148,9 +5804,9 @@
       });
     });
     primaryButton?.addEventListener("click", (event) => {
-      if (state.currentHrView === "directory") { event.preventDefault(); fillCreateForm(); createModal.open(); }
+      if (state.currentHrView === "directory") { event.preventDefault(); if (hasCurrentPermission("employee_create")) { fillCreateForm(); createModal.open(); } }
       else if (state.currentHrView === "assignment") { event.preventDefault(); $("#assignApplyBtn")?.click(); }
-      else if (state.currentHrView === "quick") { event.preventDefault(); showHrView("record"); }
+      else if (state.currentHrView === "quick") { event.preventDefault(); if (canCurrentAccessEmployeeRecord(selectedEmployee())) showHrView("record"); }
     }, true);
   }
   function renderNotesByView() {

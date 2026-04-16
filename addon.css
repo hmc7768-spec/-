@@ -275,7 +275,7 @@
   border-radius: 8px;
   background: #f8fafc;
   font-size: 12px;
-  color: #5f6b83;
+  color: #435267;
   line-height: 1.7;
 }
 
@@ -289,6 +289,7 @@
   padding: 10px 12px;
   font-size: 11px;
   line-height: 1.55;
+  color: #435267;
 }
 
 .codex-note-grid {
@@ -1287,7 +1288,7 @@
 
 .codex-admin-sub {
   font-size: 12px;
-  color: #8b95ad;
+  color: #5e6c84;
   margin-top: 4px;
 }
 
@@ -1427,7 +1428,7 @@
 .codex-admin-selection-meta span {
   display: block;
   margin-top: 3px;
-  color: #7c88a1;
+  color: #5e6d86;
   font-size: 11px;
 }
 
@@ -1503,7 +1504,7 @@
 .codex-admin-selected-item span {
   display: block;
   margin-top: 2px;
-  color: #7d89a3;
+  color: #5c6b83;
   font-size: 11px;
 }
 
@@ -1556,14 +1557,14 @@
 .codex-admin-candidate span {
   display: block;
   margin-top: 2px;
-  color: #7e8aa4;
+  color: #55657f;
   font-size: 11px;
 }
 
 .codex-admin-candidate em {
   display: block;
   margin-top: 4px;
-  color: #4f6382;
+  color: #3f5473;
   font-size: 11px;
   font-style: normal;
 }
@@ -1606,7 +1607,7 @@
 }
 
 .codex-admin-login {
-  color: #7e8ba4;
+  color: #55657d;
   font-size: 11px;
   margin-left: 4px;
 }
@@ -1665,9 +1666,41 @@
 .codex-admin-perm-item span {
   display: block;
   margin-top: 2px;
-  color: #7e899f;
+  color: #55657d;
   font-size: 11px;
   line-height: 1.5;
+}
+
+.codex-admin-scope-box {
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid #dbe5f3;
+  border-radius: 12px;
+  background: #fbfdff;
+  min-height: 184px;
+}
+
+.codex-admin-scope-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-bottom: 12px;
+}
+
+.codex-admin-scope-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  color: #32445f;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.codex-admin-scope-empty {
+  min-height: 88px;
+  display: flex;
+  align-items: center;
 }
 
 .codex-warning-text {
