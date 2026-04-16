@@ -1008,14 +1008,54 @@
     if (endValue && endValue < currentValue) return false;
     return true;
   }
+  function getLeaveEntries(employee) {
+    if (employee.leaveItems?.length) {
+      return employee.leaveItems
+        .map((row) => Array.isArray(row) ? row : [])
+        .filter((row) => row.some((value) => String(value || "").trim()));
+    }
+    const fallback = [employee.leaveType || "", employee.leaveStartDate || "", employee.leaveEndDate || "", employee.leaveNote || ""];
+    return fallback.some((value) => String(value || "").trim()) ? [fallback] : [];
+  }
+  function getActiveLeaveEntry(employee) {
+    const currentValue = getCurrentBaseDateValue();
+    return getLeaveEntries(employee).find((row) => {
+      const startValue = parseDateValue(row[1]);
+      const endValue = parseDateValue(row[2]);
+      if (startValue && startValue > currentValue) return false;
+      if (endValue && endValue < currentValue) return false;
+      return !!(row[0] || row[1] || row[2] || row[3]);
+    }) || null;
+  }
+  function getMostRelevantLeaveEntry(employee) {
+    const rows = getLeaveEntries(employee);
+    if (!rows.length) return null;
+    const active = getActiveLeaveEntry(employee);
+    if (active) return active;
+    const currentValue = getCurrentBaseDateValue();
+    const upcoming = rows
+      .filter((row) => parseDateValue(row[1]) > currentValue)
+      .sort((a, b) => parseDateValue(a[1]) - parseDateValue(b[1]))[0];
+    if (upcoming) return upcoming;
+    return [...rows].sort((a, b) => parseDateValue(b[2] || b[1]) - parseDateValue(a[2] || a[1]))[0] || null;
+  }
+  function syncEmployeeLeaveSummary(employee) {
+    const relevant = getMostRelevantLeaveEntry(employee);
+    employee.leaveType = relevant?.[0] || "";
+    employee.leaveStartDate = relevant?.[1] || "";
+    employee.leaveEndDate = relevant?.[2] || "";
+    employee.leaveNote = relevant?.[3] || "";
+  }
   function cycleDirectorySort(key) {
     const currentIndex = state.directorySorts.findIndex((item) => item.key === key);
     if (currentIndex === -1) {
-      state.directorySorts.push({ key, order: -1 });
+      state.directorySorts.unshift({ key, order: -1 });
       return;
     }
     if (state.directorySorts[currentIndex].order === -1) {
       state.directorySorts[currentIndex].order = 1;
+      const [item] = state.directorySorts.splice(currentIndex, 1);
+      state.directorySorts.unshift(item);
       return;
     }
     if (state.directorySorts[currentIndex].order === 1) {
@@ -1071,16 +1111,22 @@
     return numeric % 3 === 0 ? "기혼" : "미혼";
   }
   function getLeaveType(employee) {
+    const entry = getMostRelevantLeaveEntry(employee);
+    if (entry?.[0]) return entry[0];
     if (employee.leaveType) return employee.leaveType;
     const numeric = Number(employee.id.replace(/\D/g, "")) || 0;
     return ["육아휴직", "질병휴직", "가사휴직", "학업휴직"][numeric % 4];
   }
   function getLeaveStartDate(employee) {
+    const entry = getMostRelevantLeaveEntry(employee);
+    if (entry?.[1]) return entry[1];
     if (employee.leaveStartDate) return employee.leaveStartDate;
     if (employee.status !== "휴직") return "";
     return employee.assignmentDate || employee.hireDate;
   }
   function getLeaveEndDate(employee) {
+    const entry = getMostRelevantLeaveEntry(employee);
+    if (entry?.[2]) return entry[2];
     if (employee.leaveEndDate) return employee.leaveEndDate;
     if (employee.status !== "휴직") return "";
     const { year, month } = parseDateParts(getLeaveStartDate(employee));
@@ -1176,12 +1222,36 @@
       },
       createCertificate: { 2: { format: "date" } },
       certificate: { 2: { format: "date" } },
+      createLeave: {
+        0: { type: "select", options: ["육아휴직", "질병휴직", "가사휴직", "학업휴직", "출산휴가", "병가", "기타"] },
+        1: { format: "date" },
+        2: { format: "date" }
+      },
+      leave: {
+        0: { type: "select", options: ["육아휴직", "질병휴직", "가사휴직", "학업휴직", "출산휴가", "병가", "기타"] },
+        1: { format: "date" },
+        2: { format: "date" }
+      },
       award: { 2: { format: "date" } },
       promotion: { 1: { format: "date" } },
       history: { 0: { format: "date" } },
       training: { 1: { format: "date" }, 2: { format: "date" } }
     };
     return configs[key]?.[index] || {};
+  }
+  function getTenureText(employee) {
+    const hireValue = parseDateValue(employee.hireDate);
+    if (!hireValue) return "-";
+    const hire = parseDateParts(employee.hireDate);
+    const current = parseDateParts(completeDateInput(String(getCurrentBaseDateValue())));
+    let months = (current.year - hire.year) * 12 + (current.month - hire.month);
+    if ((current.day || 1) < (hire.day || 1)) months -= 1;
+    if (months < 0) months = 0;
+    return `${Math.floor(months / 12)}년 ${months % 12}개월`;
+  }
+  function getPrimaryDuty(employee) {
+    const latestCareer = getCareerHistory(employee)[0]?.[1];
+    return latestCareer || employee.memo || `${deepestDept(employee)} 담당`;
   }
   function repeatableFieldHtml(key, column, index, value = "") {
     const config = getRepeatableFieldConfig(key, index);
@@ -1426,21 +1496,24 @@
       return textMatched && deptMatched && gradeMatched && statusMatched && hireDateFromMatched && hireDateToMatched && retireDateFromMatched && retireDateToMatched;
     });
     if (!state.directorySorts.length) return filtered;
+    const compareByKey = (a, b, key) => {
+      const statusA = getDisplayStatus(a);
+      const statusB = getDisplayStatus(b);
+      if (key === "id") return a.id.localeCompare(b.id, "ko");
+      if (key === "name") return a.name.localeCompare(b.name, "ko");
+      if (key === "dept") return employeePath(a).localeCompare(employeePath(b), "ko");
+      if (key === "grade") return gradeCodes.indexOf(a.grade) - gradeCodes.indexOf(b.grade);
+      if (key === "hireDate") return parseDateValue(a.hireDate) - parseDateValue(b.hireDate);
+      if (key === "status") return statusA.localeCompare(statusB, "ko");
+      return 0;
+    };
     const sorted = [...filtered].sort((a, b) => {
       for (const sortItem of state.directorySorts) {
         const factor = sortItem.order;
-        const statusA = getDisplayStatus(a);
-        const statusB = getDisplayStatus(b);
-        let result = 0;
-        if (sortItem.key === "id") result = a.id.localeCompare(b.id, "ko");
-        else if (sortItem.key === "name") result = a.name.localeCompare(b.name, "ko");
-        else if (sortItem.key === "dept") result = deepestDept(a).localeCompare(deepestDept(b), "ko");
-        else if (sortItem.key === "grade") result = a.grade.localeCompare(b.grade, "ko");
-        else if (sortItem.key === "hireDate") result = parseDateValue(a.hireDate) - parseDateValue(b.hireDate);
-        else if (sortItem.key === "status") result = statusA.localeCompare(statusB, "ko");
+        const result = compareByKey(a, b, sortItem.key);
         if (result !== 0) return factor * result;
       }
-      return 0;
+      return a.id.localeCompare(b.id, "ko");
     });
     return sorted;
   }
@@ -1919,7 +1992,7 @@
     const employee = state.employees.find((item) => item.id === employeeId);
     if (!employee) return;
     state.selectedId = employee.id;
-    quickProfileModal.body.innerHTML = `<div class="codex-quick-card"><div class="codex-quick-header"><div class="codex-quick-avatar">${employee.name[0]}</div><div class="codex-quick-header-body"><div class="codex-quick-name-row"><div class="codex-quick-name">${employee.name}</div></div><div class="codex-quick-role">${employee.grade}</div><div class="codex-quick-role">${employee.title || "팀원"}</div></div></div><div class="codex-quick-orgpath">${employeePath(employee)}</div><div class="codex-quick-divider"></div><div class="codex-quick-info-list"><div class="codex-quick-info-row"><div class="codex-quick-info-label">이메일</div><div class="codex-quick-info-value">${getCompanyEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">회사 전화</div><div class="codex-quick-info-value">${getCompanyPhone(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">개인 이메일</div><div class="codex-quick-info-value">${getPersonalEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴대 전화</div><div class="codex-quick-info-value">${employee.phone}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">입사일</div><div class="codex-quick-info-value">${employee.hireDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">사번</div><div class="codex-quick-info-value">${employee.id}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">생년월일</div><div class="codex-quick-info-value">${employee.birthDate.replaceAll(".", "-")}</div></div>${isCurrentlyOnLeave(employee) ? `<div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직유형</div><div class="codex-quick-info-value">${getLeaveType(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직기간</div><div class="codex-quick-info-value">${getLeaveStartDate(employee).replaceAll(".", "-")} ~ ${getLeaveEndDate(employee).replaceAll(".", "-")}</div></div>` : ""}<div class="codex-quick-info-row"><div class="codex-quick-info-label">주소</div><div class="codex-quick-info-value">${getAddress(employee)}</div></div></div></div>`;
+    quickProfileModal.body.innerHTML = `<div class="codex-quick-card"><div class="codex-quick-header"><div class="codex-quick-avatar">${employee.name[0]}</div><div class="codex-quick-header-body"><div class="codex-quick-name-row"><div class="codex-quick-name">${employee.name}</div></div><div class="codex-quick-role">${employee.grade}</div><div class="codex-quick-role">${employee.title || "팀원"}</div><div class="codex-quick-profile-chips"><span class="codex-quick-chip">${employee.jobFamily}</span><span class="codex-quick-chip">${employee.employeeType}</span><span class="codex-quick-chip">근속 ${getTenureText(employee)}</span></div></div></div><div class="codex-quick-orgpath">${employeePath(employee)}</div><div class="codex-quick-divider"></div><div class="codex-quick-info-list"><div class="codex-quick-info-row"><div class="codex-quick-info-label">이메일</div><div class="codex-quick-info-value">${getCompanyEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">회사 전화</div><div class="codex-quick-info-value">${getCompanyPhone(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">개인 이메일</div><div class="codex-quick-info-value">${getPersonalEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴대 전화</div><div class="codex-quick-info-value">${employee.phone}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">입사일</div><div class="codex-quick-info-value">${employee.hireDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">사번</div><div class="codex-quick-info-value">${employee.id}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">생년월일</div><div class="codex-quick-info-value">${employee.birthDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">담당업무</div><div class="codex-quick-info-value">${getPrimaryDuty(employee)}</div></div>${isCurrentlyOnLeave(employee) ? `<div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직유형</div><div class="codex-quick-info-value">${getLeaveType(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직기간</div><div class="codex-quick-info-value">${getLeaveStartDate(employee).replaceAll(".", "-")} ~ ${getLeaveEndDate(employee).replaceAll(".", "-")}</div></div>` : ""}<div class="codex-quick-info-row"><div class="codex-quick-info-label">주소</div><div class="codex-quick-info-value">${getAddress(employee)}</div></div></div></div>`;
     const goRecord = () => {
       quickProfileModal.close();
       statsModal.close();
@@ -2502,6 +2575,7 @@
       ["overview", "기본정보"],
       ["hire", "입사정보"],
       ["personal", "신상정보"],
+      ["leave", "휴직"],
       ["education", "학력"],
       ["career", "경력"],
       ["assignment", "발령내역"],
@@ -2527,6 +2601,7 @@
         ["개인 이메일", getPersonalEmail(employee), "회사 전화", getCompanyPhone(employee)],
         ["주소", getAddress(employee), "", ""]
       ]),
+      leave: previewGrid(["휴직유형", "시작일", "종료일", "비고"], getLeaveEntries(employee)),
       education: previewGrid(["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""])),
       career: previewGrid(["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""])),
       assignment: previewGrid(["발령구분", "발령일", "발령부서", "직급", "직책", "비고"], employee.history.map((item, index) => [index === employee.history.length - 1 ? "입사" : "발령", item[0], deepestDept(employee), employee.grade, employee.title, item[1]])),
@@ -2547,7 +2622,7 @@
       ];
     });
     const infoPreview = `<div class="codex-sheet-top"><div class="codex-sheet-logo">AUTOPLUS</div><div class="codex-sheet-top-main"><table><tbody><tr><th>부서</th><td>${employeePath(employee)}</td><th>성명</th><td>${employee.name}</td></tr><tr><th>직급</th><td>${employee.grade}</td><th>직책</th><td>${employee.title}</td></tr><tr><th>주민등록번호</th><td>${employee.residentNumber || getResidentNumber(employee)}</td><th>입사일</th><td>${employee.hireDate}</td></tr><tr><th>생년월일</th><td>${employee.birthDate}</td><th>직군</th><td>${employee.jobFamily}</td></tr><tr><th>직전승급일</th><td>${employee.assignmentDate}</td><th>근속년수</th><td>${Math.floor(Number(employee.careerMonths || 0) / 12)}년 ${Number(employee.careerMonths || 0) % 12}개월</td></tr><tr><th>내선번호</th><td>${getCompanyPhone(employee)}</td><th>결혼여부</th><td>${employee.maritalStatus || getMaritalStatus(employee)}</td></tr><tr><th>연락처</th><td>${employee.phone}</td><th>E-Mail</th><td>${getCompanyEmail(employee)}</td></tr><tr><th>그룹웨어 ID</th><td>${employee.groupwareId || getGroupwareId(employee)}</td><th>개인 이메일</th><td>${getPersonalEmail(employee)}</td></tr><tr><th>주소</th><td colspan="3">${getAddress(employee)}</td></tr></tbody></table></div></div>`;
-    const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"><div class="codex-record-sheet-head"><div class="codex-record-sheet-title">인사정보카드</div></div>${infoPreview}${buildSheetSection("학력사항", "education", ["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""]), tab === "education")}${buildSheetSection("경력사항", "career", ["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""]), tab === "career")}${buildSheetSection("가족사항", "family", ["관계", "성명", "생년월일"], getFamilyEntries(employee), tab === "family")}${buildSheetSection("자격증", "certificate", ["자격증명", "발급기관", "취득일"], getCertificateEntries(employee).map((item) => [item[1], item[2], item[3]]), tab === "certificate")}${buildSheetSection("상벌사항", "award", ["상벌구분", "상벌명", "발생일", "사유"], getAwardEntries(employee), tab === "award")}${buildSheetSection("승급사항", "promotion", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], getPromotionEntries(employee), tab === "promotion")}${buildSheetSection("발령사항", "assignment", ["발령구분", "발령일", "발령부서", "직군", "직원유형", "직급", "직책", "비고"], assignmentRows, tab === "assignment")}${buildSheetSection("교육사항", "training", ["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""]), tab === "training")}</div></div>`;
+    const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"><div class="codex-record-sheet-head"><div class="codex-record-sheet-title">인사정보카드</div></div>${infoPreview}${buildSheetSection("휴직사항", "leave", ["휴직유형", "시작일", "종료일", "비고"], getLeaveEntries(employee), tab === "leave")}${buildSheetSection("학력사항", "education", ["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""]), tab === "education")}${buildSheetSection("경력사항", "career", ["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""]), tab === "career")}${buildSheetSection("가족사항", "family", ["관계", "성명", "생년월일"], getFamilyEntries(employee), tab === "family")}${buildSheetSection("자격증", "certificate", ["자격증명", "발급기관", "취득일"], getCertificateEntries(employee).map((item) => [item[1], item[2], item[3]]), tab === "certificate")}${buildSheetSection("상벌사항", "award", ["상벌구분", "상벌명", "발생일", "사유"], getAwardEntries(employee), tab === "award")}${buildSheetSection("승급사항", "promotion", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], getPromotionEntries(employee), tab === "promotion")}${buildSheetSection("발령사항", "assignment", ["발령구분", "발령일", "발령부서", "직군", "직원유형", "직급", "직책", "비고"], assignmentRows, tab === "assignment")}${buildSheetSection("교육사항", "training", ["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""]), tab === "training")}</div></div>`;
     refs.cardWrap.innerHTML = `<div class="codex-record-shell" style="grid-template-columns:minmax(0,1fr)">${detail}</div>`;
   }
   function escapePrintHtml(value) {
