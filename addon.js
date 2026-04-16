@@ -191,11 +191,9 @@
       id: "scope",
       label: "조회 범위 권한",
       items: [
-        { id: "directory_view_self", label: "사원명부 본인 열람", desc: "사원명부에서 본인 정보만 조회할 수 있습니다." },
-        { id: "directory_view_all", label: "사원명부 전체 열람", desc: "사원명부의 전체 인원을 조회하고 통계 팝업까지 열람할 수 있습니다." },
-        { id: "directory_view_partial", label: "사원명부 일부 열람", desc: "지정한 조직 또는 구성원만 열람할 수 있습니다." },
-        { id: "record_view_self", label: "인사기록카드 본인 열람", desc: "본인 인사정보카드와 기본 이력을 열람합니다." },
-        { id: "record_view_all", label: "인사기록카드 전체 열람", desc: "전체 사원의 인사정보카드를 열람합니다." },
+        { id: "directory_view_self", label: "사원정보 본인 열람", desc: "사원명부와 인사기록카드를 본인 범위로 함께 조회합니다." },
+        { id: "directory_view_all", label: "사원정보 전체 열람", desc: "사원명부와 인사기록카드를 전체 범위로 함께 조회합니다." },
+        { id: "directory_view_partial", label: "사원정보 일부 열람", desc: "지정한 조직 또는 구성원만 사원명부와 인사기록카드에서 함께 열람할 수 있습니다." },
         { id: "org_view", label: "조직도 열람", desc: "조직도와 구성원 배치 현황을 조회합니다." },
         { id: "assignment_view", label: "조직관리 열람", desc: "조직개편/인사발령 이력과 진행 상태를 열람합니다." },
         { id: "code_view", label: "코드관리 열람", desc: "조직/직급/직책/직군/직원유형 기준코드를 열람합니다." },
@@ -231,8 +229,8 @@
   function getDefaultAdminPermissionIds(categoryId, role) {
     const viewer = {
       all_admin: [],
-      directory_admin: ["menu_directory", "directory_view_self"],
-      record_admin: ["menu_record", "record_view_self"],
+      directory_admin: ["menu_directory", "menu_record", "directory_view_self"],
+      record_admin: ["menu_directory", "menu_record", "directory_view_self"],
       org_admin: ["menu_org", "org_view"],
       assignment_admin: ["menu_assignment", "assignment_view", "history_view"],
       code_admin: ["menu_codes", "code_view"],
@@ -240,8 +238,8 @@
     };
     const manager = {
       all_admin: adminPermissionGroups.flatMap((group) => group.items.map((item) => item.id)),
-      directory_admin: ["menu_directory", "directory_view_all", "employee_create", "employee_edit", "export_allow"],
-      record_admin: ["menu_record", "record_view_all", "history_view", "employee_edit", "export_allow"],
+      directory_admin: ["menu_directory", "menu_record", "directory_view_all", "employee_create", "employee_edit", "history_view", "export_allow"],
+      record_admin: ["menu_directory", "menu_record", "directory_view_all", "employee_edit", "history_view", "export_allow"],
       org_admin: ["menu_org", "org_view", "history_view"],
       assignment_admin: ["menu_assignment", "assignment_view", "assignment_execute", "history_view", "history_cancel"],
       code_admin: ["menu_codes", "code_view", "code_edit", "history_view"],
@@ -294,24 +292,14 @@
       {
         id: "directory_admin",
         section: "메뉴별 관리자",
-        label: "사원명부 관리자",
-        desc: "사원명부 조회, 검색, 신규 등록과 기본정보 팝업 흐름을 관리합니다.",
+        label: "사원정보 관리자",
+        desc: "사원명부와 인사기록카드의 공통 열람 범위, 조회, 신규 등록과 수정 흐름을 함께 관리합니다.",
         managers: [
           buildAdminMemberFromEmployee(byName("정다은"), "ADM-003", getDefaultAdminPermissionIds("directory_admin", "manager"), "2026.04.12", "manager")
         ].filter(Boolean),
         viewers: [
           buildAdminMemberFromEmployee(byName("김민준"), "ADV-002", getDefaultAdminPermissionIds("directory_admin", "viewer"), "2026.04.12", "viewer")
         ].filter(Boolean)
-      },
-      {
-        id: "record_admin",
-        section: "메뉴별 관리자",
-        label: "인사기록카드 관리자",
-        desc: "인사정보카드와 이력 항목 상세/수정 기능을 관리합니다.",
-        managers: [
-          buildAdminMemberFromEmployee(byName("김지원"), "ADM-004", getDefaultAdminPermissionIds("record_admin", "manager"), "2026.04.12", "manager")
-        ].filter(Boolean),
-        viewers: []
       },
       {
         id: "org_admin",
@@ -325,8 +313,68 @@
   }
   const initialAdminCategories = buildInitialAdminCategories(fullEmployeeSeed);
   const initialOperatorLoginId = initialAdminCategories[0]?.managers?.[0]?.loginId || getEmployeeLoginId(fullEmployeeSeed[0]);
+  function normalizeEmployeeInfoPermissions(member = {}) {
+    const permissions = { ...(member.permissions || {}) };
+    if (permissions.record_view_all) permissions.directory_view_all = true;
+    if (permissions.record_view_self) permissions.directory_view_self = true;
+    if (permissions.menu_record || permissions.menu_directory) {
+      permissions.menu_record = true;
+      permissions.menu_directory = true;
+    }
+    return {
+      ...member,
+      permissions,
+      viewScope: member.viewScope || (permissions.directory_view_all ? "all" : permissions.directory_view_partial ? "partial" : "self")
+    };
+  }
+  function mergeAdminMembersByLogin(members = []) {
+    const merged = [];
+    (members || []).forEach((member) => {
+      const normalized = normalizeEmployeeInfoPermissions(member);
+      const existing = merged.find((item) => item.loginId === normalized.loginId);
+      if (!existing) {
+        merged.push({
+          ...normalized,
+          viewTargets: JSON.parse(JSON.stringify(normalized.viewTargets || []))
+        });
+        return;
+      }
+      existing.permissions = { ...(existing.permissions || {}), ...(normalized.permissions || {}) };
+      existing.viewTargets = normalizeAdminViewTargets([...(existing.viewTargets || []), ...(normalized.viewTargets || [])]);
+      if ((existing.viewScope || "self") !== "all" && normalized.viewScope === "all") existing.viewScope = "all";
+      else if ((existing.viewScope || "self") === "self" && normalized.viewScope === "partial") existing.viewScope = "partial";
+      existing.changeReason = existing.changeReason || normalized.changeReason || "";
+      existing.expiresAt = existing.expiresAt || normalized.expiresAt || "";
+    });
+    return merged;
+  }
+  function normalizeAdminCategories(categories = []) {
+    const cloned = (categories || []).map((category) => ({
+      ...category,
+      managers: (category.managers || []).map((member) => ({ ...member, permissions: { ...(member.permissions || {}) }, viewTargets: JSON.parse(JSON.stringify(member.viewTargets || [])) })),
+      viewers: (category.viewers || []).map((member) => ({ ...member, permissions: { ...(member.permissions || {}) }, viewTargets: JSON.parse(JSON.stringify(member.viewTargets || [])) }))
+    }));
+    const directoryCategory = cloned.find((category) => category.id === "directory_admin");
+    const recordCategory = cloned.find((category) => category.id === "record_admin");
+    if (directoryCategory) {
+      directoryCategory.label = "사원정보 관리자";
+      directoryCategory.desc = "사원명부와 인사기록카드의 공통 열람 범위, 조회, 신규 등록과 수정 흐름을 함께 관리합니다.";
+      directoryCategory.managers = mergeAdminMembersByLogin([...(directoryCategory.managers || []), ...(recordCategory?.managers || [])]);
+      directoryCategory.viewers = mergeAdminMembersByLogin([...(directoryCategory.viewers || []), ...(recordCategory?.viewers || [])]);
+    }
+    return cloned
+      .filter((category) => category.id !== "record_admin")
+      .map((category) => {
+        if (category.id !== "directory_admin") return category;
+        return {
+          ...category,
+          managers: mergeAdminMembersByLogin(category.managers || []),
+          viewers: mergeAdminMembersByLogin(category.viewers || [])
+        };
+      });
+  }
   function cloneAdminCategories(categories) {
-    return categories.map((category) => ({
+    return normalizeAdminCategories(categories).map((category) => ({
       ...category,
       managers: (category.managers || []).map((manager) => ({
         ...manager,
@@ -437,6 +485,9 @@
       codes: "menu_codes",
       admin: "menu_admin"
     };
+    if (view === "record") {
+      return hasCurrentPermission("menu_record", categories) || hasCurrentPermission("menu_directory", categories);
+    }
     return hasCurrentPermission(permissionMap[view], categories);
   }
   function getFallbackView() {
@@ -525,10 +576,7 @@
   }
   function getCurrentRecordAccessibleEmployees(categories = state.adminCategories) {
     if (!canAccessView("record", categories)) return [];
-    const operator = getCurrentOperatorEmployee(categories);
-    if (hasCurrentPermission("record_view_all", categories)) return state.employees.slice();
-    if (hasCurrentPermission("record_view_self", categories) && operator) return [operator];
-    return [];
+    return getCurrentDirectoryAccessibleEmployees(categories);
   }
   function canCurrentAccessEmployeeRecord(employee, categories = state.adminCategories) {
     if (!employee) return false;
@@ -3870,7 +3918,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       return "전체 운영 관리자는 전 메뉴와 운영 기능을 총괄하는 전사 관리자입니다. 열람 전용 계정은 두지 않고 관리자만 운영합니다.";
     }
     if (role === "viewer") {
-      if (category?.id === "directory_admin") return "열람자는 사원명부를 본인 / 전체 / 일부 범위로 나눠 관리할 수 있습니다. 일부 열람은 조직 또는 개별 구성원을 지정해 부여합니다.";
+      if (category?.id === "directory_admin") return "열람자는 사원명부와 인사기록카드를 본인 / 전체 / 일부 범위로 함께 관리합니다. 일부 열람은 조직 또는 개별 구성원을 지정해 부여합니다.";
       return "열람자는 조회 권한 중심으로만 부여되며, 수정/반영 기능은 사용할 수 없습니다.";
     }
     return "관리자는 해당 메뉴의 전체 열람과 수정/반영 기능을 함께 수행할 수 있습니다.";
@@ -3879,8 +3927,8 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
     if (!category) return "관리자";
     const map = {
       all_admin: "전체 운영 관리자",
-      directory_admin: "사원명부 운영",
-      record_admin: "인사기록카드 운영",
+      directory_admin: "사원정보 운영",
+      record_admin: "사원정보 운영",
       org_admin: "조직도 운영",
       assignment_admin: "조직관리 운영",
       code_admin: "기준코드 운영",
@@ -3908,7 +3956,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
         const haystack = [member.name, member.loginId, member.org, member.categoryName, member.role === "viewer" ? "열람자" : "관리자"].join(" ").toLowerCase();
         return !q || haystack.includes(q);
       })
-      .filter((member) => role !== "viewer" || member.permissions?.menu_directory || member.permissions?.directory_view_self || member.permissions?.directory_view_all || member.permissions?.directory_view_partial)
+      .filter((member) => role !== "viewer" || member.permissions?.menu_directory || member.permissions?.menu_record || member.permissions?.directory_view_self || member.permissions?.directory_view_all || member.permissions?.directory_view_partial)
       .slice(0, 16);
   }
   function buildCopiedPermissionPayload(category, role, sourceMember, currentMember) {
@@ -3936,7 +3984,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       .filter((group) => group.id === "actions" || group.id === "control")
       .flatMap((group) => group.items.filter((item) => permissions[item.id]).map((item) => item.label));
     const employee = member.employeeId ? state.employees.find((item) => item.id === member.employeeId) : null;
-    let directoryScope = "사원명부 접근 없음";
+    let directoryScope = "사원정보 접근 없음";
     let directoryCount = 0;
     if (permissions.menu_directory) {
       if (permissions.directory_view_all || member.viewScope === "all") {
@@ -3951,16 +3999,18 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       }
     }
     let recordScope = "인사기록카드 접근 없음";
+    let recordPolicy = "기록카드 미사용";
     if (permissions.menu_record) {
-      if (permissions.record_view_all) recordScope = `전체 열람 (${state.employees.length}명)`;
-      else if (permissions.record_view_self) recordScope = `본인 열람 (${employee ? 1 : 0}명)`;
-      else recordScope = "기록카드 범위 미지정";
+      recordScope = directoryScope === "사원정보 접근 없음" ? "사원정보 범위 미지정" : directoryScope;
+      recordPolicy = permissions.employee_edit ? "기록카드 조회 및 수정" : "기록카드 조회만 가능";
     }
     return {
       menus: menuLabels,
       actions: actionLabels,
+      employeeScope: directoryScope,
       directoryScope,
       recordScope,
+      recordPolicy,
       viewTargetSummary: role === "viewer" && category.id === "directory_admin" ? getAdminViewTargetSummary(member) : "",
       activePermissionCount: Object.values(permissions).filter(Boolean).length
     };
@@ -4027,6 +4077,43 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       expiresAt: completeDateInput(expireInput?.value || "")
     };
   }
+  function isAdminReasonRequired(category, actionType) {
+    if (!category) return false;
+    if (category.id === "all_admin") return true;
+    return ["copy", "add", "remove", "reset"].includes(actionType);
+  }
+  function ensureAdminChangeReason(category, actionType, reason, actionLabel) {
+    if (!isAdminReasonRequired(category, actionType)) return true;
+    if (String(reason || "").trim()) return true;
+    window.alert(`${actionLabel}에는 변경 사유 입력이 필요합니다.`);
+    const target = actionType === "add" ? $("#adminAddReason", panels.admin) : $("#adminChangeReason", panels.admin);
+    target?.focus();
+    return false;
+  }
+  function isAdminMemberExpired(member) {
+    const value = parseDateValue(member?.expiresAt || "");
+    return !!value && value < getCurrentBaseDateValue();
+  }
+  function getAdminMemberStatusLabel(member) {
+    if (!member?.expiresAt) return "상시";
+    return isAdminMemberExpired(member) ? `만료 (${member.expiresAt})` : `사용중 (${member.expiresAt})`;
+  }
+  function getAdminDaysUntilExpiry(member) {
+    const expiryValue = parseDateValue(member?.expiresAt || "");
+    const baseValue = getCurrentBaseDateValue();
+    if (!expiryValue || !baseValue) return null;
+    const diff = Math.round((expiryValue.getTime() - baseValue.getTime()) / 86400000);
+    return Number.isFinite(diff) ? diff : null;
+  }
+  function getExpiringAdminMembers(days = 7) {
+    return getAllAdminMembers()
+      .map((member) => ({
+        ...member,
+        daysUntilExpiry: getAdminDaysUntilExpiry(member)
+      }))
+      .filter((member) => member.expiresAt && member.daysUntilExpiry !== null && member.daysUntilExpiry >= 0 && member.daysUntilExpiry <= days)
+      .sort((a, b) => (a.daysUntilExpiry - b.daysUntilExpiry) || String(a.name || "").localeCompare(String(b.name || ""), "ko"));
+  }
   function getAdminCleanupNotes(category) {
     if (!category) return [];
     const common = [
@@ -4043,7 +4130,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
     }
     if (category.id === "directory_admin") {
       return [
-        "사원명부 운영은 열람자 범위를 본인, 전체, 일부 열람으로 세분화합니다.",
+        "사원정보 운영은 열람자 범위를 본인, 전체, 일부 열람으로 세분화합니다.",
         "일부 열람은 조직 단위와 개별 인원을 함께 저장할 수 있게 유지합니다.",
         ...common
       ];
@@ -4105,8 +4192,10 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
     const compareDiff = getAdminCompareDiff(category, currentManager, compareSourceMember, state.currentAdminRoleTab);
     const previewData = getAdminPreviewData(category, currentManager, state.currentAdminRoleTab);
     const changeDraftValues = getAdminChangeDraftValues(category, state.currentAdminRoleTab, currentManager);
+    const expiringMembers = getExpiringAdminMembers(7);
     const adminActions = `<div class="codex-secondary-actions">${hasPendingAdminChanges() ? `<button type="button" class="hr-btn btn-outline" id="adminDraftResetBtn" ${canAdminEdit ? "" : "disabled"}>전체 취소</button><button type="button" class="hr-btn btn-primary" id="adminDraftApplyBtn" ${canAdminEdit ? "" : "disabled"}>변경 적용 (${pendingChanges.length})</button>` : `<button type="button" class="hr-btn btn-outline" disabled>변경 예정 없음</button>`}</div>`;
-    const pendingPanel = `<div class="codex-panel"><div class="codex-code-head"><h4>변경 예정 내역</h4><span class="codex-admin-sub">${pendingChanges.length}건</span></div>${pendingChanges.length ? pendingChanges.map((item) => `<div class="codex-note-box codex-note-box-compact ${item._key === state.currentAdminPendingKey ? "is-selected" : ""}" data-admin-pending-row="${item._key}"><strong>${item.categoryLabel || getAdminCategoryDisplayName(findAdminCategoryIn(adminCategories, item.categoryId) || { id: item.categoryId, label: item.categoryId })} · ${item.role === "viewer" ? "열람자" : "관리자"} · ${item.kind === "add-members" ? "추가" : item.kind === "remove-members" ? "제거" : "권한 변경"}</strong>${item.changedAt}${item.summary ? `<br>${item.summary}` : ""}<div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline btn-xs" data-admin-pending-edit="${item._key}">수정</button><button type="button" class="hr-btn btn-outline btn-xs" data-admin-pending-cancel="${item._key}">취소</button></div></div>`).join("") : `<div class="codex-note-box">저장 전 검토할 관리자 변경이 없습니다.</div>`}</div>`;
+    const pendingPanel = `<div class="codex-panel"><div class="codex-code-head"><h4>변경 예정 내역</h4><span class="codex-admin-sub">${pendingChanges.length}건</span></div>${pendingChanges.length ? pendingChanges.map((item) => `<div class="codex-note-box codex-note-box-compact ${item._key === state.currentAdminPendingKey ? "is-selected" : ""}" data-admin-pending-row="${item._key}"><strong>${item.categoryLabel || getAdminCategoryDisplayName(findAdminCategoryIn(adminCategories, item.categoryId) || { id: item.categoryId, label: item.categoryId })} · ${item.role === "viewer" ? "열람자" : "관리자"} · ${item.kind === "add-members" ? "추가" : item.kind === "remove-members" ? "제거" : "권한 변경"}</strong>${item.changedAt}${item.summary ? `<br>${item.summary}` : ""}${item.changeReason ? `<br>사유: ${item.changeReason}` : ""}${item.expiresAt ? `<br>만료일: ${item.expiresAt}` : ""}<div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline btn-xs" data-admin-pending-edit="${item._key}">수정</button><button type="button" class="hr-btn btn-outline btn-xs" data-admin-pending-cancel="${item._key}">취소</button></div></div>`).join("") : `<div class="codex-note-box">저장 전 검토할 관리자 변경이 없습니다.</div>`}</div>`;
+    const expiringPanel = `<div class="codex-panel"><div class="codex-code-head"><h4>만료 예정 권한</h4><span class="codex-admin-sub">7일 이내 ${expiringMembers.length}건</span></div>${expiringMembers.length ? expiringMembers.map((member) => `<div class="codex-note-box codex-note-box-compact"><strong>${member.name} (${member.loginId})</strong><br>${member.categoryName || getAdminCategoryDisplayName(findAdminCategoryIn(adminCategories, member.categoryId) || { id: member.categoryId, label: member.categoryId })} · ${member.role === "viewer" ? "열람자" : "관리자"} · ${member.org}<br>만료일: ${member.expiresAt} ${member.daysUntilExpiry === 0 ? "(오늘)" : `(${member.daysUntilExpiry}일 남음)`}${member.changeReason ? `<br>사유: ${member.changeReason}` : ""}</div>`).join("") : `<div class="codex-note-box">7일 이내 만료 예정 권한이 없습니다.</div>`}</div>`;
     const historyPanel = `<div class="codex-panel"><div class="codex-code-head"><h4>관리자 권한 변경 이력</h4><span class="codex-admin-sub">${state.adminHistory.length}건</span></div>${renderAdminHistoryTable()}</div>`;
     const permissionRows = permissionGroups.map((group) => `
       <div class="codex-admin-perm-group">
@@ -4236,18 +4325,19 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
               <button type="button" class="hr-btn btn-outline btn-xs" id="adminBulkRemoveBtn" ${state.adminMemberSelection.length ? "" : "disabled"}>${getAdminRoleLabel()} 일괄 제거</button>
             </div>
             <table class="codex-admin-table">
-              <thead><tr><th style="width:38px"></th><th>이름(아이디)</th><th>소속</th>${state.currentAdminRoleTab === "viewer" ? "<th>열람 범위</th>" : ""}<th>등록일</th><th>관리</th></tr></thead>
+              <thead><tr><th style="width:38px"></th><th>이름(아이디)</th><th>소속</th>${state.currentAdminRoleTab === "viewer" ? "<th>열람 범위</th>" : ""}<th>상태</th><th>등록일</th><th>관리</th></tr></thead>
               <tbody>
                 ${currentMembers.map((manager) => `
                   <tr class="${manager.id === currentManager?.id ? "codex-table-selected" : ""}" data-admin-manager-row="${manager.id}">
                     <td><input type="checkbox" data-admin-member-check="${manager.id}" ${(state.adminMemberSelection || []).includes(manager.id) ? "checked" : ""}></td>
-                    <td>${manager.name} <span class="codex-admin-login">(${manager.loginId})</span></td>
+                    <td>${manager.name} <span class="codex-admin-login">(${manager.loginId})</span>${manager.changeReason ? `<div class="codex-admin-meta">사유: ${manager.changeReason}</div>` : ""}</td>
                     <td>${manager.org}</td>
                     ${state.currentAdminRoleTab === "viewer" ? `<td>${getAdminViewTargetSummary(manager)}</td>` : ""}
+                    <td><span class="codex-admin-status ${isAdminMemberExpired(manager) ? "is-expired" : ""}">${getAdminMemberStatusLabel(manager)}</span></td>
                     <td>${manager.registeredAt}</td>
                     <td><button type="button" class="hr-btn btn-outline btn-xs" data-admin-remove="${manager.id}">삭제</button></td>
                   </tr>
-                `).join("") || `<tr><td colspan="${state.currentAdminRoleTab === "viewer" ? "6" : "5"}">등록된 ${getAdminRoleLabel()}가 없습니다.</td></tr>`}
+                `).join("") || `<tr><td colspan="${state.currentAdminRoleTab === "viewer" ? "7" : "6"}">등록된 ${getAdminRoleLabel()}가 없습니다.</td></tr>`}
               </tbody>
             </table>
           </div>
@@ -4260,9 +4350,10 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
                 <button type="button" class="hr-btn btn-outline btn-xs" id="adminPermissionResetBtn" ${currentManager && !isViewerRole() && canAdminEdit ? "" : "disabled"}>권한 초기화</button>
               </div>
             </div>
-            ${currentManager ? `<div class="codex-note-box codex-note-box-compact" style="margin-bottom:14px"><strong>${currentManager.name}(${currentManager.loginId})</strong> · ${currentManager.org} · 활성 권한 ${previewData?.activePermissionCount || 0}개${isViewerRole() ? ` · 현재 범위: ${getAdminViewScopeLabel(currentManager)}` : ""}${changeDraftValues.expiresAt ? ` · 만료일 ${changeDraftValues.expiresAt}` : ""}${changeDraftValues.changeReason ? `<br>최근 사유: ${changeDraftValues.changeReason}` : ""}</div><div class="codex-panel" style="margin-bottom:14px"><div class="codex-code-head"><h4>권한 변경 설정</h4><span class="codex-admin-sub">변경 사유와 임시 권한 만료일을 함께 기록합니다.</span></div><div class="codex-form-grid" style="grid-template-columns:repeat(2,minmax(0,1fr))"><label><span>권한 변경 사유</span><input id="adminChangeReason" value="${changeDraftValues.changeReason}" placeholder="예: 인사팀 대체 운영"></label><label><span>임시 만료일</span><input id="adminChangeExpireAt" value="${changeDraftValues.expiresAt}" placeholder="YYYYMMDD"></label></div></div>${state.adminCopyOpen ? `<div class="codex-panel" style="margin-bottom:14px"><div class="codex-code-head"><h4>권한 복사</h4><span class="codex-admin-sub">다른 관리자/열람자의 현재 설정을 그대로 가져옵니다.</span></div><input id="adminCopyQuery" class="hr-search-input" value="${state.adminCopyQuery || ""}" placeholder="이름, 아이디, 소속, 카테고리 검색" style="margin-bottom:12px">${copyCandidates.length ? `<div class="codex-admin-candidates is-table">${copyCandidates.map((member) => `<label class="codex-admin-candidate"><input type="radio" name="adminCopySource" data-admin-copy-source="${member.id}" ${state.adminCopySourceId === member.id ? "checked" : ""}><div><strong>${member.name}</strong><span>${member.loginId} · ${member.categoryName}</span><em>${member.org} · ${member.role === "viewer" ? "열람자" : "관리자"}</em></div></label>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">복사 가능한 권한 보유 사용자가 없습니다.</div>`}${copySourceMember ? `<div class="codex-note-box codex-note-box-compact" style="margin-top:12px"><strong>복사 원본</strong><br>${copySourceMember.name} (${copySourceMember.categoryName} / ${copySourceMember.role === "viewer" ? "열람자" : "관리자"})${copySourceMember.viewScope ? `<br>열람 범위: ${getAdminViewTargetSummary(copySourceMember)}` : ""}</div>` : ""}<div class="codex-modal-actions" style="margin-top:12px"><button type="button" class="hr-btn btn-outline" id="adminCopyCancelBtn">취소</button><button type="button" class="hr-btn btn-primary" id="adminCopyApplyBtn" ${copySourceMember && canAdminEdit ? "" : "disabled"}>현재 사용자에 복사</button></div></div>` : ""}${state.adminCompareOpen ? `<div class="codex-panel" style="margin-bottom:14px"><div class="codex-code-head"><h4>권한 비교</h4><span class="codex-admin-sub">현재 사용자와 다른 권한 보유자의 차이를 바로 확인합니다.</span></div><input id="adminCompareQuery" class="hr-search-input" value="${state.adminCompareQuery || ""}" placeholder="이름, 아이디, 소속, 카테고리 검색" style="margin-bottom:12px">${compareCandidates.length ? `<div class="codex-admin-candidates is-table">${compareCandidates.map((member) => `<label class="codex-admin-candidate"><input type="radio" name="adminCompareSource" data-admin-compare-source="${member.id}" ${state.adminCompareSourceId === member.id ? "checked" : ""}><div><strong>${member.name}</strong><span>${member.loginId} · ${member.categoryName}</span><em>${member.org} · ${member.role === "viewer" ? "열람자" : "관리자"}</em></div></label>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">비교 가능한 권한 보유 사용자가 없습니다.</div>`}${compareDiff ? `<div class="codex-note-box codex-note-box-compact" style="margin-top:12px"><strong>비교 결과</strong><br>비교 대상: ${compareSourceMember.name} (${compareSourceMember.categoryName})<br>추가 필요 권한: ${compareDiff.added.length ? compareDiff.added.join(", ") : "없음"}<br>현재만 가진 권한: ${compareDiff.removed.length ? compareDiff.removed.join(", ") : "없음"}<br>공통 권한: ${compareDiff.shared.length ? compareDiff.shared.join(", ") : "없음"}${showViewerScope ? `<br>열람 범위 비교: ${compareDiff.sameDirectoryScope ? "동일" : `${compareDiff.current.directoryScope || "-"} ↔ ${compareDiff.compare.directoryScope || "-"}`}` : ""}</div>` : ""}<div class="codex-modal-actions" style="margin-top:12px"><button type="button" class="hr-btn btn-outline" id="adminCompareCancelBtn">닫기</button></div></div>` : ""}${showViewerScope ? `<div class="codex-admin-scope-box"><div class="codex-code-head"><h4>사원명부 열람 범위</h4><button type="button" class="hr-btn btn-outline btn-xs" id="adminScopeOpenBtn" ${canAdminEdit ? "" : "disabled"}>${state.adminScopeOpen ? "대상 닫기" : "대상 편집"}</button></div><div class="codex-admin-scope-options"><label><input type="radio" name="adminViewScope" value="self" ${currentManager.viewScope !== "all" && currentManager.viewScope !== "partial" ? "checked" : ""} ${canAdminEdit ? "" : "disabled"}> 본인 열람</label><label><input type="radio" name="adminViewScope" value="all" ${currentManager.viewScope === "all" ? "checked" : ""} ${canAdminEdit ? "" : "disabled"}> 전체 열람</label><label><input type="radio" name="adminViewScope" value="partial" ${currentManager.viewScope === "partial" ? "checked" : ""} ${canAdminEdit ? "" : "disabled"}> 일부 열람</label></div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px">현재 대상: ${getAdminViewTargetSummary(currentManager)}</div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px"><strong>저장된 열람 대상</strong>${currentScopeTargets.length ? currentScopeTargets.map((target) => `<div class="codex-admin-selected-item"><div><strong>${target.type === "org" ? "조직" : "개별"}</strong><span>${target.label}</span></div><button type="button" class="hr-btn btn-outline btn-xs" data-admin-scope-target-remove="${getAdminViewTargetKey(target)}" ${canAdminEdit ? "" : "disabled"}>제외</button></div>`).join("") : `<div class="codex-admin-scope-empty">아직 지정된 열람 대상이 없습니다.</div>`}</div>${currentManager.viewScope === "partial" ? `<div class="codex-admin-add ${state.adminScopeOpen ? "is-open" : ""}"><div class="codex-admin-add-layout is-structured"><div class="codex-admin-picker codex-panel"><div class="codex-admin-picker-head"><div><strong>열람 대상 선택</strong><span>조직 단위로 추가하거나, 선택 조직 안에서 일부 구성원만 골라 열람 범위를 지정합니다.</span></div></div><div class="codex-admin-org-layout"><div class="codex-admin-org-column"><div class="codex-admin-org-title">조직 선택</div><div class="codex-assignment-tree-wrap codex-admin-org-wrap">${buildAdminOrgTree(state.currentAdminOrgKey || "ROOT")}</div><button type="button" class="hr-btn btn-outline btn-xs" id="adminScopeAddOrgBtn" style="margin-top:10px" ${canAdminEdit ? "" : "disabled"}>선택 조직 추가</button></div><div class="codex-admin-org-column"><div class="codex-admin-org-title">구성원 선택</div><div class="codex-admin-org-toolbar"><input id="adminScopeQuery" class="hr-search-input" value="${state.adminScopeQuery || ""}" placeholder="선택 조직 내 이름, 아이디, 사번 검색"><div class="codex-admin-selection-meta"><strong>${selectedOrgLabel}</strong><span>대상 ${selectedOrgMembers.length}명 · 검색 ${filteredScopeMembers.length}명</span></div></div>${selectedOrgMembers.length ? `<div class="codex-admin-candidates is-table">${filteredScopeMembers.map((employee) => `<label class="codex-admin-candidate"><input type="checkbox" data-admin-scope-check="${employee.id}" ${(state.adminScopeSelection || []).includes(employee.id) ? "checked" : ""} ${canAdminEdit ? "" : "disabled"}><div><strong>${employee.name}</strong><span>${getEmployeeLoginId(employee)} · ${getCurrentOrgLabel(employee)}</span><em>${employee.grade} · ${employee.title || "팀원"}</em></div></label>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">선택한 조직에 표시할 대상자가 없습니다.</div>`}</div></div></div><div class="codex-admin-selected codex-panel"><div class="codex-admin-selected-title">추가 예정 열람 대상 <span>${selectedScopeEmployees.length}명</span></div>${selectedScopeEmployees.length ? `<div class="codex-admin-selected-list">${selectedScopeEmployees.map((employee) => `<div class="codex-admin-selected-item"><div><strong>${employee.name}</strong><span>${getCurrentOrgLabel(employee)}</span></div><button type="button" class="hr-btn btn-outline btn-xs" data-admin-scope-chip-remove="${employee.id}" ${canAdminEdit ? "" : "disabled"}>제외</button></div>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">조직 전체를 추가하거나 일부 구성원을 체크해 열람 대상으로 지정할 수 있습니다.</div>`}<div class="codex-modal-actions" style="margin-top:12px"><button type="button" class="hr-btn btn-outline" id="adminScopeCancelBtn" ${canAdminEdit ? "" : "disabled"}>취소</button><button type="button" class="hr-btn btn-primary" id="adminScopeSaveBtn" ${canAdminEdit ? "" : "disabled"}>대상 저장</button></div></div></div>` : `<div class="codex-note-box codex-note-box-compact">열람 범위를 <strong>일부 열람</strong>으로 선택하면 여기서 조직과 인원을 지정할 수 있습니다.</div>`}</div>` : ""}<div class="codex-note-box codex-note-box-compact" style="margin-bottom:14px"><strong>권한 미리보기</strong><br>보이는 메뉴: ${previewData?.menus?.length ? previewData.menus.join(", ") : "없음"}<br>사원명부 범위: ${previewData?.directoryScope || "-"}<br>인사기록카드 범위: ${previewData?.recordScope || "-"}<br>실행 가능 기능: ${previewData?.actions?.length ? previewData.actions.join(", ") : "없음"}${previewData?.viewTargetSummary ? `<br>일부 열람 대상: ${previewData.viewTargetSummary}` : ""}</div>${permissionRows}` : `<div class="codex-note-box">${getAdminRoleLabel()}를 선택하면 권한을 확인할 수 있습니다.</div>`}
+            ${currentManager ? `<div class="codex-note-box codex-note-box-compact" style="margin-bottom:14px"><strong>${currentManager.name}(${currentManager.loginId})</strong> · ${currentManager.org} · 활성 권한 ${previewData?.activePermissionCount || 0}개${isViewerRole() ? ` · 현재 범위: ${getAdminViewScopeLabel(currentManager)}` : ""}${changeDraftValues.expiresAt ? ` · 만료일 ${changeDraftValues.expiresAt}` : ""}${changeDraftValues.changeReason ? `<br>최근 사유: ${changeDraftValues.changeReason}` : ""}</div><div class="codex-panel" style="margin-bottom:14px"><div class="codex-code-head"><h4>권한 변경 설정</h4><span class="codex-admin-sub">변경 사유와 임시 권한 만료일을 함께 기록합니다.</span></div><div class="codex-form-grid" style="grid-template-columns:repeat(2,minmax(0,1fr))"><label><span>권한 변경 사유</span><input id="adminChangeReason" value="${changeDraftValues.changeReason}" placeholder="예: 인사팀 대체 운영"></label><label><span>임시 만료일</span><input id="adminChangeExpireAt" value="${changeDraftValues.expiresAt}" placeholder="YYYYMMDD"></label></div></div>${state.adminCopyOpen ? `<div class="codex-panel" style="margin-bottom:14px"><div class="codex-code-head"><h4>권한 복사</h4><span class="codex-admin-sub">다른 관리자/열람자의 현재 설정을 그대로 가져옵니다.</span></div><input id="adminCopyQuery" class="hr-search-input" value="${state.adminCopyQuery || ""}" placeholder="이름, 아이디, 소속, 카테고리 검색" style="margin-bottom:12px">${copyCandidates.length ? `<div class="codex-admin-candidates is-table">${copyCandidates.map((member) => `<label class="codex-admin-candidate"><input type="radio" name="adminCopySource" data-admin-copy-source="${member.id}" ${state.adminCopySourceId === member.id ? "checked" : ""}><div><strong>${member.name}</strong><span>${member.loginId} · ${member.categoryName}</span><em>${member.org} · ${member.role === "viewer" ? "열람자" : "관리자"}</em></div></label>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">복사 가능한 권한 보유 사용자가 없습니다.</div>`}${copySourceMember ? `<div class="codex-note-box codex-note-box-compact" style="margin-top:12px"><strong>복사 원본</strong><br>${copySourceMember.name} (${copySourceMember.categoryName} / ${copySourceMember.role === "viewer" ? "열람자" : "관리자"})${copySourceMember.viewScope ? `<br>열람 범위: ${getAdminViewTargetSummary(copySourceMember)}` : ""}</div>` : ""}<div class="codex-modal-actions" style="margin-top:12px"><button type="button" class="hr-btn btn-outline" id="adminCopyCancelBtn">취소</button><button type="button" class="hr-btn btn-primary" id="adminCopyApplyBtn" ${copySourceMember && canAdminEdit ? "" : "disabled"}>현재 사용자에 복사</button></div></div>` : ""}${state.adminCompareOpen ? `<div class="codex-panel" style="margin-bottom:14px"><div class="codex-code-head"><h4>권한 비교</h4><span class="codex-admin-sub">현재 사용자와 다른 권한 보유자의 차이를 바로 확인합니다.</span></div><input id="adminCompareQuery" class="hr-search-input" value="${state.adminCompareQuery || ""}" placeholder="이름, 아이디, 소속, 카테고리 검색" style="margin-bottom:12px">${compareCandidates.length ? `<div class="codex-admin-candidates is-table">${compareCandidates.map((member) => `<label class="codex-admin-candidate"><input type="radio" name="adminCompareSource" data-admin-compare-source="${member.id}" ${state.adminCompareSourceId === member.id ? "checked" : ""}><div><strong>${member.name}</strong><span>${member.loginId} · ${member.categoryName}</span><em>${member.org} · ${member.role === "viewer" ? "열람자" : "관리자"}</em></div></label>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">비교 가능한 권한 보유 사용자가 없습니다.</div>`}${compareDiff ? `<div class="codex-note-box codex-note-box-compact" style="margin-top:12px"><strong>비교 결과</strong><br>비교 대상: ${compareSourceMember.name} (${compareSourceMember.categoryName})<br>추가 필요 권한: ${compareDiff.added.length ? compareDiff.added.join(", ") : "없음"}<br>현재만 가진 권한: ${compareDiff.removed.length ? compareDiff.removed.join(", ") : "없음"}<br>공통 권한: ${compareDiff.shared.length ? compareDiff.shared.join(", ") : "없음"}${showViewerScope ? `<br>열람 범위 비교: ${compareDiff.sameDirectoryScope ? "동일" : `${compareDiff.current.directoryScope || "-"} ↔ ${compareDiff.compare.directoryScope || "-"}`}` : ""}</div>` : ""}<div class="codex-modal-actions" style="margin-top:12px"><button type="button" class="hr-btn btn-outline" id="adminCompareCancelBtn">닫기</button></div></div>` : ""}${showViewerScope ? `<div class="codex-admin-scope-box"><div class="codex-code-head"><h4>사원정보 열람 범위</h4><button type="button" class="hr-btn btn-outline btn-xs" id="adminScopeOpenBtn" ${canAdminEdit ? "" : "disabled"}>${state.adminScopeOpen ? "대상 닫기" : "대상 편집"}</button></div><div class="codex-admin-scope-options"><label><input type="radio" name="adminViewScope" value="self" ${currentManager.viewScope !== "all" && currentManager.viewScope !== "partial" ? "checked" : ""} ${canAdminEdit ? "" : "disabled"}> 본인 열람</label><label><input type="radio" name="adminViewScope" value="all" ${currentManager.viewScope === "all" ? "checked" : ""} ${canAdminEdit ? "" : "disabled"}> 전체 열람</label><label><input type="radio" name="adminViewScope" value="partial" ${currentManager.viewScope === "partial" ? "checked" : ""} ${canAdminEdit ? "" : "disabled"}> 일부 열람</label></div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px">현재 대상: ${getAdminViewTargetSummary(currentManager)}</div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px"><strong>저장된 열람 대상</strong>${currentScopeTargets.length ? currentScopeTargets.map((target) => `<div class="codex-admin-selected-item"><div><strong>${target.type === "org" ? "조직" : "개별"}</strong><span>${target.label}</span></div><button type="button" class="hr-btn btn-outline btn-xs" data-admin-scope-target-remove="${getAdminViewTargetKey(target)}" ${canAdminEdit ? "" : "disabled"}>제외</button></div>`).join("") : `<div class="codex-admin-scope-empty">아직 지정된 열람 대상이 없습니다.</div>`}</div>${currentManager.viewScope === "partial" ? `<div class="codex-admin-add ${state.adminScopeOpen ? "is-open" : ""}"><div class="codex-admin-add-layout is-structured"><div class="codex-admin-picker codex-panel"><div class="codex-admin-picker-head"><div><strong>열람 대상 선택</strong><span>조직 단위로 추가하거나, 선택 조직 안에서 일부 구성원만 골라 열람 범위를 지정합니다.</span></div></div><div class="codex-admin-org-layout"><div class="codex-admin-org-column"><div class="codex-admin-org-title">조직 선택</div><div class="codex-assignment-tree-wrap codex-admin-org-wrap">${buildAdminOrgTree(state.currentAdminOrgKey || "ROOT")}</div><button type="button" class="hr-btn btn-outline btn-xs" id="adminScopeAddOrgBtn" style="margin-top:10px" ${canAdminEdit ? "" : "disabled"}>선택 조직 추가</button></div><div class="codex-admin-org-column"><div class="codex-admin-org-title">구성원 선택</div><div class="codex-admin-org-toolbar"><input id="adminScopeQuery" class="hr-search-input" value="${state.adminScopeQuery || ""}" placeholder="선택 조직 내 이름, 아이디, 사번 검색"><div class="codex-admin-selection-meta"><strong>${selectedOrgLabel}</strong><span>대상 ${selectedOrgMembers.length}명 · 검색 ${filteredScopeMembers.length}명</span></div></div>${selectedOrgMembers.length ? `<div class="codex-admin-candidates is-table">${filteredScopeMembers.map((employee) => `<label class="codex-admin-candidate"><input type="checkbox" data-admin-scope-check="${employee.id}" ${(state.adminScopeSelection || []).includes(employee.id) ? "checked" : ""} ${canAdminEdit ? "" : "disabled"}><div><strong>${employee.name}</strong><span>${getEmployeeLoginId(employee)} · ${getCurrentOrgLabel(employee)}</span><em>${employee.grade} · ${employee.title || "팀원"}</em></div></label>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">선택한 조직에 표시할 대상자가 없습니다.</div>`}</div></div></div><div class="codex-admin-selected codex-panel"><div class="codex-admin-selected-title">추가 예정 열람 대상 <span>${selectedScopeEmployees.length}명</span></div>${selectedScopeEmployees.length ? `<div class="codex-admin-selected-list">${selectedScopeEmployees.map((employee) => `<div class="codex-admin-selected-item"><div><strong>${employee.name}</strong><span>${getCurrentOrgLabel(employee)}</span></div><button type="button" class="hr-btn btn-outline btn-xs" data-admin-scope-chip-remove="${employee.id}" ${canAdminEdit ? "" : "disabled"}>제외</button></div>`).join("")}</div>` : `<div class="codex-note-box codex-note-box-compact">조직 전체를 추가하거나 일부 구성원을 체크해 열람 대상으로 지정할 수 있습니다.</div>`}<div class="codex-modal-actions" style="margin-top:12px"><button type="button" class="hr-btn btn-outline" id="adminScopeCancelBtn" ${canAdminEdit ? "" : "disabled"}>취소</button><button type="button" class="hr-btn btn-primary" id="adminScopeSaveBtn" ${canAdminEdit ? "" : "disabled"}>대상 저장</button></div></div></div>` : `<div class="codex-note-box codex-note-box-compact">열람 범위를 <strong>일부 열람</strong>으로 선택하면 여기서 조직과 인원을 지정할 수 있습니다.</div>`}</div>` : ""}<div class="codex-note-box codex-note-box-compact" style="margin-bottom:14px"><strong>권한 미리보기</strong><br>보이는 메뉴: ${previewData?.menus?.length ? previewData.menus.join(", ") : "없음"}<br>사원정보 범위: ${previewData?.employeeScope || "-"}<br>기록카드 사용: ${previewData?.recordPolicy || "-"}<br>실행 가능 기능: ${previewData?.actions?.length ? previewData.actions.join(", ") : "없음"}${previewData?.viewTargetSummary ? `<br>일부 열람 대상: ${previewData.viewTargetSummary}` : ""}</div>${permissionRows}` : `<div class="codex-note-box">${getAdminRoleLabel()}를 선택하면 권한을 확인할 수 있습니다.</div>`}
           </div>
           ${pendingPanel}
+          ${expiringPanel}
           ${historyPanel}
         </div>
       </div>
@@ -4309,6 +4400,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       const removedMember = (category[key] || []).find((manager) => manager.id === button.dataset.adminRemove);
       if (!removedMember) return;
       const changeMeta = getAdminChangeMetaFromInputs();
+      if (!ensureAdminChangeReason(category, "remove", changeMeta.changeReason, "관리자 제거")) return;
       upsertAdminPendingChange({
         key: `remove|${category.id}|${state.currentAdminRoleTab}|${removedMember.id}`,
         kind: "remove-members",
@@ -4425,6 +4517,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       if (!category || !manager || !sourceMember) return;
       const copied = buildCopiedPermissionPayload(category, state.currentAdminRoleTab, sourceMember, manager);
       const changeMeta = getAdminChangeMetaFromInputs();
+      if (!ensureAdminChangeReason(category, "copy", changeMeta.changeReason, "권한 복사")) return;
       upsertAdminPendingChange({
         key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
         kind: "set-permissions",
@@ -4505,6 +4598,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       const category = getCurrentAdminCategory();
       const role = state.currentAdminRoleTab;
       const addMeta = getAdminAddMetaFromInputs();
+      if (!ensureAdminChangeReason(category, "add", addMeta.changeReason, `${getAdminRoleLabel()} 추가`)) return;
       const existingLoginIds = new Set(getAdminCategoriesSource().flatMap((item) => [...(item.managers || []), ...(item.viewers || [])]).map((member) => member.loginId));
       const added = selectedIds.map((employeeId, index) => {
         const employee = state.employees.find((item) => item.id === employeeId);
@@ -4539,6 +4633,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       if (!category || !manager) return;
       const nextScope = input.value;
       const changeMeta = getAdminChangeMetaFromInputs();
+      if (!ensureAdminChangeReason(category, "set", changeMeta.changeReason, "열람 범위 변경")) return;
       const nextPermissions = { ...(manager.permissions || {}) };
       nextPermissions.directory_view_self = nextScope === "self";
       nextPermissions.directory_view_all = nextScope === "all";
@@ -4608,6 +4703,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       if (!category || !manager) return;
       const nextTargets = normalizeAdminViewTargets((manager.viewTargets || []).filter((target) => getAdminViewTargetKey(target) !== button.dataset.adminScopeTargetRemove));
       const changeMeta = getAdminChangeMetaFromInputs();
+      if (!ensureAdminChangeReason(category, "set", changeMeta.changeReason, "일부 열람 대상 조정")) return;
       upsertAdminPendingChange({
         key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
         kind: "set-permissions",
@@ -4635,6 +4731,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       if (!category || !manager) return;
       const nextTargets = normalizeAdminViewTargets([...(manager.viewTargets || []), { type: "org", key: state.currentAdminOrgKey || "ROOT", label: row ? getOrgRowPath(row) : "오토플러스" }]);
       const changeMeta = getAdminChangeMetaFromInputs();
+      if (!ensureAdminChangeReason(category, "set", changeMeta.changeReason, "일부 열람 조직 추가")) return;
       upsertAdminPendingChange({
         key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
         kind: "set-permissions",
@@ -4668,6 +4765,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       const manager = getCurrentAdminManager();
       if (!category || !manager) return;
       const changeMeta = getAdminChangeMetaFromInputs();
+      if (!ensureAdminChangeReason(category, "set", changeMeta.changeReason, "일부 열람 대상 저장")) return;
       const nextTargets = [...(manager.viewTargets || [])];
       (state.adminScopeSelection || []).forEach((employeeId) => {
         const employee = state.employees.find((item) => item.id === employeeId);
@@ -4718,6 +4816,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       const removedMembers = (category[key] || []).filter((member) => selected.has(member.id));
       if (!removedMembers.length) return;
       const changeMeta = getAdminChangeMetaFromInputs();
+      if (!ensureAdminChangeReason(category, "remove", changeMeta.changeReason, `${getAdminRoleLabel()} 일괄 제거`)) return;
       upsertAdminPendingChange({
         key: `remove|${category.id}|${state.currentAdminRoleTab}|${removedMembers.map((member) => member.id).join(",")}`,
         kind: "remove-members",
@@ -4743,6 +4842,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       const nextPermissions = { ...(manager.permissions || {}), [input.dataset.adminPermission]: input.checked };
       const category = getCurrentAdminCategory();
       const changeMeta = getAdminChangeMetaFromInputs();
+      if (!ensureAdminChangeReason(category, "set", changeMeta.changeReason, "권한 변경")) return;
       upsertAdminPendingChange({
         key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
         kind: "set-permissions",
@@ -4769,6 +4869,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       group.items.forEach((item) => { nextPermissions[item.id] = true; });
       const category = getCurrentAdminCategory();
       const changeMeta = getAdminChangeMetaFromInputs();
+      if (!ensureAdminChangeReason(category, "set", changeMeta.changeReason, "권한 일괄 선택")) return;
       upsertAdminPendingChange({
         key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
         kind: "set-permissions",
@@ -4795,6 +4896,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       group.items.forEach((item) => { nextPermissions[item.id] = false; });
       const category = getCurrentAdminCategory();
       const changeMeta = getAdminChangeMetaFromInputs();
+      if (!ensureAdminChangeReason(category, "set", changeMeta.changeReason, "권한 일괄 해제")) return;
       upsertAdminPendingChange({
         key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
         kind: "set-permissions",
@@ -4819,6 +4921,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       if (!manager || isViewerRole()) return;
       const nextPermissions = createPermissionMap(getAdminCategoryPermissionIds(category.id, "manager"));
       const changeMeta = getAdminChangeMetaFromInputs();
+      if (!ensureAdminChangeReason(category, "reset", changeMeta.changeReason, "권한 초기화")) return;
       upsertAdminPendingChange({
         key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
         kind: "set-permissions",
