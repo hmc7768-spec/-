@@ -350,6 +350,138 @@
       }))
     }));
   }
+  function createAdminDraft() {
+    return {
+      categories: cloneAdminCategories(state.adminCategories),
+      pendingChanges: []
+    };
+  }
+  function ensureAdminDraft() {
+    if (!state.adminDraft) state.adminDraft = createAdminDraft();
+    return state.adminDraft;
+  }
+  function discardAdminDraft() {
+    state.adminDraft = null;
+    state.currentAdminPendingKey = "";
+  }
+  function getAdminCategoriesSource() {
+    return state.adminDraft?.categories || state.adminCategories;
+  }
+  function getAdminRoleBucket(role = state.currentAdminRoleTab) {
+    return role === "viewer" ? "viewers" : "managers";
+  }
+  function findAdminCategoryIn(categories, categoryId) {
+    return (categories || []).find((category) => category.id === categoryId) || (categories || [])[0];
+  }
+  function getAdminPendingChanges() {
+    return state.adminDraft?.pendingChanges || [];
+  }
+  function hasPendingAdminChanges() {
+    return getAdminPendingChanges().length > 0;
+  }
+  function getCurrentTimestamp() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    return `${year}.${month}.${day} ${hours}:${minutes}`;
+  }
+  function upsertAdminPendingChange(change) {
+    const draft = ensureAdminDraft();
+    const key = change.key || `${change.kind}|${change.categoryId}|${change.role || ""}|${change.memberId || ""}|${change.memberIds?.join(",") || ""}`;
+    const payload = { ...change, _key: key, changedAt: getCurrentTimestamp() };
+    const index = draft.pendingChanges.findIndex((item) => item._key === key);
+    if (index >= 0) draft.pendingChanges.splice(index, 1, payload);
+    else draft.pendingChanges.unshift(payload);
+    state.currentAdminPendingKey = key;
+  }
+  function rebuildAdminDraftFromPending() {
+    const next = createAdminDraft();
+    const pending = getAdminPendingChanges().map((item) => JSON.parse(JSON.stringify(item)));
+    next.pendingChanges = pending;
+    pending.slice().reverse().forEach((change) => {
+      const category = findAdminCategoryIn(next.categories, change.categoryId);
+      if (!category) return;
+      const bucket = getAdminRoleBucket(change.role);
+      if (change.kind === "add-members") {
+        const existingLoginIds = new Set(next.categories.flatMap((item) => [...(item.managers || []), ...(item.viewers || [])]).map((member) => member.loginId));
+        const additions = (change.members || []).filter((member) => !existingLoginIds.has(member.loginId));
+        category[bucket] = [...(category[bucket] || []), ...additions];
+      } else if (change.kind === "remove-members") {
+        const selected = new Set(change.memberIds || []);
+        category[bucket] = (category[bucket] || []).filter((member) => !selected.has(member.id));
+      } else if (change.kind === "set-permissions") {
+        category[bucket] = (category[bucket] || []).map((member) => member.id === change.memberId ? { ...member, permissions: { ...(change.permissions || {}) } } : member);
+      }
+    });
+    state.adminDraft = next;
+    const members = getCurrentAdminMembers();
+    if (!members.some((member) => member.id === state.currentAdminManagerId)) state.currentAdminManagerId = members[0]?.id || "";
+  }
+  function removeAdminPendingChange(changeKey) {
+    if (!state.adminDraft) return;
+    state.adminDraft.pendingChanges = state.adminDraft.pendingChanges.filter((item) => item._key !== changeKey);
+    if (state.currentAdminPendingKey === changeKey) state.currentAdminPendingKey = "";
+    rebuildAdminDraftFromPending();
+    renderAdmin();
+    bindAdmin();
+  }
+  function openAdminPendingChange(changeKey) {
+    const change = getAdminPendingChanges().find((item) => item._key === changeKey);
+    if (!change) return;
+    state.currentAdminPendingKey = changeKey;
+    state.currentAdminCategory = change.categoryId || state.currentAdminCategory;
+    state.currentAdminRoleTab = change.role || state.currentAdminRoleTab;
+    if (change.kind === "add-members") {
+      state.adminAddOpen = true;
+      state.adminAddQuery = "";
+      state.adminCandidateSelection = (change.members || []).map((member) => member.employeeId).filter(Boolean);
+      const firstMember = (change.members || [])[0];
+      const firstEmployee = firstMember?.employeeId ? state.employees.find((item) => item.id === firstMember.employeeId) : null;
+      state.currentAdminOrgKey = firstEmployee ? (getEmployeeNodeKey(firstEmployee) || "ROOT") : (state.currentAdminOrgKey || "ROOT");
+      expandAdminAncestors(state.currentAdminOrgKey || "ROOT");
+    } else if (change.kind === "set-permissions") {
+      state.adminAddOpen = false;
+      state.currentAdminManagerId = change.memberId || state.currentAdminManagerId;
+    } else if (change.kind === "remove-members") {
+      state.adminAddOpen = false;
+      state.adminMemberSelection = [...(change.memberIds || [])];
+      state.currentAdminManagerId = (change.memberIds || [])[0] || state.currentAdminManagerId;
+    }
+    renderAdmin();
+    bindAdmin();
+  }
+  function pushAdminHistory(action, target, detail = "") {
+    state.adminHistory.unshift({
+      id: `ADM-HIST-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      changedAt: getCurrentTimestamp(),
+      action,
+      target,
+      detail
+    });
+  }
+  function applyAdminDraft() {
+    if (!state.adminDraft?.pendingChanges?.length) return;
+    state.adminCategories = cloneAdminCategories(state.adminDraft.categories);
+    state.adminDraft.pendingChanges.slice().reverse().forEach((change) => {
+      if (change.kind === "add-members") {
+        pushAdminHistory("추가", `${findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId} · ${change.role === "viewer" ? "열람자" : "관리자"}`, `${(change.members || []).map((member) => member.name).join(", ")} 등록`);
+      } else if (change.kind === "remove-members") {
+        pushAdminHistory("제거", `${findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId} · ${change.role === "viewer" ? "열람자" : "관리자"}`, `${(change.memberNames || []).join(", ")} 제거`);
+      } else if (change.kind === "set-permissions") {
+        pushAdminHistory("권한변경", `${findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId} · ${change.memberName}`, change.role === "viewer" ? "열람 권한 재정의" : "관리 권한 재정의");
+      }
+    });
+    discardAdminDraft();
+    renderAdmin();
+    bindAdmin();
+  }
+  function renderAdminHistoryTable() {
+    if (!state.adminHistory.length) return `<div class="codex-note-box">아직 저장된 관리자 변경 이력이 없습니다.</div>`;
+    return `<div class="codex-code-table-wrap"><table class="codex-admin-history-table"><thead><tr><th>변경시각</th><th>처리</th><th>대상</th><th>상세</th></tr></thead><tbody>${state.adminHistory.slice(0, 12).map((item) => `<tr><td>${item.changedAt}</td><td>${item.action}</td><td>${item.target}</td><td>${item.detail || "-"}</td></tr>`).join("")}</tbody></table></div>`;
+  }
   function getOrgRowLevel(row) {
     if (row.part) return "L4";
     if (row.team) return "L3";
@@ -457,7 +589,7 @@
     return rows.map((row) => ({ ...row }));
   }
   const baseOrgBlueprint = createOrgBlueprint(orgRows);
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), orgBlueprint: cloneOrgBlueprint(baseOrgBlueprint), metaRegistry: JSON.parse(JSON.stringify(initialMetaRegistry)), adminCategories: cloneAdminCategories(initialAdminCategories), currentAdminCategory: "all_admin", currentAdminRoleTab: "manager", currentAdminManagerId: "ADM-001", currentAdminOrgKey: "ROOT", adminExpandedKeys: ["ROOT"], adminAddOpen: false, adminAddQuery: "", adminCandidateSelection: [], adminMemberSelection: [], codeHistory: [], codeDraft: null, currentPendingChangeKey: "", assignmentRecords: [], deletedOrgArchive: [], assignmentFlow: null, assignmentLandingTab: "org", assignmentLandingSearch: "", selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentMetaCodeSelection: "", currentCodeHistoryFilter: "all", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", directoryRetireDateFrom: "", directoryRetireDateTo: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), orgBlueprint: cloneOrgBlueprint(baseOrgBlueprint), metaRegistry: JSON.parse(JSON.stringify(initialMetaRegistry)), adminCategories: cloneAdminCategories(initialAdminCategories), adminHistory: [], adminDraft: null, currentAdminPendingKey: "", currentAdminCategory: "all_admin", currentAdminRoleTab: "manager", currentAdminManagerId: "ADM-001", currentAdminOrgKey: "ROOT", adminExpandedKeys: ["ROOT"], adminAddOpen: false, adminAddQuery: "", adminCandidateSelection: [], adminMemberSelection: [], codeHistory: [], codeDraft: null, currentPendingChangeKey: "", assignmentRecords: [], deletedOrgArchive: [], assignmentFlow: null, assignmentLandingTab: "org", assignmentLandingSearch: "", selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentMetaCodeSelection: "", currentCodeHistoryFilter: "all", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", directoryRetireDateFrom: "", directoryRetireDateTo: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
   syncLegacyMetaArraysFromRegistry();
   syncEmployeeCodeRefs();
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -1348,11 +1480,13 @@
     adminMenu.className = "hr-sidebar-item codex-sidebar-extra";
     adminMenu.innerHTML = '<span class="hr-sidebar-icon">🛡</span> 관리자';
     refs.hrSidebar.appendChild(adminMenu);
-    refs.sideItems = $$(".hr-sidebar-item");
-    refs.sideItems[1]?.classList.add("codex-hidden");
-    refs.sideItems[6]?.classList.add("codex-hidden");
-    refs.sideItems[7]?.classList.add("codex-hidden");
-    const codePanel = document.createElement("div");
+      refs.sideItems = $$(".hr-sidebar-item");
+      refs.sideItems[1]?.classList.add("codex-hidden");
+      refs.sideItems[6]?.classList.add("codex-hidden");
+      refs.sideItems[7]?.classList.add("codex-hidden");
+      const sidebarSections = $$(".hr-sidebar-section", refs.hrSidebar);
+      sidebarSections[2] && (sidebarSections[2].textContent = "시스템관리");
+      const codePanel = document.createElement("div");
     codePanel.className = "codex-panel codex-hidden";
     codePanel.id = "codexCodesPanel";
     refs.hrContent.appendChild(codePanel);
@@ -2680,7 +2814,8 @@
     panels.assignment.innerHTML = `<div class="codex-assignment-shell"><div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>조직 관리</h3><div style="font-size:11px;color:#9095b0">조직도, 조직개편/인사발령 이력, 삭제 조직 이력 조회</div></div></div>${tabs}<div class="codex-note-box" style="margin-top:16px"><strong>TIP</strong>조직개편/인사발령을 예약하면 해당 일자 기준으로 조직도와 인사정보가 함께 반영됩니다.</div><div style="margin-top:16px">${body}</div></div>`;
   }
   function getCurrentAdminCategory() {
-    return state.adminCategories.find((category) => category.id === state.currentAdminCategory) || state.adminCategories[0];
+    const categories = getAdminCategoriesSource();
+    return categories.find((category) => category.id === state.currentAdminCategory) || categories[0];
   }
   function getCurrentAdminMembers(category = getCurrentAdminCategory(), role = state.currentAdminRoleTab) {
     if (!category) return [];
@@ -2771,16 +2906,17 @@
   function renderAdmin() {
     if (!panels.admin) return;
     ensureAdminSelection();
+    const adminCategories = getAdminCategoriesSource();
     const category = getCurrentAdminCategory();
     const currentManager = getCurrentAdminManager();
     const currentMembers = getCurrentAdminMembers(category);
-    const allMembers = state.adminCategories.flatMap((item) => [...(item.managers || []), ...(item.viewers || [])]);
+    const allMembers = adminCategories.flatMap((item) => [...(item.managers || []), ...(item.viewers || [])]);
     const duplicateLogin = !!(state.adminCandidateSelection || []).length && (state.adminCandidateSelection || []).some((employeeId) => {
       const employee = state.employees.find((item) => item.id === employeeId);
       return employee && allMembers.some((member) => member.loginId === getEmployeeLoginId(employee));
     });
     const candidateRows = getAdminOrgEmployees(state.adminAddQuery);
-    const sectionGroups = state.adminCategories.reduce((acc, item) => {
+    const sectionGroups = adminCategories.reduce((acc, item) => {
       if (!acc[item.section]) acc[item.section] = [];
       acc[item.section].push(item);
       return acc;
@@ -2790,6 +2926,10 @@
     const selectedOrgLabel = selectedOrgRow ? getOrgRowPath(selectedOrgRow) : "오토플러스";
     const selectedOrgMembers = getEmployeesInOrgKey(state.currentAdminOrgKey || "ROOT", true).filter((employee) => employee.status !== "퇴직");
     const selectedCandidateEmployees = (state.adminCandidateSelection || []).map((employeeId) => state.employees.find((item) => item.id === employeeId)).filter(Boolean);
+    const pendingChanges = getAdminPendingChanges();
+    const adminActions = `<div class="codex-secondary-actions">${hasPendingAdminChanges() ? `<button type="button" class="hr-btn btn-outline" id="adminDraftResetBtn">전체 취소</button><button type="button" class="hr-btn btn-primary" id="adminDraftApplyBtn">변경 적용 (${pendingChanges.length})</button>` : `<button type="button" class="hr-btn btn-outline" disabled>변경 예정 없음</button>`}</div>`;
+    const pendingPanel = `<div class="codex-panel"><div class="codex-code-head"><h4>변경 예정 내역</h4><span class="codex-admin-sub">${pendingChanges.length}건</span></div>${pendingChanges.length ? pendingChanges.map((item) => `<div class="codex-note-box codex-note-box-compact ${item._key === state.currentAdminPendingKey ? "is-selected" : ""}" data-admin-pending-row="${item._key}"><strong>${item.categoryLabel || findAdminCategoryIn(adminCategories, item.categoryId)?.label || item.categoryId} · ${item.role === "viewer" ? "열람자" : "관리자"} · ${item.kind === "add-members" ? "추가" : item.kind === "remove-members" ? "제거" : "권한 변경"}</strong>${item.changedAt}${item.summary ? `<br>${item.summary}` : ""}<div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline btn-xs" data-admin-pending-edit="${item._key}">수정</button><button type="button" class="hr-btn btn-outline btn-xs" data-admin-pending-cancel="${item._key}">취소</button></div></div>`).join("") : `<div class="codex-note-box">저장 전 검토할 관리자 변경이 없습니다.</div>`}</div>`;
+    const historyPanel = `<div class="codex-panel"><div class="codex-code-head"><h4>관리자 권한 변경 이력</h4><span class="codex-admin-sub">${state.adminHistory.length}건</span></div>${renderAdminHistoryTable()}</div>`;
     const permissionRows = adminPermissionGroups.map((group) => `
       <div class="codex-admin-perm-group">
         <div class="codex-admin-perm-head">
@@ -2816,6 +2956,7 @@
           <h3>관리자 권한 설정</h3>
           <div style="font-size:11px;color:#9095b0">통합인사시스템 전용 관리자와 열람자를 등록하고, 메뉴/기능별 권한 범위를 관리합니다.</div>
         </div>
+        ${adminActions}
       </div>
       <div class="codex-admin-layout" style="margin-top:16px">
         <div class="codex-panel codex-admin-side">
@@ -2933,6 +3074,8 @@
             </div>
             ${currentManager ? `<div class="codex-note-box codex-note-box-compact" style="margin-bottom:14px"><strong>${currentManager.name}(${currentManager.loginId})</strong> · ${currentManager.org} · 활성 권한 ${Object.values(currentManager.permissions || {}).filter(Boolean).length}개${isViewerRole() ? " · 열람자 권한은 조회 범위 중심으로 고정됩니다." : ""}</div>${permissionRows}` : `<div class="codex-note-box">${getAdminRoleLabel()}를 선택하면 권한을 확인할 수 있습니다.</div>`}
           </div>
+          ${pendingPanel}
+          ${historyPanel}
         </div>
       </div>
     `;
@@ -2961,9 +3104,20 @@
     $$("[data-admin-remove]", panels.admin).forEach((button) => button.addEventListener("click", (event) => {
       event.stopPropagation();
       const category = getCurrentAdminCategory();
-      const key = state.currentAdminRoleTab === "viewer" ? "viewers" : "managers";
-      category[key] = (category[key] || []).filter((manager) => manager.id !== button.dataset.adminRemove);
-      if (state.currentAdminManagerId === button.dataset.adminRemove) state.currentAdminManagerId = getCurrentAdminMembers(category, state.currentAdminRoleTab)[0]?.id || "";
+      const key = getAdminRoleBucket(state.currentAdminRoleTab);
+      const removedMember = (category[key] || []).find((manager) => manager.id === button.dataset.adminRemove);
+      if (!removedMember) return;
+      upsertAdminPendingChange({
+        key: `remove|${category.id}|${state.currentAdminRoleTab}|${removedMember.id}`,
+        kind: "remove-members",
+        categoryId: category.id,
+        categoryLabel: category.label,
+        role: state.currentAdminRoleTab,
+        memberIds: [removedMember.id],
+        memberNames: [removedMember.name],
+        summary: `${removedMember.name} 제거`
+      });
+      rebuildAdminDraftFromPending();
       state.adminMemberSelection = (state.adminMemberSelection || []).filter((id) => id !== button.dataset.adminRemove);
       renderAdmin();
       bindAdmin();
@@ -3024,16 +3178,25 @@
       const selectedIds = state.adminCandidateSelection || [];
       if (!selectedIds.length) return;
       const category = getCurrentAdminCategory();
-      const key = state.currentAdminRoleTab === "viewer" ? "viewers" : "managers";
       const role = state.currentAdminRoleTab;
-      const existingLoginIds = new Set(state.adminCategories.flatMap((item) => [...(item.managers || []), ...(item.viewers || [])]).map((member) => member.loginId));
+      const existingLoginIds = new Set(getAdminCategoriesSource().flatMap((item) => [...(item.managers || []), ...(item.viewers || [])]).map((member) => member.loginId));
       const added = selectedIds.map((employeeId, index) => {
         const employee = state.employees.find((item) => item.id === employeeId);
         if (!employee || existingLoginIds.has(getEmployeeLoginId(employee))) return null;
         const idPrefix = role === "viewer" ? "ADV" : "ADM";
         return buildAdminMemberFromEmployee(employee, `${idPrefix}-${String(Date.now() + index).slice(-5)}`, getDefaultAdminPermissionIds(category.id, role), "2026.04.16", role);
       }).filter(Boolean);
-      category[key] = [...(category[key] || []), ...added];
+      if (!added.length) return;
+      upsertAdminPendingChange({
+        key: `add|${category.id}|${role}|${added.map((member) => member.employeeId).join(",")}`,
+        kind: "add-members",
+        categoryId: category.id,
+        categoryLabel: category.label,
+        role,
+        members: added,
+        summary: `${added.map((member) => member.name).join(", ")} 추가`
+      });
+      rebuildAdminDraftFromPending();
       state.currentAdminManagerId = added[0]?.id || getCurrentAdminMembers(category, role)[0]?.id || "";
       state.adminAddOpen = false;
       state.adminAddQuery = "";
@@ -3057,9 +3220,21 @@
     });
     $("#adminBulkRemoveBtn", panels.admin)?.addEventListener("click", () => {
       const category = getCurrentAdminCategory();
-      const key = state.currentAdminRoleTab === "viewer" ? "viewers" : "managers";
       const selected = new Set(state.adminMemberSelection || []);
-      category[key] = (category[key] || []).filter((member) => !selected.has(member.id));
+      const key = getAdminRoleBucket(state.currentAdminRoleTab);
+      const removedMembers = (category[key] || []).filter((member) => selected.has(member.id));
+      if (!removedMembers.length) return;
+      upsertAdminPendingChange({
+        key: `remove|${category.id}|${state.currentAdminRoleTab}|${removedMembers.map((member) => member.id).join(",")}`,
+        kind: "remove-members",
+        categoryId: category.id,
+        categoryLabel: category.label,
+        role: state.currentAdminRoleTab,
+        memberIds: removedMembers.map((member) => member.id),
+        memberNames: removedMembers.map((member) => member.name),
+        summary: `${removedMembers.length}명 일괄 제거`
+      });
+      rebuildAdminDraftFromPending();
       state.currentAdminManagerId = getCurrentAdminMembers(category, state.currentAdminRoleTab)[0]?.id || "";
       state.adminMemberSelection = [];
       renderAdmin();
@@ -3068,13 +3243,42 @@
     $$("[data-admin-permission]", panels.admin).forEach((input) => input.addEventListener("change", () => {
       const manager = getCurrentAdminManager();
       if (!manager || isViewerRole()) return;
-      manager.permissions[input.dataset.adminPermission] = input.checked;
+      const nextPermissions = { ...(manager.permissions || {}), [input.dataset.adminPermission]: input.checked };
+      const category = getCurrentAdminCategory();
+      upsertAdminPendingChange({
+        key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
+        kind: "set-permissions",
+        categoryId: category.id,
+        categoryLabel: category.label,
+        role: state.currentAdminRoleTab,
+        memberId: manager.id,
+        memberName: manager.name,
+        permissions: nextPermissions,
+        summary: `${manager.name} 권한 변경`
+      });
+      rebuildAdminDraftFromPending();
+      renderAdmin();
+      bindAdmin();
     }));
     $$("[data-admin-group-enable]", panels.admin).forEach((button) => button.addEventListener("click", () => {
       const manager = getCurrentAdminManager();
       const group = adminPermissionGroups.find((item) => item.id === button.dataset.adminGroupEnable);
       if (!manager || !group || isViewerRole()) return;
-      group.items.forEach((item) => { manager.permissions[item.id] = true; });
+      const nextPermissions = { ...(manager.permissions || {}) };
+      group.items.forEach((item) => { nextPermissions[item.id] = true; });
+      const category = getCurrentAdminCategory();
+      upsertAdminPendingChange({
+        key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
+        kind: "set-permissions",
+        categoryId: category.id,
+        categoryLabel: category.label,
+        role: state.currentAdminRoleTab,
+        memberId: manager.id,
+        memberName: manager.name,
+        permissions: nextPermissions,
+        summary: `${manager.name} 권한 일괄 선택`
+      });
+      rebuildAdminDraftFromPending();
       renderAdmin();
       bindAdmin();
     }));
@@ -3082,7 +3286,21 @@
       const manager = getCurrentAdminManager();
       const group = adminPermissionGroups.find((item) => item.id === button.dataset.adminGroupDisable);
       if (!manager || !group || isViewerRole()) return;
-      group.items.forEach((item) => { manager.permissions[item.id] = false; });
+      const nextPermissions = { ...(manager.permissions || {}) };
+      group.items.forEach((item) => { nextPermissions[item.id] = false; });
+      const category = getCurrentAdminCategory();
+      upsertAdminPendingChange({
+        key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
+        kind: "set-permissions",
+        categoryId: category.id,
+        categoryLabel: category.label,
+        role: state.currentAdminRoleTab,
+        memberId: manager.id,
+        memberName: manager.name,
+        permissions: nextPermissions,
+        summary: `${manager.name} 권한 일괄 해제`
+      });
+      rebuildAdminDraftFromPending();
       renderAdmin();
       bindAdmin();
     }));
@@ -3090,10 +3308,42 @@
       const manager = getCurrentAdminManager();
       const category = getCurrentAdminCategory();
       if (!manager || isViewerRole()) return;
-      manager.permissions = createPermissionMap(getDefaultAdminPermissionIds(category.id, "manager"));
+      const nextPermissions = createPermissionMap(getDefaultAdminPermissionIds(category.id, "manager"));
+      upsertAdminPendingChange({
+        key: `perm|${category.id}|${state.currentAdminRoleTab}|${manager.id}`,
+        kind: "set-permissions",
+        categoryId: category.id,
+        categoryLabel: category.label,
+        role: state.currentAdminRoleTab,
+        memberId: manager.id,
+        memberName: manager.name,
+        permissions: nextPermissions,
+        summary: `${manager.name} 권한 초기화`
+      });
+      rebuildAdminDraftFromPending();
       renderAdmin();
       bindAdmin();
     });
+    $$("[data-admin-pending-cancel]", panels.admin).forEach((button) => button.addEventListener("click", () => {
+      removeAdminPendingChange(button.dataset.adminPendingCancel);
+    }));
+    $("#adminDraftApplyBtn", panels.admin)?.addEventListener("click", () => {
+      applyAdminDraft();
+    });
+    $("#adminDraftResetBtn", panels.admin)?.addEventListener("click", () => {
+      discardAdminDraft();
+      renderAdmin();
+      bindAdmin();
+    });
+    $$("[data-admin-pending-row]", panels.admin).forEach((row) => row.addEventListener("click", (event) => {
+      if (event.target.closest("button")) return;
+      state.currentAdminPendingKey = row.dataset.adminPendingRow || "";
+      renderAdmin();
+      bindAdmin();
+    }));
+    $$("[data-admin-pending-edit]", panels.admin).forEach((button) => button.addEventListener("click", () => {
+      openAdminPendingChange(button.dataset.adminPendingEdit);
+    }));
   }
   function renderAssignmentStepOne(flow) {
     panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">조직개편 및 인사발령일과 처리 방식을 입력합니다.</div></div><div class="codex-stepper"><span class="active">1단계</span><span>2단계</span><span>3단계</span></div></div><div class="codex-panel" style="margin-top:16px"><div class="codex-form-grid"><label><span>조직개편 및 인사발령일</span><input id="wizardChangeDate" value="${flow.changeDate}" placeholder="YYYY.MM.DD"></label><label><span>처리 방식</span><div class="codex-inline-radio"><label><input type="radio" name="wizardMode" value="auto" ${flow.mode === "auto" ? "checked" : ""}>자동</label><label><input type="radio" name="wizardMode" value="manual" ${flow.mode === "manual" ? "checked" : ""}>수동</label></div></label><div class="codex-note-box span-2"><strong>자동</strong>입력한 날짜에 조직도와 임직원 정보가 자동 업데이트됩니다.</div><div class="codex-note-box span-2"><strong>수동</strong>관리자가 완료 시점에 직접 확정합니다.</div></div></div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="cancelAssignmentWizardBtn">취소</button><button type="button" class="hr-btn btn-primary" id="assignmentNextStepBtn">다음 단계</button></div></div>`;

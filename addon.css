@@ -1205,6 +1205,11 @@
   margin-top: 4px;
 }
 
+.codex-note-box.is-selected {
+  border-color: #bfcff1;
+  background: #eef4ff;
+}
+
 .codex-admin-summary {
   margin: 14px 0 16px;
   display: grid;
@@ -1494,6 +1499,16 @@
   background: #f5f7fb;
   color: #50607b;
   font-weight: 700;
+}
+
+.codex-admin-history-table th,
+.codex-admin-history-table td {
+  white-space: nowrap;
+}
+
+.codex-admin-history-table td:last-child,
+.codex-admin-history-table th:last-child {
+  white-space: normal;
 }
 
 .codex-admin-table tbody tr {
