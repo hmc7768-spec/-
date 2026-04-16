@@ -1133,8 +1133,11 @@
       detail
     });
   }
+  function buildOrgPathText(parts = []) {
+    return (parts || []).map((item) => String(item || "").trim()).filter(Boolean).join(" > ");
+  }
   function hireEmployeePath(employee) {
-    return [employee.hireHq || employee.hq, employee.hireOffice || employee.office, employee.hireTeam || employee.team, employee.hirePart || employee.part].filter(Boolean).join(" > ");
+    return employee.hireOrgPathText || buildOrgPathText([employee.hireHq || employee.hq, employee.hireOffice || employee.office, employee.hireTeam || employee.team, employee.hirePart || employee.part]);
   }
   function deepestDept(employee) { return employee.part || employee.team || employee.office || employee.hq; }
   function selectedEmployee() { return state.employees.find((employee) => employee.id === state.selectedId) || state.employees[0]; }
@@ -1308,6 +1311,455 @@
   function normalizedNameToken(name) {
     return (name || "").replace(/\s+/g, "").toLowerCase();
   }
+  const batchImportColumns = [
+    { key: "id", label: "사원번호", required: true, desc: "중복 불가" },
+    { key: "name", label: "사원명", required: true, desc: "필수" },
+    { key: "groupwareId", label: "그룹웨어ID", required: false, desc: "미입력 시 자동 생성" },
+    { key: "residentNumber", label: "주민등록번호", required: false, desc: "예: 950101-1234567" },
+    { key: "hq", label: "본부", required: true, desc: "조직코드 기준값" },
+    { key: "office", label: "실", required: false, desc: "조직코드 기준값" },
+    { key: "team", label: "팀", required: false, desc: "조직코드 기준값" },
+    { key: "part", label: "파트", required: false, desc: "조직코드 기준값" },
+    { key: "grade", label: "직급", required: true, desc: "기준코드 기준값" },
+    { key: "title", label: "직책", required: true, desc: "기준코드 기준값" },
+    { key: "jobFamily", label: "직군", required: true, desc: "기준코드 기준값" },
+    { key: "employeeType", label: "직원유형", required: true, desc: "기준코드 기준값" },
+    { key: "status", label: "재직상태", required: true, desc: "재직/휴직/퇴직" },
+    { key: "hireDate", label: "입사일", required: true, desc: "YYYYMMDD 또는 YYYY.MM.DD" },
+    { key: "birthDate", label: "생년월일", required: true, desc: "YYYYMMDD 또는 YYYY.MM.DD" },
+    { key: "retireDate", label: "퇴사일", required: false, desc: "퇴직 시 필수" },
+    { key: "phone", label: "연락처", required: false, desc: "미입력 가능" },
+    { key: "companyPhone", label: "회사전화", required: false, desc: "미입력 시 자동 생성" },
+    { key: "companyEmail", label: "회사이메일", required: false, desc: "미입력 시 자동 생성" },
+    { key: "personalEmail", label: "개인이메일", required: false, desc: "미입력 시 자동 생성" },
+    { key: "maritalStatus", label: "결혼여부", required: false, desc: "미혼/기혼" },
+    { key: "education", label: "최종학력", required: false, desc: "자유입력" },
+    { key: "contractPeriod", label: "계약기간", required: false, desc: "계약직인 경우 입력" },
+    { key: "careerMonths", label: "인정경력개월", required: false, desc: "숫자" },
+    { key: "assignmentDate", label: "부서배정일", required: false, desc: "미입력 시 입사일" },
+    { key: "address", label: "주소", required: false, desc: "자유입력" },
+    { key: "memo", label: "인사메모", required: false, desc: "자유입력" },
+    { key: "leaveType", label: "휴직유형", required: false, desc: "휴직 시 입력" },
+    { key: "leaveStartDate", label: "휴직시작일", required: false, desc: "휴직 시 입력" },
+    { key: "leaveEndDate", label: "휴직종료일", required: false, desc: "선택" },
+    { key: "leaveNote", label: "휴직비고", required: false, desc: "선택" }
+  ];
+  function normalizeImportCell(value) {
+    if (value === null || value === undefined) return "";
+    return String(value).trim();
+  }
+  function buildBatchTemplateSampleRow() {
+    return {
+      사원번호: "EMP-9001",
+      사원명: "홍길동",
+      그룹웨어ID: "hong.gildong",
+      주민등록번호: "950101-1234567",
+      본부: "경영관리본부",
+      실: "경영지원실",
+      팀: "인사팀",
+      파트: "",
+      직급: "사원",
+      직책: "팀원",
+      직군: "관리",
+      직원유형: "정규직",
+      재직상태: "재직",
+      입사일: "2026.04.16",
+      생년월일: "1995.01.01",
+      퇴사일: "",
+      연락처: "010-0000-0000",
+      회사전화: "02-6200-9001",
+      회사이메일: "honggildong.emp-9001@autoplus.co.kr",
+      개인이메일: "honggildong@gmail.com",
+      결혼여부: "미혼",
+      최종학력: "한양대학교 경영학과",
+      계약기간: "",
+      인정경력개월: "0",
+      부서배정일: "2026.04.16",
+      주소: "서울특별시",
+      인사메모: "엑셀 일괄등록 예시",
+      휴직유형: "",
+      휴직시작일: "",
+      휴직종료일: "",
+      휴직비고: ""
+    };
+  }
+  function getBatchTemplateGuideRows() {
+    return batchImportColumns.map((column) => ({
+      항목명: column.label,
+      필수여부: column.required ? "Y" : "N",
+      작성안내: column.desc
+    }));
+  }
+  function getBatchTemplateCodeRows() {
+    const orgRows = getActiveOrgRows().map((row) => ({
+      구분: "조직",
+      값: [row.hq, row.office, row.team, row.part].filter(Boolean).join(" > "),
+      보조값1: row.hq || "",
+      보조값2: row.office || "",
+      보조값3: row.team || "",
+      보조값4: row.part || ""
+    }));
+    const gradeRows = gradeCodes.map((item) => ({ 구분: "직급", 값: item, 보조값1: "", 보조값2: "", 보조값3: "", 보조값4: "" }));
+    const titleRows = titleCodes.map((item) => ({ 구분: "직책", 값: item, 보조값1: "", 보조값2: "", 보조값3: "", 보조값4: "" }));
+    const familyRows = familyCodes.map((item) => ({ 구분: "직군", 값: item, 보조값1: "", 보조값2: "", 보조값3: "", 보조값4: "" }));
+    const typeRows = employeeTypes.map((item) => ({ 구분: "직원유형", 값: item, 보조값1: "", 보조값2: "", 보조값3: "", 보조값4: "" }));
+    const statusRows = ["재직", "휴직", "퇴직"].map((item) => ({ 구분: "재직상태", 값: item, 보조값1: "", 보조값2: "", 보조값3: "", 보조값4: "" }));
+    return [...orgRows, ...gradeRows, ...titleRows, ...familyRows, ...typeRows, ...statusRows];
+  }
+  function escapeCsvCell(value) {
+    const text = String(value ?? "");
+    if (/[",\r\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+    return text;
+  }
+  function buildBatchTemplateCsv() {
+    const headers = batchImportColumns.map((column) => column.label);
+    const sample = buildBatchTemplateSampleRow();
+    const lines = [
+      headers.map(escapeCsvCell).join(","),
+      headers.map((header) => escapeCsvCell(sample[header] || "")).join(",")
+    ];
+    return `\uFEFF${lines.join("\r\n")}`;
+  }
+  function downloadTextFile(filename, content, mimeType = "text/plain;charset=utf-8") {
+    const blob = new Blob([content], { type: mimeType });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  }
+  function parseCsvRows(text) {
+    const rows = [];
+    let row = [];
+    let value = "";
+    let index = 0;
+    let inQuotes = false;
+    while (index < text.length) {
+      const char = text[index];
+      const next = text[index + 1];
+      if (char === '"') {
+        if (inQuotes && next === '"') {
+          value += '"';
+          index += 2;
+          continue;
+        }
+        inQuotes = !inQuotes;
+        index += 1;
+        continue;
+      }
+      if (!inQuotes && char === ",") {
+        row.push(value);
+        value = "";
+        index += 1;
+        continue;
+      }
+      if (!inQuotes && (char === "\n" || char === "\r")) {
+        if (char === "\r" && next === "\n") index += 1;
+        row.push(value);
+        rows.push(row);
+        row = [];
+        value = "";
+        index += 1;
+        continue;
+      }
+      value += char;
+      index += 1;
+    }
+    if (value.length || row.length) {
+      row.push(value);
+      rows.push(row);
+    }
+    return rows.filter((item) => item.some((cell) => String(cell || "").trim()));
+  }
+  async function readEmployeeBatchCsv(file) {
+    const text = await file.text();
+    const rows = parseCsvRows(text.replace(/^\uFEFF/, ""));
+    if (!rows.length) return [];
+    const headers = rows[0].map((item) => normalizeImportCell(item));
+    return rows.slice(1).map((row) => headers.reduce((acc, header, index) => {
+      acc[header] = normalizeImportCell(row[index]);
+      return acc;
+    }, {}));
+  }
+  function collectEmployeeInputFromCreateForm() {
+    const hireOrgPathText = buildOrgPathText([
+      $("#createHireHq").value || $("#createHq").value,
+      $("#createHireOffice").value || $("#createOffice").value,
+      $("#createHireTeam").value || $("#createTeam").value,
+      $("#createHirePart").value || $("#createPart").value
+    ]);
+    return {
+      id: $("#createId").value.trim(),
+      name: $("#createName").value || "신규사원",
+      hq: $("#createHq").value,
+      office: $("#createOffice").value,
+      team: $("#createTeam").value,
+      part: $("#createPart").value,
+      hireHq: $("#createHireHq").value || $("#createHq").value,
+      hireOffice: $("#createHireOffice").value || $("#createOffice").value,
+      hireTeam: $("#createHireTeam").value || $("#createTeam").value,
+      hirePart: $("#createHirePart").value || $("#createPart").value,
+      grade: $("#createGrade").value,
+      hireGrade: $("#createHireGrade").value || $("#createGrade").value,
+      title: $("#createTitle").value,
+      jobFamily: $("#createFamily").value,
+      employeeType: $("#createEmployeeType").value,
+      contractPeriod: $("#createContractPeriod").value,
+      birthDate: $("#createBirthDate").value,
+      hireDate: $("#createHireDate").value,
+      phone: $("#createPhone").value,
+      companyPhone: $("#createCompanyPhone").value,
+      companyEmail: $("#createCompanyEmail").value,
+      personalEmail: $("#createPersonalEmail").value,
+      address: $("#createAddress").value,
+      education: $("#createEducation").value,
+      status: $("#createStatus").value,
+      retireDate: $("#createRetireDate").value,
+      careerMonths: $("#createCareerMonths").value,
+      assignmentDate: $("#createAssignmentDate").value,
+      memo: $("#createMemo").value,
+      groupwareId: $("#createGroupwareId").value,
+      residentNumber: $("#createResidentNumber").value,
+      maritalStatus: $("#createMaritalStatus").value,
+      hireEmployeeType: $("#createHireEmployeeType").value || $("#createEmployeeType").value,
+      hireJobFamily: $("#createHireFamily").value || $("#createFamily").value,
+      hireOrgPathText,
+      leaveItems: normalizeLeaveRows(collectRepeatableRows(createModal.body, "createLeave", 4)),
+      educationItems: collectRepeatableRows(createModal.body, "createEducation", 4).map((row) => [row[1], `${row[0]} ${row[2]}`.trim()]),
+      careerHistory: collectRepeatableRows(createModal.body, "createCareer", 4).map((row) => [row[1], row[2] || row[3] || ""]),
+      familyItems: collectRepeatableRows(createModal.body, "createFamilyRows", 3),
+      certificateItems: collectRepeatableRows(createModal.body, "createCertificate", 3).map((row) => ["자격증", row[0], row[1], row[2]]),
+      awardItems: [],
+      photoDataUrl: createModal.body.dataset.photoDataUrl || "",
+      historyLabel: "신규 등록",
+      promotionLabel: "신규 입사"
+    };
+  }
+  function buildEmployeeFromInput(rawInput = {}) {
+    const input = {
+      ...rawInput,
+      id: normalizeImportCell(rawInput.id),
+      name: normalizeImportCell(rawInput.name) || "신규사원",
+      hq: normalizeImportCell(rawInput.hq),
+      office: normalizeImportCell(rawInput.office),
+      team: normalizeImportCell(rawInput.team),
+      part: normalizeImportCell(rawInput.part),
+      hireHq: normalizeImportCell(rawInput.hireHq || rawInput.hq),
+      hireOffice: normalizeImportCell(rawInput.hireOffice || rawInput.office),
+      hireTeam: normalizeImportCell(rawInput.hireTeam || rawInput.team),
+      hirePart: normalizeImportCell(rawInput.hirePart || rawInput.part),
+      grade: normalizeImportCell(rawInput.grade),
+      hireGrade: normalizeImportCell(rawInput.hireGrade || rawInput.grade),
+      title: normalizeImportCell(rawInput.title),
+      jobFamily: normalizeImportCell(rawInput.jobFamily),
+      employeeType: normalizeImportCell(rawInput.employeeType),
+      contractPeriod: completePeriodInput(rawInput.contractPeriod || ""),
+      birthDate: completeDateInput(rawInput.birthDate || ""),
+      hireDate: completeDateInput(rawInput.hireDate || ""),
+      phone: formatPhoneInput(rawInput.phone || ""),
+      companyPhone: formatPhoneInput(rawInput.companyPhone || ""),
+      companyEmail: normalizeImportCell(rawInput.companyEmail),
+      personalEmail: normalizeImportCell(rawInput.personalEmail),
+      address: normalizeImportCell(rawInput.address),
+      education: normalizeImportCell(rawInput.education),
+      status: normalizeImportCell(rawInput.status) || "재직",
+      retireDate: completeDateInput(rawInput.retireDate || ""),
+      careerMonths: normalizeImportCell(rawInput.careerMonths) || "0",
+      assignmentDate: completeDateInput(rawInput.assignmentDate || rawInput.hireDate || ""),
+      memo: normalizeImportCell(rawInput.memo),
+      groupwareId: normalizeImportCell(rawInput.groupwareId),
+      residentNumber: formatResidentNumber(rawInput.residentNumber || ""),
+      maritalStatus: normalizeImportCell(rawInput.maritalStatus) || "미혼",
+      hireEmployeeType: normalizeImportCell(rawInput.hireEmployeeType || rawInput.employeeType),
+      hireJobFamily: normalizeImportCell(rawInput.hireJobFamily || rawInput.jobFamily),
+      hireOrgPathText: normalizeImportCell(rawInput.hireOrgPathText),
+      leaveItems: normalizeLeaveRows(rawInput.leaveItems || []),
+      educationItems: (rawInput.educationItems || []).filter((row) => row?.some?.((value) => String(value || "").trim())),
+      careerHistory: (rawInput.careerHistory || []).filter((row) => row?.some?.((value) => String(value || "").trim())),
+      familyItems: (rawInput.familyItems || []).filter((row) => row?.some?.((value) => String(value || "").trim())),
+      certificateItems: (rawInput.certificateItems || []).filter((row) => row?.some?.((value) => String(value || "").trim())),
+      awardItems: rawInput.awardItems || [],
+      photoDataUrl: rawInput.photoDataUrl || "",
+      historyLabel: rawInput.historyLabel || "신규 등록",
+      promotionLabel: rawInput.promotionLabel || "신규 입사"
+    };
+    const leaveValidationMessage = validateLeaveRows(input.leaveItems);
+    if (leaveValidationMessage) throw new Error(leaveValidationMessage);
+    if (!input.id) throw new Error("사원번호를 입력해 주세요.");
+    if (!input.hq) throw new Error("본부를 입력해 주세요.");
+    if (!input.grade || !gradeCodes.includes(input.grade)) throw new Error("유효한 직급을 입력해 주세요.");
+    if (!input.title || !titleCodes.includes(input.title)) throw new Error("유효한 직책을 입력해 주세요.");
+    if (!input.jobFamily || !familyCodes.includes(input.jobFamily)) throw new Error("유효한 직군을 입력해 주세요.");
+    if (!input.employeeType || !employeeTypes.includes(input.employeeType)) throw new Error("유효한 직원유형을 입력해 주세요.");
+    if (!["재직", "휴직", "퇴직"].includes(input.status)) throw new Error("재직상태는 재직, 휴직, 퇴직 중 하나여야 합니다.");
+    if (!input.hireDate) throw new Error("입사일을 입력해 주세요.");
+    if (!input.birthDate) throw new Error("생년월일을 입력해 주세요.");
+    if (!getOrgCodeByPath(input.hq, input.office, input.team, input.part)) throw new Error("조직코드에 없는 본부/실/팀/파트 조합입니다.");
+    if (input.status === "퇴직" && !input.retireDate) throw new Error("퇴직 처리 시 퇴사일을 입력해 주세요.");
+    if (input.status === "휴직" && !input.leaveItems.length) throw new Error("휴직 상태를 선택한 경우 휴직사항을 한 건 이상 입력해 주세요.");
+    const employee = {
+      id: input.id,
+      name: input.name,
+      hq: input.hq,
+      office: input.office,
+      team: input.team,
+      part: input.part,
+      hireHq: input.hireHq,
+      hireOffice: input.hireOffice,
+      hireTeam: input.hireTeam,
+      hirePart: input.hirePart,
+      grade: input.grade,
+      hireGrade: input.hireGrade,
+      title: input.title,
+      jobFamily: input.jobFamily,
+      employeeType: input.employeeType,
+      contractPeriod: input.contractPeriod,
+      birthDate: input.birthDate,
+      hireDate: input.hireDate,
+      phone: input.phone,
+      companyPhone: input.companyPhone || "",
+      companyEmail: input.companyEmail || `${normalizedNameToken(input.name || "user")}.${input.id.toLowerCase()}@autoplus.co.kr`,
+      personalEmail: input.personalEmail || `${normalizedNameToken(input.name || "user")}@gmail.com`,
+      address: input.address || "서울특별시",
+      education: input.education || "미입력",
+      status: input.status,
+      retireDate: input.retireDate,
+      careerMonths: input.careerMonths || "0",
+      assignmentDate: input.assignmentDate || input.hireDate,
+      memo: input.memo || "신규 등록 사원",
+      groupwareId: input.groupwareId || `${input.id.toLowerCase()}.${(input.name || "user").replace(/\s+/g, "")}`,
+      residentNumber: input.residentNumber || `${(input.birthDate.replace(/\./g, "")).slice(2)}-1234567`,
+      maritalStatus: input.maritalStatus,
+      hireEmployeeType: input.hireEmployeeType,
+      hireJobFamily: input.hireJobFamily,
+      hireOrgPathText: input.hireOrgPathText || buildOrgPathText([input.hireHq, input.hireOffice, input.hireTeam, input.hirePart]),
+      leaveItems: input.leaveItems,
+      history: [[input.hireDate, input.historyLabel]],
+      educationHistory: [],
+      educationItems: input.educationItems,
+      careerHistory: input.careerHistory,
+      familyItems: input.familyItems,
+      certificateItems: input.certificateItems,
+      awardItems: input.awardItems,
+      promotionItems: [["입사", input.hireDate, input.hireOrgPathText || buildOrgPathText([input.hireHq, input.hireOffice, input.hireTeam, input.hirePart]), input.hireGrade, input.title, input.promotionLabel]],
+      assignmentItems: [["입사", input.hireDate, input.hireOrgPathText || buildOrgPathText([input.hireHq, input.hireOffice, input.hireTeam, input.hirePart]), input.hireJobFamily || input.jobFamily, input.hireEmployeeType || input.employeeType, input.hireGrade, input.title, input.historyLabel]],
+      photoDataUrl: input.photoDataUrl
+    };
+    syncEmployeeLeaveSummary(employee);
+    employee.status = computeCurrentEmploymentStatus(employee, input.status, input.retireDate);
+    if (input.status === "퇴직" && input.retireDate) employee.history.unshift([input.retireDate, "퇴직 처리"]);
+    appendLeaveHistoryEntries(employee, input.leaveItems);
+    if (!employee.educationItems.length) employee.educationItems = [["2015.03 ~ 2019.02", employee.education || "학력 정보 미입력"]];
+    if (!employee.careerHistory.length) employee.careerHistory = [["2024.01 ~ 2026.03", "인정경력 산정 전 기본값"]];
+    return employee;
+  }
+  function downloadEmployeeBatchTemplate() {
+    if (!window.XLSX) {
+      downloadTextFile("사원일괄등록_양식.csv", buildBatchTemplateCsv(), "text/csv;charset=utf-8");
+      return;
+    }
+    const workbook = window.XLSX.utils.book_new();
+    const templateSheet = window.XLSX.utils.json_to_sheet([buildBatchTemplateSampleRow()], { header: batchImportColumns.map((column) => column.label) });
+    const guideSheet = window.XLSX.utils.json_to_sheet(getBatchTemplateGuideRows());
+    const codeSheet = window.XLSX.utils.json_to_sheet(getBatchTemplateCodeRows());
+    window.XLSX.utils.book_append_sheet(workbook, templateSheet, "사원일괄등록");
+    window.XLSX.utils.book_append_sheet(workbook, guideSheet, "작성가이드");
+    window.XLSX.utils.book_append_sheet(workbook, codeSheet, "기준코드");
+    window.XLSX.writeFile(workbook, "사원일괄등록_양식.xlsx");
+  }
+  async function readEmployeeBatchWorkbook(file) {
+    if (String(file?.name || "").toLowerCase().endsWith(".csv")) {
+      return readEmployeeBatchCsv(file);
+    }
+    if (!window.XLSX) throw new Error("엑셀 라이브러리를 불러오지 못했습니다. CSV 양식으로 저장한 뒤 업로드하거나 네트워크 연결을 확인해 주세요.");
+    const buffer = await file.arrayBuffer();
+    const workbook = window.XLSX.read(buffer, { type: "array" });
+    const sheetName = workbook.SheetNames.find((name) => name === "사원일괄등록") || workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) throw new Error("업로드한 파일에서 읽을 시트를 찾지 못했습니다.");
+    return window.XLSX.utils.sheet_to_json(sheet, { defval: "" });
+  }
+  function convertBatchRowToInput(row) {
+    const mapped = {};
+    batchImportColumns.forEach((column) => {
+      mapped[column.key] = normalizeImportCell(row[column.label]);
+    });
+    const leaveItems = normalizeLeaveRows([[mapped.leaveType, mapped.leaveStartDate, mapped.leaveEndDate, mapped.leaveNote]]);
+    return {
+      id: mapped.id,
+      name: mapped.name,
+      groupwareId: mapped.groupwareId,
+      residentNumber: mapped.residentNumber,
+      hq: mapped.hq,
+      office: mapped.office,
+      team: mapped.team,
+      part: mapped.part,
+      hireHq: mapped.hq,
+      hireOffice: mapped.office,
+      hireTeam: mapped.team,
+      hirePart: mapped.part,
+      grade: mapped.grade,
+      hireGrade: mapped.grade,
+      title: mapped.title || "팀원",
+      jobFamily: mapped.jobFamily,
+      employeeType: mapped.employeeType,
+      status: mapped.status || "재직",
+      hireDate: mapped.hireDate,
+      birthDate: mapped.birthDate,
+      retireDate: mapped.retireDate,
+      phone: mapped.phone,
+      companyPhone: mapped.companyPhone,
+      companyEmail: mapped.companyEmail,
+      personalEmail: mapped.personalEmail,
+      maritalStatus: mapped.maritalStatus || "미혼",
+      education: mapped.education || "미입력",
+      contractPeriod: mapped.contractPeriod,
+      careerMonths: mapped.careerMonths || "0",
+      assignmentDate: mapped.assignmentDate || mapped.hireDate,
+      address: mapped.address || "서울특별시",
+      memo: mapped.memo || "엑셀 일괄등록",
+      hireEmployeeType: mapped.employeeType,
+      hireJobFamily: mapped.jobFamily,
+      leaveItems,
+      educationItems: [],
+      careerHistory: [],
+      familyItems: [],
+      certificateItems: [],
+      awardItems: [],
+      historyLabel: "엑셀 일괄 등록",
+      promotionLabel: "엑셀 일괄 등록"
+    };
+  }
+  async function importEmployeesFromBatchFile(file) {
+    const rows = await readEmployeeBatchWorkbook(file);
+    const dataRows = rows.filter((row) => Object.values(row).some((value) => normalizeImportCell(value)));
+    if (!dataRows.length) throw new Error("업로드 파일에 등록할 데이터가 없습니다.");
+    const seenIds = new Set(state.employees.map((employee) => employee.id));
+    const batchIds = new Set();
+    const createdEmployees = [];
+    dataRows.forEach((row, index) => {
+      const rowNumber = index + 2;
+      const input = convertBatchRowToInput(row);
+      batchImportColumns.filter((column) => column.required).forEach((column) => {
+        if (!normalizeImportCell(row[column.label])) throw new Error(`${rowNumber}행: ${column.label}은(는) 필수입니다.`);
+      });
+      if (seenIds.has(input.id)) throw new Error(`${rowNumber}행: 이미 존재하는 사원번호입니다. (${input.id})`);
+      if (batchIds.has(input.id)) throw new Error(`${rowNumber}행: 업로드 파일 내 사원번호가 중복되었습니다. (${input.id})`);
+      const employee = buildEmployeeFromInput(input);
+      batchIds.add(employee.id);
+      seenIds.add(employee.id);
+      createdEmployees.push(employee);
+    });
+    if (!createdEmployees.length) throw new Error("등록할 사원이 없습니다.");
+    state.employees.unshift(...createdEmployees.reverse());
+    state.selectedId = createdEmployees[0].id;
+    syncEmployeeCodeRefs();
+    renderAll();
+    showHrView("directory");
+    return createdEmployees;
+  }
   function getCompanyEmail(employee) {
     return employee.companyEmail || `${normalizedNameToken(employee.name)}.${employee.id.toLowerCase()}@autoplus.co.kr`;
   }
@@ -1420,6 +1872,115 @@
       ["입사", employee.hireDate, employee.hq || "오토플러스", employee.hireGrade, employee.title, "신규 입사"]
     ];
   }
+  function getAssignmentEntries(employee) {
+    if (employee.assignmentItems?.length) return employee.assignmentItems.map((row) => [...row]);
+    const historyRows = employee.history || [];
+    return historyRows.map((item, index) => {
+      const hireRow = index === historyRows.length - 1;
+      return [
+        hireRow ? "입사" : "발령",
+        item[0],
+        hireRow ? hireEmployeePath(employee) : employeePath(employee),
+        hireRow ? employee.hireJobFamily || employee.jobFamily : employee.jobFamily,
+        hireRow ? employee.hireEmployeeType || employee.employeeType : employee.employeeType,
+        hireRow ? employee.hireGrade : employee.grade,
+        employee.title,
+        item[1]
+      ];
+    });
+  }
+  function inferAssignmentDeptFromText(text, fallback = "") {
+    const note = String(text || "").trim();
+    if (!note) return fallback;
+    const resolveDeptLabel = (value) => {
+      const label = String(value || "").trim();
+      if (!label) return fallback;
+      const exactRows = getActiveOrgRows().filter((row) => getOrgRowName(row) === label);
+      if (exactRows.length === 1) return getOrgRowPath(exactRows[0]);
+      return label;
+    };
+    const moved = note.match(/→\s*([^,()]+?)(?:\s+(?:이동|배치|승진|전환|발령)|$)/);
+    if (moved?.[1]) return resolveDeptLabel(moved[1]);
+    const assigned = note.match(/^(.+?)\s+(?:배치|승진|전환|발령)/);
+    if (assigned?.[1]) return resolveDeptLabel(assigned[1]);
+    const hired = note.match(/입사\s*\(([^)]+)\)/);
+    if (hired?.[1]) return resolveDeptLabel(hired[1]);
+    return fallback;
+  }
+  function inferAssignmentGradeFromText(text, fallback = "") {
+    const note = String(text || "");
+    const matched = gradeCodes.find((item) => note.includes(item));
+    return matched || fallback;
+  }
+  function inferAssignmentTitleFromText(text, fallback = "") {
+    const note = String(text || "");
+    const matched = titleCodes.find((item) => note.includes(item));
+    return matched || fallback;
+  }
+  function ensureAssignmentItemSnapshots(employee, currentSnapshot = {}) {
+    const historyRows = employee.history || [];
+    employee.assignmentItems = employee.assignmentItems || [];
+    if (employee.assignmentItems.length >= historyRows.length) return;
+    const fallbackSnapshot = {
+      dept: currentSnapshot.dept || employeePath(employee) || "조직 없음",
+      jobFamily: currentSnapshot.jobFamily || employee.jobFamily || "",
+      employeeType: currentSnapshot.employeeType || employee.employeeType || "",
+      grade: currentSnapshot.grade || employee.grade || "",
+      title: currentSnapshot.title || employee.title || ""
+    };
+    const migrated = historyRows.map((item, index) => {
+      const hireRow = index === historyRows.length - 1;
+      const note = item?.[1] || "";
+      if (hireRow) {
+        return [
+          "입사",
+          item?.[0] || employee.hireDate || "",
+          hireEmployeePath(employee),
+          employee.hireJobFamily || employee.jobFamily || "",
+          employee.hireEmployeeType || employee.employeeType || "",
+          employee.hireGrade || employee.grade || "",
+          employee.title || "",
+          note
+        ];
+      }
+      return [
+        "발령",
+        item?.[0] || "",
+        inferAssignmentDeptFromText(note, fallbackSnapshot.dept),
+        fallbackSnapshot.jobFamily,
+        fallbackSnapshot.employeeType,
+        inferAssignmentGradeFromText(note, fallbackSnapshot.grade),
+        inferAssignmentTitleFromText(note, fallbackSnapshot.title),
+        note
+      ];
+    });
+    employee.assignmentItems = migrated;
+  }
+  function cloneMatrixRows(rows, columns = 0) {
+    return (rows || [])
+      .map((row) => Array.isArray(row) ? row.map((value) => String(value ?? "")) : [])
+      .map((row) => {
+        if (!columns) return row;
+        const next = [...row];
+        while (next.length < columns) next.push("");
+        return next.slice(0, columns);
+      });
+  }
+  function cloneEmployeeSnapshot(employee) {
+    return {
+      ...employee,
+      history: cloneMatrixRows(employee.history, 2),
+      educationHistory: cloneMatrixRows(employee.educationHistory, 2),
+      educationItems: cloneMatrixRows(employee.educationItems, 2),
+      careerHistory: cloneMatrixRows(employee.careerHistory, 2),
+      familyItems: cloneMatrixRows(employee.familyItems, 3),
+      certificateItems: cloneMatrixRows(employee.certificateItems, 4),
+      awardItems: cloneMatrixRows(employee.awardItems, 4),
+      promotionItems: cloneMatrixRows(employee.promotionItems, 6),
+      assignmentItems: cloneMatrixRows(employee.assignmentItems, 8),
+      leaveItems: cloneMatrixRows(employee.leaveItems, 4)
+    };
+  }
   function historyList(items, tone = "default") {
     return `<div class="codex-history-scroll">${items.map((item, index) => `<div class="hr-timeline-item"><div class="hr-timeline-dot ${tone === "education" ? "dot-education" : tone === "career" ? "dot-career" : ""}" style="${tone === "education" ? "" : tone === "career" ? "" : index === 1 ? "background:#7c5cfc" : index === 2 ? "background:#38d9a9" : ""}"></div><div class="hr-timeline-date">${item[0]}</div><div class="hr-timeline-text">${item[1]}</div></div>`).join("")}</div>`;
   }
@@ -1431,6 +1992,37 @@
   }
   function sheetFieldTable(rows) {
     return `<div class="codex-sheet-focus"><table><tbody>${rows.map((row) => `<tr><th>${row[0] || ""}</th><td>${row[1] || ""}</td><th>${row[2] || ""}</th><td>${row[3] || ""}</td></tr>`).join("")}</tbody></table></div>`;
+  }
+  function renderLabeledValueList(items) {
+    return `<div class="codex-hire-card-list">${items.map((item) => `<div class="codex-hire-card-item"><span class="codex-hire-card-label">${item[0]}</span><strong class="codex-hire-card-value">${item[1] || "-"}</strong></div>`).join("")}</div>`;
+  }
+  function renderHireInfoBlock(employee) {
+    const currentEmployeeType = employee.employeeType || "-";
+    const currentFamily = employee.jobFamily || "-";
+    const hireEmployeeType = employee.hireEmployeeType || currentEmployeeType;
+    const hireFamily = employee.hireJobFamily || currentFamily;
+    const hirePath = hireEmployeePath(employee) || "-";
+    return `<div class="codex-hire-card-grid">
+      <section class="codex-hire-card">
+        <div class="codex-hire-card-head">입사 기본정보</div>
+        ${renderLabeledValueList([
+          ["입사일", employee.hireDate],
+          ["퇴사일", employee.retireDate || "-"],
+          ["인정경력", `${employee.careerMonths}개월`],
+          ["계약기간", currentEmployeeType === "계약직" ? employee.contractPeriod || "-" : "-"],
+          ["그룹웨어 ID", employee.groupwareId || getGroupwareId(employee)]
+        ])}
+      </section>
+      <section class="codex-hire-card codex-hire-card-accent">
+        <div class="codex-hire-card-head">입사시 기준정보</div>
+        ${renderLabeledValueList([
+          ["입사시 소속", hirePath],
+          ["입사시 직급", employee.hireGrade || employee.grade],
+          ["입사시 직원유형", hireEmployeeType],
+          ["입사시 직군", hireFamily]
+        ])}
+      </section>
+    </div>`;
   }
   function serializeRows(rows) {
     return (rows || []).map((row) => (row || []).join(" | ")).join("\n");
@@ -1474,6 +2066,7 @@
       },
       award: { 2: { format: "date" } },
       promotion: { 1: { format: "date" } },
+      assignmentHistory: { 1: { format: "date" } },
       history: { 0: { format: "date" } },
       training: { 1: { format: "date" }, 2: { format: "date" } }
     };
@@ -1609,12 +2202,15 @@
     ["#createResidentNumber", "#editResidentNumber"].forEach(bindResident);
   }
   function appendAssignmentDrivenHistory(employee, payload) {
-    const { type, assignDate, reason, nextDept, nextGrade, nextTitle, nextStatus } = payload;
+    const { type, assignDate, reason, nextDept, nextGrade, nextTitle, nextStatus, previousSnapshot } = payload;
     employee.history = employee.history || [];
     employee.promotionItems = employee.promotionItems || [];
+    employee.assignmentItems = employee.assignmentItems || [];
     employee.awardItems = employee.awardItems || [];
+    ensureAssignmentItemSnapshots(employee, previousSnapshot || {});
     employee.history.unshift([assignDate, `${type} 반영 - ${reason}`]);
     employee.promotionItems.unshift([type === "승진" ? "승진" : "인사변동", assignDate, nextDept, nextGrade, nextTitle, reason]);
+    employee.assignmentItems.unshift([type || "발령", assignDate, nextDept, employee.jobFamily || "", employee.employeeType || "", nextGrade, nextTitle, reason]);
     employee.awardItems.unshift([type === "승진" ? "포상" : "인사처리", `${type}${nextStatus === "휴직" ? " / 휴직전환" : ""}`, assignDate, reason]);
   }
   function getHireStatEmployees(mode) {
@@ -2253,6 +2849,7 @@
   }
   const createModal = buildModal("codexCreateModal", "신규 사원 등록");
   const editModal = buildModal("codexEditModal", "인사기록카드 수정");
+  const batchImportModal = buildModal("codexBatchImportModal", "사원 엑셀 일괄 등록");
   const statsModal = buildModal("codexStatsModal", "인원 현황 상세");
   const quickProfileModal = buildModal("codexQuickProfileModal", "사원 기본정보");
   const recordDetailModal = buildModal("codexRecordDetailModal", "인사기록카드 상세");
@@ -2261,7 +2858,7 @@
   codeOrgModal.root.classList.add("codex-code-modal");
   adminHistoryModal.root.querySelector('[data-role="cancel"]').classList.add("codex-hidden");
   adminHistoryModal.save.textContent = "확인";
-  const modalStack = [createModal, editModal, statsModal, quickProfileModal];
+  const modalStack = [createModal, editModal, batchImportModal, statsModal, quickProfileModal];
   modalStack.push(recordDetailModal, codeOrgModal, adminHistoryModal);
   quickProfileModal.root.classList.add("codex-quick-modal-wrap");
   quickProfileModal.root.querySelector(".codex-modal").classList.add("codex-quick-modal");
@@ -2278,7 +2875,7 @@
     const employee = state.employees.find((item) => item.id === employeeId);
     if (!employee) return;
     state.selectedId = employee.id;
-    quickProfileModal.body.innerHTML = `<div class="codex-quick-card"><div class="codex-quick-header"><div class="codex-quick-avatar">${employee.name[0]}</div><div class="codex-quick-header-body"><div class="codex-quick-name-row"><div class="codex-quick-name">${employee.name}</div></div><div class="codex-quick-role">${employee.grade}</div><div class="codex-quick-role">${employee.title || "팀원"}</div></div></div><div class="codex-quick-orgpath">${employeePath(employee)}</div><div class="codex-quick-divider"></div><div class="codex-quick-info-list"><div class="codex-quick-info-row"><div class="codex-quick-info-label">직책</div><div class="codex-quick-info-value">${employee.title || "팀원"}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">직군</div><div class="codex-quick-info-value">${employee.jobFamily || "-"}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">근속년월</div><div class="codex-quick-info-value">${getTenureText(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">담당업무</div><div class="codex-quick-info-value">${getPrimaryDuty(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">이메일</div><div class="codex-quick-info-value">${getCompanyEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">회사 전화</div><div class="codex-quick-info-value">${getCompanyPhone(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">개인 이메일</div><div class="codex-quick-info-value">${getPersonalEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴대 전화</div><div class="codex-quick-info-value">${employee.phone}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">입사일</div><div class="codex-quick-info-value">${employee.hireDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">사번</div><div class="codex-quick-info-value">${employee.id}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">생년월일</div><div class="codex-quick-info-value">${employee.birthDate.replaceAll(".", "-")}</div></div>${getLeaveEntries(employee).length ? `<div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직내역</div><div class="codex-quick-info-value">${getLeaveEntries(employee).map((row) => `${row[0] || "휴직"} / ${row[1] || "-"} ~ ${row[2] || "미정"} / ${getLeavePhase(row)}${row[3] ? ` / ${row[3]}` : ""}`).join("<br>")}</div></div>` : ""}<div class="codex-quick-info-row"><div class="codex-quick-info-label">주소</div><div class="codex-quick-info-value">${getAddress(employee)}</div></div></div></div>`;
+    quickProfileModal.body.innerHTML = `<div class="codex-quick-card"><div class="codex-quick-header"><div class="codex-quick-avatar">${employee.name[0]}</div><div class="codex-quick-header-body"><div class="codex-quick-name-row"><div class="codex-quick-name">${employee.name}</div></div><div class="codex-quick-role">${employee.grade}</div><div class="codex-quick-role">${employee.title || "팀원"}</div></div></div><div class="codex-quick-orgpath">${employeePath(employee)}</div><div class="codex-quick-divider"></div><div class="codex-quick-info-list"><div class="codex-quick-info-row"><div class="codex-quick-info-label">직책</div><div class="codex-quick-info-value">${employee.title || "팀원"}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">근속년월</div><div class="codex-quick-info-value">${getTenureText(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">이메일</div><div class="codex-quick-info-value">${getCompanyEmail(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">회사 전화</div><div class="codex-quick-info-value">${getCompanyPhone(employee)}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">휴대 전화</div><div class="codex-quick-info-value">${employee.phone}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">입사일</div><div class="codex-quick-info-value">${employee.hireDate.replaceAll(".", "-")}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">사번</div><div class="codex-quick-info-value">${employee.id}</div></div><div class="codex-quick-info-row"><div class="codex-quick-info-label">생년월일</div><div class="codex-quick-info-value">${employee.birthDate.replaceAll(".", "-")}</div></div>${getLeaveEntries(employee).length ? `<div class="codex-quick-info-row"><div class="codex-quick-info-label">휴직내역</div><div class="codex-quick-info-value">${getLeaveEntries(employee).map((row) => `${row[0] || "휴직"} / ${row[1] || "-"} ~ ${row[2] || "미정"} / ${getLeavePhase(row)}${row[3] ? ` / ${row[3]}` : ""}`).join("<br>")}</div></div>` : ""}<div class="codex-quick-info-row"><div class="codex-quick-info-label">주소</div><div class="codex-quick-info-value">${getAddress(employee)}</div></div></div></div>`;
     const goRecord = () => {
       if (!canCurrentAccessEmployeeRecord(employee)) return;
       quickProfileModal.close();
@@ -2866,11 +3463,11 @@
       ["overview", "기본정보"],
       ["hire", "입사정보"],
       ["personal", "신상정보"],
-      ["leave", "휴직"],
       ["education", "학력"],
       ["career", "경력"],
       ["assignment", "발령내역"],
       ["training", "교육"],
+      ["leave", "휴직"],
       ["memo", "메모"]
     ];
     const focusSections = {
@@ -2880,12 +3477,7 @@
         ["직군", employee.jobFamily, "재직상태", getDisplayStatus(employee)],
         ["소속", employeePath(employee), "회사 이메일", getCompanyEmail(employee)]
       ]),
-      hire: sheetFieldTable([
-        ["입사일", employee.hireDate, "입사시 직급", employee.hireGrade],
-        ["퇴사일", employee.retireDate || "-", "초기 배치일", employee.assignmentDate],
-        ["인정경력", `${employee.careerMonths}개월`, "입사시 직급", employee.hireGrade],
-        ["계약기간", employee.employeeType === "계약직" ? employee.contractPeriod || "-" : "-", "그룹웨어 ID", employee.groupwareId || getGroupwareId(employee)]
-      ]),
+      hire: renderHireInfoBlock(employee),
       personal: sheetFieldTable([
         ["주민등록번호", employee.residentNumber || getResidentNumber(employee), "결혼여부", employee.maritalStatus || getMaritalStatus(employee)],
         ["생년월일", employee.birthDate, "휴대전화", employee.phone],
@@ -2895,25 +3487,13 @@
         leave: previewGrid(["휴직유형", "시작일", "종료일", "진행상태", "비고"], getLeaveEntries(employee).map((row) => [row[0], row[1], row[2], getLeavePhase(row), row[3]])),
       education: previewGrid(["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""])),
       career: previewGrid(["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""])),
-      assignment: previewGrid(["발령구분", "발령일", "발령부서", "직급", "직책", "비고"], employee.history.map((item, index) => [index === employee.history.length - 1 ? "입사" : "발령", item[0], deepestDept(employee), employee.grade, employee.title, item[1]])),
+      assignment: previewGrid(["발령구분", "발령일", "발령부서", "직급", "직책", "비고"], getAssignmentEntries(employee).map((row) => [row[0], row[1], row[2], row[5], row[6], row[7]])),
       training: previewGrid(["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""])),
       memo: `<div class="codex-sheet-memo">${employee.memo}</div>`
     };
-    const assignmentRows = employee.history.map((item, index) => {
-      const hireRow = index === employee.history.length - 1;
-      return [
-        hireRow ? "입사" : "발령",
-        item[0],
-        hireRow ? hireEmployeePath(employee) : employeePath(employee),
-        hireRow ? employee.hireJobFamily || employee.jobFamily : employee.jobFamily,
-        hireRow ? employee.hireEmployeeType || employee.employeeType : employee.employeeType,
-        hireRow ? employee.hireGrade : employee.grade,
-        employee.title,
-        item[1]
-      ];
-    });
+    const assignmentRows = getAssignmentEntries(employee);
     const infoPreview = `<div class="codex-sheet-top"><div class="codex-sheet-logo">AUTOPLUS</div><div class="codex-sheet-top-main"><table><tbody><tr><th>부서</th><td>${employeePath(employee)}</td><th>성명</th><td>${employee.name}</td></tr><tr><th>직급</th><td>${employee.grade}</td><th>직책</th><td>${employee.title}</td></tr><tr><th>주민등록번호</th><td>${employee.residentNumber || getResidentNumber(employee)}</td><th>입사일</th><td>${employee.hireDate}</td></tr><tr><th>생년월일</th><td>${employee.birthDate}</td><th>직군</th><td>${employee.jobFamily}</td></tr><tr><th>직전승급일</th><td>${employee.assignmentDate}</td><th>근속년수</th><td>${Math.floor(Number(employee.careerMonths || 0) / 12)}년 ${Number(employee.careerMonths || 0) % 12}개월</td></tr><tr><th>내선번호</th><td>${getCompanyPhone(employee)}</td><th>결혼여부</th><td>${employee.maritalStatus || getMaritalStatus(employee)}</td></tr><tr><th>연락처</th><td>${employee.phone}</td><th>E-Mail</th><td>${getCompanyEmail(employee)}</td></tr><tr><th>그룹웨어 ID</th><td>${employee.groupwareId || getGroupwareId(employee)}</td><th>개인 이메일</th><td>${getPersonalEmail(employee)}</td></tr><tr><th>주소</th><td colspan="3">${getAddress(employee)}</td></tr></tbody></table></div></div>`;
-const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"><div class="codex-record-sheet-head"><div class="codex-record-sheet-title">인사정보카드</div></div>${infoPreview}${buildSheetSection("휴직사항", "leave", ["휴직유형", "시작일", "종료일", "진행상태", "비고"], getLeaveEntries(employee).map((row) => [row[0], row[1], row[2], getLeavePhase(row), row[3]]), tab === "leave")}${buildSheetSection("학력사항", "education", ["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""]), tab === "education")}${buildSheetSection("경력사항", "career", ["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""]), tab === "career")}${buildSheetSection("가족사항", "family", ["관계", "성명", "생년월일"], getFamilyEntries(employee), tab === "family")}${buildSheetSection("자격증", "certificate", ["자격증명", "발급기관", "취득일"], getCertificateEntries(employee).map((item) => [item[1], item[2], item[3]]), tab === "certificate")}${buildSheetSection("상벌사항", "award", ["상벌구분", "상벌명", "발생일", "사유"], getAwardEntries(employee), tab === "award")}${buildSheetSection("승급사항", "promotion", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], getPromotionEntries(employee), tab === "promotion")}${buildSheetSection("발령사항", "assignment", ["발령구분", "발령일", "발령부서", "직군", "직원유형", "직급", "직책", "비고"], assignmentRows, tab === "assignment")}${buildSheetSection("교육사항", "training", ["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""]), tab === "training")}</div></div>`;
+const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"><div class="codex-record-sheet-head"><div class="codex-record-sheet-title">인사정보카드</div></div>${infoPreview}${buildSheetSection("학력사항", "education", ["학교명", "재학기간", "전공", "비고"], getEducationEntries(employee).map((item) => [item[1].split(" ")[0] || item[1], item[0], item[1].split(" ").slice(1).join(" "), ""]), tab === "education")}${buildSheetSection("경력사항", "career", ["회사명", "기간", "담당업무", "비고"], getCareerHistory(employee).map((item) => [deepestDept(employee), item[0], item[1], ""]), tab === "career")}${buildSheetSection("가족사항", "family", ["관계", "성명", "생년월일"], getFamilyEntries(employee), tab === "family")}${buildSheetSection("자격증", "certificate", ["자격증명", "발급기관", "취득일"], getCertificateEntries(employee).map((item) => [item[1], item[2], item[3]]), tab === "certificate")}${buildSheetSection("상벌사항", "award", ["상벌구분", "상벌명", "발생일", "사유"], getAwardEntries(employee), tab === "award")}${buildSheetSection("승급사항", "promotion", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], getPromotionEntries(employee), tab === "promotion")}${buildSheetSection("발령사항", "assignment", ["발령구분", "발령일", "발령부서", "직군", "직원유형", "직급", "직책", "비고"], assignmentRows, tab === "assignment")}${buildSheetSection("교육사항", "training", ["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""]), tab === "training")}${buildSheetSection("휴직사항", "leave", ["휴직유형", "시작일", "종료일", "진행상태", "비고"], getLeaveEntries(employee).map((row) => [row[0], row[1], row[2], getLeavePhase(row), row[3]]), tab === "leave")}</div></div>`;
     refs.cardWrap.innerHTML = `<div class="codex-record-shell" style="grid-template-columns:minmax(0,1fr)">${detail}</div>`;
   }
   function escapePrintHtml(value) {
@@ -3158,12 +3738,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
         ["회사 이메일", getCompanyEmail(employee), "회사 전화", getCompanyPhone(employee)],
         ["소속", employeePath(employee), "", ""]
       ]),
-      hire: sheetFieldTable([
-        ["입사일", employee.hireDate, "입사시 직급", employee.hireGrade],
-        ["퇴사일", employee.retireDate || "-", "초기 배치일", employee.assignmentDate],
-        ["인정경력", `${employee.careerMonths}개월`, "입사시 직급", employee.hireGrade],
-        ["계약기간", employee.employeeType === "계약직" ? employee.contractPeriod || "-" : "-", "그룹웨어 ID", employee.groupwareId || getGroupwareId(employee)]
-      ]),
+      hire: renderHireInfoBlock(employee),
       personal: sheetFieldTable([
         ["주민등록번호", employee.residentNumber || getResidentNumber(employee), "결혼여부", employee.maritalStatus || getMaritalStatus(employee)],
         ["생년월일", employee.birthDate, "휴대전화", employee.phone],
@@ -3177,10 +3752,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       certificate: previewGrid(["자격증명", "발급기관", "취득일"], getCertificateEntries(employee).map((item) => [item[1], item[2], item[3]])),
       award: previewGrid(["상벌구분", "상벌명", "발생일", "사유"], getAwardEntries(employee)),
       promotion: previewGrid(["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], getPromotionEntries(employee)),
-      assignment: previewGrid(["발령구분", "발령일", "발령부서", "직군", "직원유형", "직급", "직책", "비고"], employee.history.map((item, index) => {
-        const hireRow = index === employee.history.length - 1;
-        return [hireRow ? "입사" : "발령", item[0], hireRow ? hireEmployeePath(employee) : employeePath(employee), hireRow ? employee.hireJobFamily || employee.jobFamily : employee.jobFamily, hireRow ? employee.hireEmployeeType || employee.employeeType : employee.employeeType, hireRow ? employee.hireGrade : employee.grade, employee.title, item[1]];
-      })),
+      assignment: previewGrid(["발령구분", "발령일", "발령부서", "직군", "직원유형", "직급", "직책", "비고"], getAssignmentEntries(employee)),
       training: previewGrid(["교육명", "시작일", "종료일", "교육기관", "비고"], employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""])),
       memo: `<div class="codex-sheet-memo">${employee.memo}</div>`
     };
@@ -3495,8 +4067,8 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       personnelActions: (record.personnelActions || []).map((item) => ({ ...item, types: [...(item.types || [])] })),
       afterRows: cloneOrgBlueprint(record.afterRows || []),
       beforeRows: cloneOrgBlueprint(record.beforeRows || []),
-      beforeEmployees: (record.beforeEmployees || []).map((item) => ({ ...item })),
-      afterEmployees: (record.afterEmployees || []).map((item) => ({ ...item }))
+      beforeEmployees: (record.beforeEmployees || []).map((item) => cloneEmployeeSnapshot(item)),
+      afterEmployees: (record.afterEmployees || []).map((item) => cloneEmployeeSnapshot(item))
     };
   }
   function getProjectedEmployees(flow) {
@@ -3573,6 +4145,18 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
   }
   function getPersonnelInputValue(flow, action) {
     return action.targetOrgText ?? getPersonnelTargetPath(flow, action);
+  }
+  function buildPersonnelTypeOptions(employeeId, action) {
+    const items = [
+      ["부서 이동", "이동"],
+      ["소속 제외", "제외"],
+      ["책임자 임면", "임면"],
+      ["승급", "승급"]
+    ];
+    return items.map(([value, label]) => {
+      const checked = hasPersonnelType(action, value);
+      return `<label class="codex-assignment-type-option ${checked ? "is-active" : ""}" title="${value}"><input type="checkbox" data-personnel-type="${employeeId}" data-personnel-type-value="${value}" ${checked ? "checked" : ""}><span>${label}</span></label>`;
+    }).join("");
   }
   function getPersonnelOrgSuggestions(flow, action) {
     const keyword = (action.targetOrgText ?? "").trim().toLowerCase();
@@ -5101,9 +5685,9 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       if (!employee || !beforeEmployee) return "";
       const suggestions = getPersonnelOrgSuggestions(flow, action);
       const suggestionRows = suggestions.map((item) => `<button type="button" class="codex-org-suggest-item" data-personnel-org-pick="${employee.id}" data-personnel-org-key="${item.key}"><span>${item.path}</span></button>`).join("");
-      return `<tr><td><button type="button" class="codex-icon-btn" data-personnel-remove="${employee.id}" title="목록에서 제외">🗑</button></td><td>${beforeEmployee.name}</td><td>${beforeEmployee.id}</td><td>${employeePath(beforeEmployee)}</td><td>${beforeEmployee.title}</td><td>${beforeEmployee.grade}</td><td><label><input type="checkbox" data-personnel-type="${employee.id}" data-personnel-type-value="부서 이동" ${hasPersonnelType(action, "부서 이동") ? "checked" : ""}>부서 이동</label><label><input type="checkbox" data-personnel-type="${employee.id}" data-personnel-type-value="소속 제외" ${hasPersonnelType(action, "소속 제외") ? "checked" : ""}>소속 제외</label><label><input type="checkbox" data-personnel-type="${employee.id}" data-personnel-type-value="책임자 임면" ${hasPersonnelType(action, "책임자 임면") ? "checked" : ""}>책임자 임면</label><label><input type="checkbox" data-personnel-type="${employee.id}" data-personnel-type-value="승급" ${hasPersonnelType(action, "승급") ? "checked" : ""}>승급</label></td><td><div class="codex-org-suggest-field"><input data-personnel-org-text="${employee.id}" value="${getPersonnelInputValue(flow, action)}" placeholder="발령 후 조직 검색"><div class="codex-org-suggest-list ${suggestionRows ? "is-open" : ""}">${suggestionRows || ""}</div></div></td><td><select data-personnel-title="${employee.id}">${titleCodes.map((item) => `<option value="${item}" ${item === action.targetTitle ? "selected" : ""}>${item}</option>`).join("")}</select></td><td><select data-personnel-grade="${employee.id}">${gradeCodes.map((item) => `<option value="${item}" ${item === (action.targetGrade || beforeEmployee.grade) ? "selected" : ""}>${item}</option>`).join("")}</select></td><td><input data-personnel-note="${employee.id}" value="${action.note || ""}" placeholder="비고"></td></tr>`;
+      return `<tr><td><button type="button" class="codex-icon-btn" data-personnel-remove="${employee.id}" title="목록에서 제외">🗑</button></td><td>${beforeEmployee.name}</td><td>${beforeEmployee.id}</td><td>${employeePath(beforeEmployee)}</td><td>${beforeEmployee.title}</td><td>${beforeEmployee.grade}</td><td><div class="codex-assignment-type-cell">${buildPersonnelTypeOptions(employee.id, action)}</div></td><td><div class="codex-assignment-target-cell"><div class="codex-org-suggest-field"><input data-personnel-org-text="${employee.id}" data-personnel-org-default="${getPersonnelTargetPath(flow, action)}" value="${getPersonnelInputValue(flow, action)}" placeholder="발령 후 조직 검색"><div class="codex-org-suggest-list ${suggestionRows ? "is-open" : ""}">${suggestionRows || ""}</div></div></div></td><td><div class="codex-assignment-select-cell"><select data-personnel-title="${employee.id}">${titleCodes.map((item) => `<option value="${item}" ${item === action.targetTitle ? "selected" : ""}>${item}</option>`).join("")}</select></div></td><td><div class="codex-assignment-select-cell"><select data-personnel-grade="${employee.id}">${gradeCodes.map((item) => `<option value="${item}" ${item === (action.targetGrade || beforeEmployee.grade) ? "selected" : ""}>${item}</option>`).join("")}</select></div></td><td><div class="codex-assignment-note-cell"><input data-personnel-note="${employee.id}" value="${action.note || ""}" placeholder="비고"></div></td></tr>`;
     }).join("");
-    panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">변동 조직 인원은 자동 반영되고, 필요한 인원은 좌측 조직도에서 추가할 수 있습니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="done">2단계</span><span class="active">3단계</span></div></div><div class="codex-note-box" style="margin-top:16px"><strong>현재 편집 요약</strong><br>발령 대상 ${activeActions.length}명 · 검색 후보 ${pickerMembers.length}명${Object.keys(actionTypeSummary).length ? `<br>${Object.entries(actionTypeSummary).map(([type, count]) => `${type} ${count}건`).join(" · ")}` : ""}</div><div class="codex-assignment-before-after codex-assignment-stage3-layout"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>조직도</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT", false, "personnel")}</div><div class="codex-panel" style="margin-top:12px"><div class="codex-assignment-section-head"><h4>구성원 선택</h4><div class="codex-admin-selection-meta"><strong>${flow.selectedPersonnelOrg === "ROOT" ? "오토플러스" : (getBlueprintRow(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT") ? getOrgRowPath(getBlueprintRow(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT")) : "오토플러스")}</strong><span>검색 결과 ${pickerMembers.length}명</span></div><button type="button" class="hr-btn btn-outline" id="personnelAddSelectedBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>선택 추가</button></div><input class="hr-search-input" id="personnelSearchInput" value="${flow.personnelSearch || ""}" placeholder="이름, ID 검색"><div class="codex-personnel-picker">${pickerRows || `<div class="codex-note-box">해당 조직에 구성원이 없습니다.</div>`}</div></div></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>구성원 정보</h4><div></div></div><div class="codex-assignment-table-wrap"><table class="codex-assignment-member-table"><thead><tr><th></th><th>이름</th><th>ID</th><th>발령 전 조직</th><th>발령 전 직책</th><th>발령 전 직급</th><th>처리 유형</th><th>발령 후 조직</th><th>발령 후 직책</th><th>발령 후 직급</th><th>비고</th></tr></thead><tbody>${memberRows || `<tr><td colspan="11">발령 대상자가 없습니다.</td></tr>`}</tbody></table></div></div></div><div style="margin-top:16px">${renderPersonnelSummary(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentPersonnelDoneBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentFinishBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>완료</button></div></div></div>`;
+    panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">변동 조직 인원은 자동 반영되고, 필요한 인원은 좌측 조직도에서 추가할 수 있습니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="done">2단계</span><span class="active">3단계</span></div></div><div class="codex-note-box" style="margin-top:16px"><strong>현재 편집 요약</strong><br>발령 대상 ${activeActions.length}명 · 검색 후보 ${pickerMembers.length}명${Object.keys(actionTypeSummary).length ? `<br>${Object.entries(actionTypeSummary).map(([type, count]) => `${type} ${count}건`).join(" · ")}` : ""}</div><div class="codex-assignment-before-after codex-assignment-stage3-layout"><div class="codex-assignment-stage3-sidebar"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>조직도</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT", false, "personnel")}</div></div><div class="codex-panel codex-assignment-stage3-picker-panel"><div class="codex-assignment-section-head"><h4>구성원 선택</h4><button type="button" class="hr-btn btn-outline" id="personnelAddSelectedBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>선택 추가</button></div><div class="codex-assignment-stage3-meta"><div class="codex-admin-selection-meta"><strong>${flow.selectedPersonnelOrg === "ROOT" ? "오토플러스" : (getBlueprintRow(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT") ? getOrgRowPath(getBlueprintRow(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT")) : "오토플러스")}</strong><span>검색 결과 ${pickerMembers.length}명</span></div></div><input class="hr-search-input" id="personnelSearchInput" value="${flow.personnelSearch || ""}" placeholder="이름, ID 검색"><div class="codex-personnel-picker">${pickerRows || `<div class="codex-note-box">해당 조직에 구성원이 없습니다.</div>`}</div></div></div><div class="codex-panel codex-assignment-stage3-main"><div class="codex-assignment-section-head"><h4>구성원 정보</h4><div class="codex-assignment-stage3-main-hint">처리 유형을 선택한 뒤 발령 후 조직, 직책, 직급, 비고를 입력합니다.</div></div><div class="codex-assignment-table-wrap"><table class="codex-assignment-member-table"><thead><tr><th></th><th>이름</th><th>ID</th><th>발령 전 조직</th><th>발령 전 직책</th><th>발령 전 직급</th><th>처리 유형</th><th>발령 후 조직</th><th>발령 후 직책</th><th>발령 후 직급</th><th>비고</th></tr></thead><tbody>${memberRows || `<tr><td colspan="11">발령 대상자가 없습니다.</td></tr>`}</tbody></table></div></div></div><div style="margin-top:16px">${renderPersonnelSummary(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentPersonnelDoneBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentFinishBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>완료</button></div></div></div>`;
   }
   function openOrgEditModal(mode, orgKey = "ROOT") {
     const flow = ensureAssignmentFlow();
@@ -5277,11 +5861,18 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       const fallbackRow = !remappedRow && currentRow ? resolveFallbackOrgRow(nextBlueprint, currentRow) : null;
       const nextRow = remappedRow || fallbackRow;
       if (nextRow || currentRow) {
+        const beforeSnapshot = {
+          dept: employeePath(employee) || "조직 없음",
+          jobFamily: employee.jobFamily || "",
+          employeeType: employee.employeeType || "",
+          grade: employee.grade || "",
+          title: employee.title || ""
+        };
         const beforePath = employeePath(employee);
         applyEmployeeOrgFromRow(employee, nextRow);
         if (beforePath !== employeePath(employee) && !explicitActionIds.has(employee.id)) {
           employee.assignmentDate = flow.changeDate;
-          appendAssignmentDrivenHistory(employee, { type: "조직개편", assignDate: flow.changeDate, reason: remappedRow ? "조직개편 반영" : "삭제 조직 상위 조직으로 자동 재배치", nextDept: employeePath(employee) || "조직 없음", nextGrade: employee.grade, nextTitle: employee.title, nextStatus: employee.status });
+          appendAssignmentDrivenHistory(employee, { type: "조직개편", assignDate: flow.changeDate, reason: remappedRow ? "조직개편 반영" : "삭제 조직 상위 조직으로 자동 재배치", nextDept: employeePath(employee) || "조직 없음", nextGrade: employee.grade, nextTitle: employee.title, nextStatus: employee.status, previousSnapshot: beforeSnapshot });
         }
       }
     });
@@ -5290,6 +5881,13 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       const beforeEmployee = getPersonnelBaseEmployee(flow, action.employeeId);
       const beforeRow = beforeEmployee ? previousByKey.get(getEmployeeNodeKey(beforeEmployee)) : null;
       if (!employee) return;
+      const beforeSnapshot = {
+        dept: employeePath(employee) || "조직 없음",
+        jobFamily: employee.jobFamily || "",
+        employeeType: employee.employeeType || "",
+        grade: employee.grade || "",
+        title: employee.title || ""
+      };
       const targetRow = getBlueprintRow(state.orgBlueprint, action.targetOrgKey);
       if (hasPersonnelType(action, "소속 제외")) {
         applyEmployeeOrgFromRow(employee, null);
@@ -5301,9 +5899,9 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       if (hasPersonnelType(action, "책임자 임면")) employee.title = action.targetTitle || employee.title;
       if (hasPersonnelType(action, "승급")) employee.grade = action.targetGrade || employee.grade;
       employee.assignmentDate = flow.changeDate;
-      appendAssignmentDrivenHistory(employee, { type: action.types.join(", "), assignDate: flow.changeDate, reason: action.note || "조직개편/인사발령 반영", nextDept: employeePath(employee) || "조직 없음", nextGrade: employee.grade, nextTitle: employee.title, nextStatus: employee.status });
+      appendAssignmentDrivenHistory(employee, { type: action.types.join(", "), assignDate: flow.changeDate, reason: action.note || "조직개편/인사발령 반영", nextDept: employeePath(employee) || "조직 없음", nextGrade: employee.grade, nextTitle: employee.title, nextStatus: employee.status, previousSnapshot: beforeSnapshot });
     });
-    const recordPayload = { date: flow.changeDate, mode: flow.mode, status: "완료", orgSummary: flow.orgSummary, personnelActions: getActivePersonnelActions(flow).map((item) => ({ ...item, types: [...(item.types || [])] })), afterRows: cloneOrgBlueprint(state.orgBlueprint), beforeRows: cloneOrgBlueprint(getFlowBaseRows(flow)), beforeEmployees: getFlowBaseEmployees(flow).map((item) => ({ ...item })), afterEmployees: state.employees.map((item) => ({ ...item })) };
+    const recordPayload = { date: flow.changeDate, mode: flow.mode, status: "완료", orgSummary: flow.orgSummary, personnelActions: getActivePersonnelActions(flow).map((item) => ({ ...item, types: [...(item.types || [])] })), afterRows: cloneOrgBlueprint(state.orgBlueprint), beforeRows: cloneOrgBlueprint(getFlowBaseRows(flow)), beforeEmployees: getFlowBaseEmployees(flow).map((item) => cloneEmployeeSnapshot(item)), afterEmployees: state.employees.map((item) => cloneEmployeeSnapshot(item)) };
     if (flow.editingRecordDate) {
       const index = state.assignmentRecords.findIndex((item) => item.date === flow.editingRecordDate);
       if (index >= 0) state.assignmentRecords[index] = recordPayload;
@@ -5573,13 +6171,11 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       else if (input.value.trim()) action.targetOrgKey = "";
       renderPersonnelOrgSuggestionList(flow, input.dataset.personnelOrgText, input.closest(".codex-org-suggest-field"));
     }));
-    $$("[data-personnel-org-text]", panels.assignment).forEach((input) => input.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter") return;
-      const fieldRoot = input.closest(".codex-org-suggest-field");
-      const firstSuggestion = $(".codex-org-suggest-item", fieldRoot);
-      if (!firstSuggestion) return;
-      event.preventDefault();
-      firstSuggestion.click();
+    $$("[data-personnel-org-text]", panels.assignment).forEach((input) => input.addEventListener("focus", () => {
+      window.requestAnimationFrame(() => input.select());
+    }));
+    $$("[data-personnel-org-text]", panels.assignment).forEach((input) => input.addEventListener("click", () => {
+      window.requestAnimationFrame(() => input.select());
     }));
     $$("[data-personnel-org-text]", panels.assignment).forEach((input) => input.addEventListener("keydown", (event) => {
       if (event.key !== "Enter") return;
@@ -5588,6 +6184,21 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       if (!firstSuggestion) return;
       event.preventDefault();
       firstSuggestion.click();
+    }));
+    $$("[data-personnel-org-text]", panels.assignment).forEach((input) => input.addEventListener("blur", () => {
+      const flow = ensureAssignmentFlow();
+      const employee = getPersonnelEmployee(flow, input.dataset.personnelOrgText);
+      if (!employee) return;
+      const action = ensurePersonnelAction(flow, employee);
+      const typed = input.value.trim();
+      if (typed) {
+        input.dataset.personnelOrgDefault = getPersonnelInputValue(flow, action);
+        return;
+      }
+      action.targetOrgText = getPersonnelTargetPath(flow, action);
+      input.dataset.personnelOrgDefault = action.targetOrgText;
+      input.value = action.targetOrgText;
+      renderPersonnelOrgSuggestionList(flow, input.dataset.personnelOrgText, input.closest(".codex-org-suggest-field"));
     }));
     $$("[data-personnel-org-pick]", panels.assignment).forEach((button) => button.addEventListener("click", () => {
       const flow = ensureAssignmentFlow();
@@ -5665,16 +6276,21 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
     const certificateRows = getCertificateEntries(employee).map((item) => [item[1], item[2], item[3]]);
     const awardRows = getAwardEntries(employee);
     const promotionRows = getPromotionEntries(employee);
-    const historyRows = employee.history;
+    const assignmentRows = getAssignmentEntries(employee);
     const trainingRows = employee.educationHistory.map((item) => [item[1], item[0], item[0], "사내/외 교육", ""]);
     const leaveRows = getLeaveEntries(employee);
-    editModal.body.innerHTML = `<div class="codex-form-grid"><div class="codex-photo-field span-2"><span>증명사진</span><div class="codex-photo-upload"><div class="codex-photo-preview" id="editPhotoPreview"></div><label class="codex-photo-input"><input id="editPhotoFile" type="file" accept="image/*">사진 업로드</label></div></div><label><span>사원번호</span><input value="${employee.id}" readonly></label><label><span>사원명</span><input id="editName" value="${employee.name}"></label><label><span>그룹웨어 ID</span><input id="editGroupwareId" value="${employee.groupwareId || getGroupwareId(employee)}"></label><label><span>주민등록번호</span><input id="editResidentNumber" value="${employee.residentNumber || getResidentNumber(employee)}"></label>${renderOrgPicker("edit", { hq: employee.hq || "", office: employee.office || "", team: employee.team || "", part: employee.part || "" })}<label><span>직급</span><select id="editGrade">${gradeCodes.map((item) => `<option value="${item}" ${item === employee.grade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직책</span><select id="editTitle">${titleCodes.map((item) => `<option value="${item}" ${item === employee.title ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직군</span><select id="editFamily">${familyCodes.map((item) => `<option value="${item}" ${item === employee.jobFamily ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직원유형</span><select id="editEmployeeType">${employeeTypes.map((item) => `<option value="${item}" ${item === employee.employeeType ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>계약기간</span><input id="editContractPeriod" value="${employee.contractPeriod || ""}"></label><label><span>재직상태</span><select id="editStatus"><option value="재직" ${getDisplayStatus(employee) === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${getDisplayStatus(employee) === "휴직" ? "selected" : ""}>휴직</option><option value="퇴직" ${getDisplayStatus(employee) === "퇴직" ? "selected" : ""}>퇴직</option></select></label><label><span>퇴사일</span><input id="editRetireDate" value="${employee.retireDate || ""}" placeholder="YYYYMMDD"></label><label><span>생년월일</span><input id="editBirthDate" value="${employee.birthDate}"></label><label><span>입사일</span><input id="editHireDate" value="${employee.hireDate}"></label><label><span>결혼여부</span><select id="editMaritalStatus"><option ${((employee.maritalStatus || getMaritalStatus(employee)) === "미혼") ? "selected" : ""}>미혼</option><option ${((employee.maritalStatus || getMaritalStatus(employee)) === "기혼") ? "selected" : ""}>기혼</option></select></label><label><span>연락처</span><input id="editPhone" value="${employee.phone}"></label><label><span>회사 전화</span><input id="editCompanyPhone" value="${getCompanyPhone(employee)}"></label><label><span>회사 이메일</span><input id="editCompanyEmail" value="${getCompanyEmail(employee)}"></label><label><span>개인 이메일</span><input id="editPersonalEmail" value="${getPersonalEmail(employee)}"></label><label class="span-2"><span>주소</span><input id="editAddress" value="${getAddress(employee)}"></label><label><span>최종학력</span><input id="editEducation" value="${employee.education}"></label><label><span>입사시 직급</span><select id="editHireGrade">${gradeCodes.map((item) => `<option value="${item}" ${item === employee.hireGrade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>입사시 직원유형</span><select id="editHireEmployeeType">${employeeTypes.map((item) => `<option value="${item}" ${(item === (employee.hireEmployeeType || employee.employeeType)) ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>입사시 직군</span><select id="editHireFamily">${familyCodes.map((item) => `<option value="${item}" ${(item === (employee.hireJobFamily || employee.jobFamily)) ? "selected" : ""}>${item}</option>`).join("")}</select></label>${renderOrgPicker("editHire", { hq: employee.hireHq || employee.hq || "", office: employee.hireOffice || employee.office || "", team: employee.hireTeam || employee.team || "", part: employee.hirePart || employee.part || "" })}<label><span>인정경력(개월)</span><input id="editCareerMonths" value="${employee.careerMonths}"></label><label><span>부서배정일</span><input id="editAssignmentDate" value="${employee.assignmentDate}"></label><label class="span-2"><span>인사 메모</span><textarea id="editMemo" rows="3">${employee.memo}</textarea></label><div class="codex-note-box span-2"><strong>이력 입력 방식</strong>각 항목은 칸에 맞게 입력하고, 필요한 경우 행 추가로 여러 건을 관리합니다.</div>${repeatableEditorHtml("휴직사항", "leave", ["휴직유형", "시작일", "종료일", "비고"], leaveRows)}${repeatableEditorHtml("학력사항", "education", ["학교명", "재학기간", "전공", "비고"], educationRows)}${repeatableEditorHtml("경력사항", "career", ["회사명", "기간", "담당업무", "비고"], careerRows)}${repeatableEditorHtml("가족사항", "family", ["관계", "성명", "생년월일"], familyRows)}${repeatableEditorHtml("자격증", "certificate", ["자격증명", "발급기관", "취득일"], certificateRows)}${repeatableEditorHtml("상벌사항", "award", ["상벌구분", "상벌명", "발생일", "사유"], awardRows)}${repeatableEditorHtml("승급사항", "promotion", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], promotionRows)}${repeatableEditorHtml("발령사항", "history", ["발령일", "비고"], historyRows)}${repeatableEditorHtml("교육사항", "training", ["교육명", "시작일", "종료일", "교육기관", "비고"], trainingRows)}</div>`;
+    editModal.body.innerHTML = `<div class="codex-form-grid"><div class="codex-photo-field span-2"><span>증명사진</span><div class="codex-photo-upload"><div class="codex-photo-preview" id="editPhotoPreview"></div><label class="codex-photo-input"><input id="editPhotoFile" type="file" accept="image/*">사진 업로드</label></div></div><label><span>사원번호</span><input value="${employee.id}" readonly></label><label><span>사원명</span><input id="editName" value="${employee.name}"></label><label><span>그룹웨어 ID</span><input id="editGroupwareId" value="${employee.groupwareId || getGroupwareId(employee)}"></label><label><span>주민등록번호</span><input id="editResidentNumber" value="${employee.residentNumber || getResidentNumber(employee)}"></label>${renderOrgPicker("edit", { hq: employee.hq || "", office: employee.office || "", team: employee.team || "", part: employee.part || "" })}<label><span>직급</span><select id="editGrade">${gradeCodes.map((item) => `<option value="${item}" ${item === employee.grade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직책</span><select id="editTitle">${titleCodes.map((item) => `<option value="${item}" ${item === employee.title ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직군</span><select id="editFamily">${familyCodes.map((item) => `<option value="${item}" ${item === employee.jobFamily ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>직원유형</span><select id="editEmployeeType">${employeeTypes.map((item) => `<option value="${item}" ${item === employee.employeeType ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>계약기간</span><input id="editContractPeriod" value="${employee.contractPeriod || ""}"></label><label><span>재직상태</span><select id="editStatus"><option value="재직" ${getDisplayStatus(employee) === "재직" ? "selected" : ""}>재직</option><option value="휴직" ${getDisplayStatus(employee) === "휴직" ? "selected" : ""}>휴직</option><option value="퇴직" ${getDisplayStatus(employee) === "퇴직" ? "selected" : ""}>퇴직</option></select></label><label><span>퇴사일</span><input id="editRetireDate" value="${employee.retireDate || ""}" placeholder="YYYYMMDD"></label><label><span>생년월일</span><input id="editBirthDate" value="${employee.birthDate}"></label><label><span>입사일</span><input id="editHireDate" value="${employee.hireDate}"></label><label><span>결혼여부</span><select id="editMaritalStatus"><option ${((employee.maritalStatus || getMaritalStatus(employee)) === "미혼") ? "selected" : ""}>미혼</option><option ${((employee.maritalStatus || getMaritalStatus(employee)) === "기혼") ? "selected" : ""}>기혼</option></select></label><label><span>연락처</span><input id="editPhone" value="${employee.phone}"></label><label><span>회사 전화</span><input id="editCompanyPhone" value="${getCompanyPhone(employee)}"></label><label><span>회사 이메일</span><input id="editCompanyEmail" value="${getCompanyEmail(employee)}"></label><label><span>개인 이메일</span><input id="editPersonalEmail" value="${getPersonalEmail(employee)}"></label><label class="span-2"><span>주소</span><input id="editAddress" value="${getAddress(employee)}"></label><label><span>최종학력</span><input id="editEducation" value="${employee.education}"></label><label><span>입사시 직급</span><select id="editHireGrade">${gradeCodes.map((item) => `<option value="${item}" ${item === employee.hireGrade ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>입사시 직원유형</span><select id="editHireEmployeeType">${employeeTypes.map((item) => `<option value="${item}" ${(item === (employee.hireEmployeeType || employee.employeeType)) ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>입사시 직군</span><select id="editHireFamily">${familyCodes.map((item) => `<option value="${item}" ${(item === (employee.hireJobFamily || employee.jobFamily)) ? "selected" : ""}>${item}</option>`).join("")}</select></label><label class="span-2"><span>입사시 소속</span><input id="editHireOrgPathText" value="${hireEmployeePath(employee)}" placeholder="예: 본부 > 실 > 팀 > 파트"></label><label><span>인정경력(개월)</span><input id="editCareerMonths" value="${employee.careerMonths}"></label><label class="span-2"><span>인사 메모</span><textarea id="editMemo" rows="3">${employee.memo}</textarea></label><div class="codex-note-box span-2"><strong>이력 입력 방식</strong>입사시 소속은 당시 기준 텍스트 스냅샷으로 저장되어 조직개편 이후에도 그대로 유지됩니다. 발령사항은 발령 당시 스냅샷 기준으로 유지되며, 승급사항과 분리하여 관리합니다.</div>${repeatableEditorHtml("휴직사항", "leave", ["휴직유형", "시작일", "종료일", "비고"], leaveRows)}${repeatableEditorHtml("학력사항", "education", ["학교명", "재학기간", "전공", "비고"], educationRows)}${repeatableEditorHtml("경력사항", "career", ["회사명", "기간", "담당업무", "비고"], careerRows)}${repeatableEditorHtml("가족사항", "family", ["관계", "성명", "생년월일"], familyRows)}${repeatableEditorHtml("자격증", "certificate", ["자격증명", "발급기관", "취득일"], certificateRows)}${repeatableEditorHtml("상벌사항", "award", ["상벌구분", "상벌명", "발생일", "사유"], awardRows)}${repeatableEditorHtml("승급사항", "promotion", ["승급구분", "승급일", "소속부서", "직급", "직책", "비고"], promotionRows)}${repeatableEditorHtml("발령사항", "assignmentHistory", ["발령구분", "발령일", "발령부서", "직군", "직원유형", "직급", "직책", "비고"], assignmentRows)}${repeatableEditorHtml("교육사항", "training", ["교육명", "시작일", "종료일", "교육기관", "비고"], trainingRows)}</div>`;
     bindOrgPicker(editModal.body, "edit");
-    bindOrgPicker(editModal.body, "editHire");
     bindContractToggle("#editEmployeeType", "#editContractPeriod");
     bindRepeatableEditors(editModal.body);
     bindInputFormatters(editModal.body);
     bindPhotoUpload(editModal.body, "#editPhotoFile", "#editPhotoPreview", employee.photoDataUrl || "");
+  }
+  function openBatchImportModal() {
+    batchImportModal.body.innerHTML = `<div class="codex-stack"><div class="codex-note-box"><strong>사용 순서</strong>1. 아래 버튼으로 엑셀 양식을 내려받습니다.<br>2. <em>사원일괄등록</em> 시트에 사원 정보를 입력합니다.<br>3. 저장한 파일을 업로드하면 신규 사원이 한 번에 등록됩니다.</div><div class="codex-note-box"><strong>등록 기준</strong>본부/실/팀/파트, 직급, 직책, 직군, 직원유형은 현재 화면의 기준코드와 일치해야 합니다. 휴직은 휴직유형과 휴직시작일을 함께 입력하고, 퇴직은 퇴사일을 입력해 주세요.<br>네트워크가 제한된 경우에는 CSV 양식으로도 동일하게 업로드할 수 있습니다.</div><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="employeeBatchTemplateDownloadBtn">양식 다운로드</button></div><label><span>업로드 파일</span><input id="employeeBatchFile" type="file" accept=".xlsx,.xls,.csv"></label><div class="codex-note-box codex-note-box-compact"><strong>필수 컬럼</strong>${batchImportColumns.filter((column) => column.required).map((column) => column.label).join(", ")}</div></div>`;
+    batchImportModal.save.textContent = "일괄 등록";
+    $("#employeeBatchTemplateDownloadBtn", batchImportModal.body)?.addEventListener("click", () => downloadEmployeeBatchTemplate());
+    batchImportModal.open();
   }
   function saveCreate() {
     if (!hasCurrentPermission("employee_create")) {
@@ -5682,8 +6298,6 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       return;
     }
     const manualId = $("#createId").value.trim();
-    const selectedStatus = $("#createStatus").value;
-    const retireDate = completeDateInput($("#createRetireDate").value);
     if (!manualId) {
       window.alert("사원번호를 입력해 주세요.");
       $("#createId")?.focus();
@@ -5694,80 +6308,16 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       $("#createId")?.focus();
       return;
     }
-    if (selectedStatus === "퇴직" && !retireDate) {
-      window.alert("퇴직 처리 시 퇴사일을 입력해 주세요.");
-      $("#createRetireDate")?.focus();
+    let employee;
+    try {
+      employee = buildEmployeeFromInput(collectEmployeeInputFromCreateForm());
+    } catch (error) {
+      window.alert(error.message || "신규 사원 정보를 확인해 주세요.");
       return;
     }
-    const leaveRows = normalizeLeaveRows(collectRepeatableRows(createModal.body, "createLeave", 4));
-    const leaveValidationMessage = validateLeaveRows(leaveRows);
-    if (leaveValidationMessage) {
-      window.alert(leaveValidationMessage);
-      return;
-    }
-    if (selectedStatus === "휴직" && !leaveRows.length) {
-      window.alert("휴직 상태를 선택한 경우 휴직사항을 한 건 이상 입력해 주세요.");
-      return;
-    }
-    const retireDateValue = parseDateValue(retireDate);
-    const finalStatus = retireDateValue
-      ? (retireDateValue <= getCurrentBaseDateValue() ? "퇴직" : (selectedStatus === "퇴직" ? "재직" : selectedStatus))
-      : (selectedStatus === "휴직" && leaveRows.some((row) => parseDateValue(row[1]) <= getCurrentBaseDateValue() && (!parseDateValue(row[2]) || parseDateValue(row[2]) >= getCurrentBaseDateValue())) ? "휴직" : selectedStatus);
-    const employee = {
-      id: manualId,
-      name: $("#createName").value || "신규사원",
-      hq: $("#createHq").value,
-      office: $("#createOffice").value,
-      team: $("#createTeam").value,
-      part: $("#createPart").value,
-      hireHq: $("#createHireHq").value || $("#createHq").value,
-      hireOffice: $("#createHireOffice").value || $("#createOffice").value,
-      hireTeam: $("#createHireTeam").value || $("#createTeam").value,
-      hirePart: $("#createHirePart").value || $("#createPart").value,
-      grade: $("#createGrade").value,
-      hireGrade: $("#createHireGrade").value || $("#createGrade").value,
-      title: $("#createTitle").value,
-      jobFamily: $("#createFamily").value,
-      employeeType: $("#createEmployeeType").value,
-      contractPeriod: $("#createContractPeriod").value,
-      birthDate: completeDateInput($("#createBirthDate").value),
-      hireDate: completeDateInput($("#createHireDate").value),
-      phone: formatPhoneInput($("#createPhone").value),
-      companyPhone: formatPhoneInput($("#createCompanyPhone").value),
-      companyEmail: $("#createCompanyEmail").value || `${normalizedNameToken($("#createName").value || "user")}.${manualId.toLowerCase()}@autoplus.co.kr`,
-      personalEmail: $("#createPersonalEmail").value || `${normalizedNameToken($("#createName").value || "user")}@gmail.com`,
-      address: $("#createAddress").value,
-      education: $("#createEducation").value,
-      status: finalStatus,
-      retireDate,
-      careerMonths: $("#createCareerMonths").value,
-      assignmentDate: completeDateInput($("#createAssignmentDate").value),
-      memo: $("#createMemo").value,
-      groupwareId: $("#createGroupwareId").value || `${manualId.toLowerCase()}.${($("#createName").value || "user").replace(/\s+/g, "")}`,
-      residentNumber: formatResidentNumber($("#createResidentNumber").value) || `${(completeDateInput($("#createBirthDate").value || "1995.01.01").replace(/\./g, "")).slice(2)}-1234567`,
-      maritalStatus: $("#createMaritalStatus").value,
-      hireEmployeeType: $("#createHireEmployeeType").value || $("#createEmployeeType").value,
-      hireJobFamily: $("#createHireFamily").value || $("#createFamily").value,
-      leaveItems: leaveRows,
-      history: [[completeDateInput($("#createHireDate").value || "2026.04.13"), "신규 등록"]],
-      educationHistory: [],
-      educationItems: collectRepeatableRows(createModal.body, "createEducation", 4).map((row) => [row[1], `${row[0]} ${row[2]}`.trim()]),
-      careerHistory: collectRepeatableRows(createModal.body, "createCareer", 4).map((row) => [row[1], row[2] || row[3] || ""]),
-      familyItems: collectRepeatableRows(createModal.body, "createFamilyRows", 3),
-      certificateItems: collectRepeatableRows(createModal.body, "createCertificate", 3).map((row) => ["자격증", row[0], row[1], row[2]]),
-      awardItems: [],
-      promotionItems: [["입사", completeDateInput($("#createHireDate").value || "2026.04.13"), [$("#createHireHq").value || $("#createHq").value, $("#createHireOffice").value || $("#createOffice").value, $("#createHireTeam").value || $("#createTeam").value, $("#createHirePart").value || $("#createPart").value].filter(Boolean).join(" > "), $("#createHireGrade").value || $("#createGrade").value, $("#createTitle").value, "신규 입사"]],
-      photoDataUrl: createModal.body.dataset.photoDataUrl || ""
-    };
-    syncEmployeeLeaveSummary(employee);
-    employee.status = computeCurrentEmploymentStatus(employee, selectedStatus, retireDate);
-    if (finalStatus === "퇴직" && retireDate) employee.history.unshift([retireDate, "퇴직 처리"]);
-    appendLeaveHistoryEntries(employee, leaveRows);
-    if (!employee.history.length) employee.history = [["2026.04.13", "신규 등록"]];
-    if (!employee.educationItems.length) employee.educationItems = [["2015.03 ~ 2019.02", $("#createEducation").value || "학력 정보 미입력"]];
-    if (!employee.careerHistory.length) employee.careerHistory = [["2024.01 ~ 2026.03", "인정경력 산정 전 기본값"]];
     state.employees.unshift(employee);
     state.selectedId = employee.id;
+    syncEmployeeCodeRefs();
     createModal.close();
     renderAll();
     showHrView("record");
@@ -5824,22 +6374,19 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
     employee.hireGrade = $("#editHireGrade").value;
     employee.hireEmployeeType = $("#editHireEmployeeType").value;
     employee.hireJobFamily = $("#editHireFamily").value;
-    employee.hireHq = $("#editHireHq").value.trim();
-    employee.hireOffice = $("#editHireOffice").value.trim();
-    employee.hireTeam = $("#editHireTeam").value.trim();
-    employee.hirePart = $("#editHirePart").value.trim();
+    employee.hireOrgPathText = $("#editHireOrgPathText").value.trim() || hireEmployeePath(employee);
     employee.careerMonths = $("#editCareerMonths").value;
-    employee.assignmentDate = completeDateInput($("#editAssignmentDate").value);
+    employee.assignmentDate = employee.hireDate;
     employee.leaveItems = leaveRows;
     employee.educationItems = collectRepeatableRows(editModal.body, "education", 4).map((row) => [row[1], `${row[0]} ${row[2]}`.trim()]);
     employee.careerHistory = collectRepeatableRows(editModal.body, "career", 4).map((row) => [row[1], row[2] || row[3] || ""]);
     employee.familyItems = collectRepeatableRows(editModal.body, "family", 3);
     employee.certificateItems = collectRepeatableRows(editModal.body, "certificate", 3).map((row) => ["자격증", row[0], row[1], row[2]]);
-    employee.awardItems = collectRepeatableRows(editModal.body, "award", 4);
-    employee.promotionItems = collectRepeatableRows(editModal.body, "promotion", 6);
-    employee.history = collectRepeatableRows(editModal.body, "history", 2);
-    employee.educationHistory = collectRepeatableRows(editModal.body, "training", 5).map((row) => [row[1], row[0]]);
-    employee.memo = $("#editMemo").value;
+      employee.awardItems = collectRepeatableRows(editModal.body, "award", 4);
+      employee.promotionItems = collectRepeatableRows(editModal.body, "promotion", 6);
+      employee.assignmentItems = collectRepeatableRows(editModal.body, "assignmentHistory", 8);
+      employee.educationHistory = collectRepeatableRows(editModal.body, "training", 5).map((row) => [row[1], row[0]]);
+      employee.memo = $("#editMemo").value;
     employee.photoDataUrl = editModal.body.dataset.photoDataUrl || employee.photoDataUrl || "";
     syncEmployeeLeaveSummary(employee);
     employee.status = computeCurrentEmploymentStatus(employee, selectedStatus, retireDate);
@@ -5855,6 +6402,26 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
   }
   createModal.save.addEventListener("click", saveCreate);
   editModal.save.addEventListener("click", saveEdit);
+  batchImportModal.save.addEventListener("click", async () => {
+    if (!hasCurrentPermission("employee_create")) {
+      window.alert("사원 일괄 등록 권한이 없습니다.");
+      return;
+    }
+    const fileInput = $("#employeeBatchFile", batchImportModal.body);
+    const file = fileInput?.files?.[0];
+    if (!file) {
+      window.alert("업로드할 엑셀 파일을 선택해 주세요.");
+      fileInput?.focus();
+      return;
+    }
+    try {
+      const createdEmployees = await importEmployeesFromBatchFile(file);
+      batchImportModal.close();
+      window.alert(`${createdEmployees.length}명의 사원이 일괄 등록되었습니다.`);
+    } catch (error) {
+      window.alert(error.message || "엑셀 일괄 등록 중 오류가 발생했습니다.");
+    }
+  });
   function setPageTitle(title, description) { $("h2", refs.pageTitle).textContent = title; $("p", refs.pageTitle).textContent = description; }
   function updatePrimaryAction(view) {
     const primaryButton = refs.pagePrimaryButton;
@@ -5864,8 +6431,8 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       primaryButton.textContent = "➕ 신규 등록";
       primaryButton.style.display = hasCurrentPermission("employee_create") ? "inline-flex" : "none";
       if (secondaryButton) {
-        secondaryButton.textContent = "📤 Excel 내보내기";
-        secondaryButton.style.display = hasCurrentPermission("export_allow") ? "inline-flex" : "none";
+        secondaryButton.textContent = "📥 엑셀 일괄 등록";
+        secondaryButton.style.display = hasCurrentPermission("employee_create") ? "inline-flex" : "none";
       }
     } else if (view === "assignment") {
       primaryButton.style.display = "none";
@@ -5972,6 +6539,12 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       if (state.currentHrView === "directory") { event.preventDefault(); if (hasCurrentPermission("employee_create")) { fillCreateForm(); createModal.open(); } }
       else if (state.currentHrView === "assignment") { event.preventDefault(); $("#assignApplyBtn")?.click(); }
       else if (state.currentHrView === "quick") { event.preventDefault(); if (canCurrentAccessEmployeeRecord(selectedEmployee())) showHrView("record"); }
+    }, true);
+    refs.pageSecondaryButton?.addEventListener("click", (event) => {
+      if (state.currentHrView !== "directory") return;
+      event.preventDefault();
+      if (!hasCurrentPermission("employee_create")) return;
+      openBatchImportModal();
     }, true);
   }
   function renderNotesByView() {
