@@ -337,6 +337,7 @@
     ];
   }
   const initialAdminCategories = buildInitialAdminCategories(fullEmployeeSeed);
+  const initialOperatorLoginId = initialAdminCategories[0]?.managers?.[0]?.loginId || getEmployeeLoginId(fullEmployeeSeed[0]);
   function cloneAdminCategories(categories) {
     return categories.map((category) => ({
       ...category,
@@ -375,6 +376,95 @@
   }
   function getAdminPendingChanges() {
     return state.adminDraft?.pendingChanges || [];
+  }
+  function getAdminPrincipals(categories = state.adminCategories) {
+    const map = new Map();
+    (categories || []).forEach((category) => {
+      ["managers", "viewers"].forEach((bucket) => {
+        (category[bucket] || []).forEach((member) => {
+          const key = member.loginId || member.id;
+          if (!key) return;
+          if (!map.has(key)) {
+            map.set(key, {
+              loginId: key,
+              name: member.name,
+              org: member.org,
+              roles: []
+            });
+          }
+          map.get(key).roles.push({
+            categoryId: category.id,
+            categoryLabel: category.label,
+            role: bucket === "viewers" ? "viewer" : "manager"
+          });
+        });
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  }
+  function getCurrentOperatorAssignments(categories = state.adminCategories) {
+    const loginId = state.currentOperatorLoginId;
+    if (!loginId) return [];
+    const assignments = [];
+    (categories || []).forEach((category) => {
+      ["managers", "viewers"].forEach((bucket) => {
+        (category[bucket] || []).forEach((member) => {
+          if (member.loginId !== loginId) return;
+          assignments.push({
+            categoryId: category.id,
+            role: bucket === "viewers" ? "viewer" : "manager",
+            member
+          });
+        });
+      });
+    });
+    return assignments;
+  }
+  function getCurrentOperatorPermissions(categories = state.adminCategories) {
+    const permissions = {};
+    getCurrentOperatorAssignments(categories).forEach((assignment) => {
+      Object.entries(assignment.member.permissions || {}).forEach(([key, value]) => {
+        if (value) permissions[key] = true;
+      });
+    });
+    return permissions;
+  }
+  function hasCurrentPermission(permissionId, categories = state.adminCategories) {
+    if (!permissionId) return true;
+    return !!getCurrentOperatorPermissions(categories)[permissionId];
+  }
+  function canAccessView(view, categories = state.adminCategories) {
+    const permissionMap = {
+      directory: "menu_directory",
+      record: "menu_record",
+      quick: "menu_record",
+      org: "menu_org",
+      assignment: "menu_assignment",
+      codes: "menu_codes",
+      admin: "menu_admin"
+    };
+    return hasCurrentPermission(permissionMap[view], categories);
+  }
+  function getFallbackView() {
+    const candidates = ["directory", "record", "org", "assignment", "codes", "admin"];
+    return candidates.find((view) => canAccessView(view)) || "directory";
+  }
+  function syncAccessControlledMenus(categories = state.adminCategories) {
+    const visibility = {
+      directory: canAccessView("directory", categories),
+      record: canAccessView("record", categories),
+      org: canAccessView("org", categories),
+      assignment: canAccessView("assignment", categories),
+      codes: canAccessView("codes", categories),
+      admin: canAccessView("admin", categories)
+    };
+    const topMap = { 0: "directory", 1: "record", 2: "org", 3: "assignment" };
+    const sideMap = { 0: "directory", 1: "record", 2: "org", 3: "assignment" };
+    Object.entries(topMap).forEach(([index, key]) => refs.topItems[Number(index)]?.classList.toggle("codex-hidden", !visibility[key]));
+    Object.entries(sideMap).forEach(([index, key]) => refs.sideItems[Number(index)]?.classList.toggle("codex-hidden", !visibility[key]));
+    panels.codeMenu?.classList.toggle("codex-hidden", !visibility.codes);
+    panels.adminMenu?.classList.toggle("codex-hidden", !visibility.admin);
+    $(".hr-top-user", refs.hrSystem)?.classList.toggle("codex-hidden", !visibility.admin);
   }
   function hasPendingAdminChanges() {
     return getAdminPendingChanges().length > 0;
@@ -453,13 +543,14 @@
     renderAdmin();
     bindAdmin();
   }
-  function pushAdminHistory(action, target, detail = "") {
+  function pushAdminHistory(action, target, detail = "", meta = {}) {
     state.adminHistory.unshift({
       id: `ADM-HIST-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       changedAt: getCurrentTimestamp(),
       action,
       target,
-      detail
+      detail,
+      meta
     });
   }
   function applyAdminDraft() {
@@ -467,20 +558,92 @@
     state.adminCategories = cloneAdminCategories(state.adminDraft.categories);
     state.adminDraft.pendingChanges.slice().reverse().forEach((change) => {
       if (change.kind === "add-members") {
-        pushAdminHistory("추가", `${findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId} · ${change.role === "viewer" ? "열람자" : "관리자"}`, `${(change.members || []).map((member) => member.name).join(", ")} 등록`);
+        pushAdminHistory(
+          "추가",
+          `${findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId} · ${change.role === "viewer" ? "열람자" : "관리자"}`,
+          `${(change.members || []).map((member) => member.name).join(", ")} 등록`,
+          {
+            kind: change.kind,
+            categoryId: change.categoryId,
+            categoryLabel: findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId,
+            role: change.role,
+            members: (change.members || []).map((member) => ({ name: member.name, loginId: member.loginId, org: member.org })),
+            summary: change.summary || ""
+          }
+        );
       } else if (change.kind === "remove-members") {
-        pushAdminHistory("제거", `${findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId} · ${change.role === "viewer" ? "열람자" : "관리자"}`, `${(change.memberNames || []).join(", ")} 제거`);
+        pushAdminHistory(
+          "제거",
+          `${findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId} · ${change.role === "viewer" ? "열람자" : "관리자"}`,
+          `${(change.memberNames || []).join(", ")} 제거`,
+          {
+            kind: change.kind,
+            categoryId: change.categoryId,
+            categoryLabel: findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId,
+            role: change.role,
+            memberNames: [...(change.memberNames || [])],
+            summary: change.summary || ""
+          }
+        );
       } else if (change.kind === "set-permissions") {
-        pushAdminHistory("권한변경", `${findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId} · ${change.memberName}`, change.role === "viewer" ? "열람 권한 재정의" : "관리 권한 재정의");
+        pushAdminHistory(
+          "권한변경",
+          `${findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId} · ${change.memberName}`,
+          change.role === "viewer" ? "열람 권한 재정의" : "관리 권한 재정의",
+          {
+            kind: change.kind,
+            categoryId: change.categoryId,
+            categoryLabel: findAdminCategoryIn(state.adminCategories, change.categoryId)?.label || change.categoryId,
+            role: change.role,
+            memberName: change.memberName,
+            memberId: change.memberId,
+            permissions: { ...(change.permissions || {}) },
+            summary: change.summary || ""
+          }
+        );
       }
     });
     discardAdminDraft();
+    syncAccessControlledMenus();
+    const nextView = canAccessView(state.currentHrView) ? state.currentHrView : getFallbackView();
     renderAdmin();
     bindAdmin();
+    if (nextView !== state.currentHrView) showHrView(nextView);
   }
   function renderAdminHistoryTable() {
     if (!state.adminHistory.length) return `<div class="codex-note-box">아직 저장된 관리자 변경 이력이 없습니다.</div>`;
-    return `<div class="codex-code-table-wrap"><table class="codex-admin-history-table"><thead><tr><th>변경시각</th><th>처리</th><th>대상</th><th>상세</th></tr></thead><tbody>${state.adminHistory.slice(0, 12).map((item) => `<tr><td>${item.changedAt}</td><td>${item.action}</td><td>${item.target}</td><td>${item.detail || "-"}</td></tr>`).join("")}</tbody></table></div>`;
+    return `<div class="codex-code-table-wrap"><table class="codex-admin-history-table"><thead><tr><th>변경시각</th><th>처리</th><th>대상</th><th>상세</th><th>보기</th></tr></thead><tbody>${state.adminHistory.slice(0, 12).map((item) => `<tr data-admin-history-row="${item.id}"><td>${item.changedAt}</td><td>${item.action}</td><td>${item.target}</td><td>${item.detail || "-"}</td><td><button type="button" class="hr-btn btn-outline btn-xs" data-admin-history-detail="${item.id}">상세</button></td></tr>`).join("")}</tbody></table></div>`;
+  }
+  function openAdminHistoryModal(historyId) {
+    const history = state.adminHistory.find((item) => item.id === historyId);
+    if (!history) return;
+    $("h3", adminHistoryModal.root).textContent = `${history.changedAt} 변경 상세`;
+    const meta = history.meta || {};
+    const rows = [
+      ["처리", history.action],
+      ["대상", history.target],
+      ["상세", history.detail || "-"],
+      ["카테고리", meta.categoryLabel || "-"],
+      ["역할", meta.role === "viewer" ? "열람자" : meta.role === "manager" ? "관리자" : "-"]
+    ];
+    if (Array.isArray(meta.members) && meta.members.length) {
+      rows.push(["대상 인원", meta.members.map((member) => `${member.name} (${member.loginId || "-"})`).join(", ")]);
+    } else if (Array.isArray(meta.memberNames) && meta.memberNames.length) {
+      rows.push(["대상 인원", meta.memberNames.join(", ")]);
+    } else if (meta.memberName) {
+      rows.push(["대상 인원", meta.memberName]);
+    }
+    if (meta.permissions) {
+      const enabled = Object.entries(meta.permissions).filter(([, value]) => value).map(([key]) => {
+        const permission = adminPermissionGroups.flatMap((group) => group.items).find((item) => item.id === key);
+        return permission?.label || key;
+      });
+      rows.push(["활성 권한", enabled.length ? enabled.join(", ") : "없음"]);
+    }
+    if (meta.summary) rows.push(["요약", meta.summary]);
+    adminHistoryModal.body.innerHTML = `<div class="codex-sheet-focus"><table><tbody>${rows.map(([label, value]) => `<tr><th>${label}</th><td>${value}</td></tr>`).join("")}</tbody></table></div>`;
+    adminHistoryModal.save.onclick = () => adminHistoryModal.close();
+    adminHistoryModal.open();
   }
   function getOrgRowLevel(row) {
     if (row.part) return "L4";
@@ -589,7 +752,7 @@
     return rows.map((row) => ({ ...row }));
   }
   const baseOrgBlueprint = createOrgBlueprint(orgRows);
-  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), orgBlueprint: cloneOrgBlueprint(baseOrgBlueprint), metaRegistry: JSON.parse(JSON.stringify(initialMetaRegistry)), adminCategories: cloneAdminCategories(initialAdminCategories), adminHistory: [], adminDraft: null, currentAdminPendingKey: "", currentAdminCategory: "all_admin", currentAdminRoleTab: "manager", currentAdminManagerId: "ADM-001", currentAdminOrgKey: "ROOT", adminExpandedKeys: ["ROOT"], adminAddOpen: false, adminAddQuery: "", adminCandidateSelection: [], adminMemberSelection: [], codeHistory: [], codeDraft: null, currentPendingChangeKey: "", assignmentRecords: [], deletedOrgArchive: [], assignmentFlow: null, assignmentLandingTab: "org", assignmentLandingSearch: "", selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentMetaCodeSelection: "", currentCodeHistoryFilter: "all", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", directoryRetireDateFrom: "", directoryRetireDateTo: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
+  const state = { employees: fullEmployeeSeed.map((employee) => ({ ...employee })), orgBlueprint: cloneOrgBlueprint(baseOrgBlueprint), metaRegistry: JSON.parse(JSON.stringify(initialMetaRegistry)), adminCategories: cloneAdminCategories(initialAdminCategories), adminHistory: [], adminDraft: null, currentAdminPendingKey: "", currentAdminCategory: "all_admin", currentAdminRoleTab: "manager", currentAdminManagerId: "ADM-001", currentAdminOrgKey: "ROOT", adminExpandedKeys: ["ROOT"], adminAddOpen: false, adminAddQuery: "", adminCandidateSelection: [], adminMemberSelection: [], currentOperatorLoginId: initialOperatorLoginId, codeHistory: [], codeDraft: null, currentPendingChangeKey: "", assignmentRecords: [], deletedOrgArchive: [], assignmentFlow: null, assignmentLandingTab: "org", assignmentLandingSearch: "", selectedId: "EMP-0001", currentHrView: "directory", currentSystem: 1, currentCodeView: "overview", currentCodeSelection: "", currentLevelSelection: "L1", currentMetaSelection: "grade", currentMetaCodeSelection: "", currentCodeHistoryFilter: "all", currentOrgNode: "ROOT", orgIncludeChildren: true, orgSearch: "", orgExpandedKeys: ["ROOT"], directorySearchText: "", directoryAdvancedOpen: false, directoryDept: [], directoryDeptQuery: "", directoryGrade: [], directoryGradeQuery: "", directoryStatus: "", directoryHireDateFrom: "", directoryHireDateTo: "", directoryRetireDateFrom: "", directoryRetireDateTo: "", hireStatMode: "month", hireStatYear: 2026, hireStatMonth: 4, hireStatQuarter: 2, hireStatHalf: 1, leaveStatMode: "current", leaveStatYear: 2026, leaveStatMonth: 4, leaveStatQuarter: 2, leaveStatHalf: 1, statModalSelection: "", currentRecordTab: "overview" };
   syncLegacyMetaArraysFromRegistry();
   syncEmployeeCodeRefs();
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -1428,9 +1591,12 @@
   const quickProfileModal = buildModal("codexQuickProfileModal", "사원 기본정보");
   const recordDetailModal = buildModal("codexRecordDetailModal", "인사기록카드 상세");
   const codeOrgModal = buildModal("codexCodeOrgModal", "조직코드 편집");
+  const adminHistoryModal = buildModal("codexAdminHistoryModal", "관리자 권한 변경 상세");
   codeOrgModal.root.classList.add("codex-code-modal");
+  adminHistoryModal.root.querySelector('[data-role="cancel"]').classList.add("codex-hidden");
+  adminHistoryModal.save.textContent = "확인";
   const modalStack = [createModal, editModal, statsModal, quickProfileModal];
-  modalStack.push(recordDetailModal, codeOrgModal);
+  modalStack.push(recordDetailModal, codeOrgModal, adminHistoryModal);
   quickProfileModal.root.classList.add("codex-quick-modal-wrap");
   quickProfileModal.root.querySelector(".codex-modal").classList.add("codex-quick-modal");
   quickProfileModal.save.textContent = "확인";
@@ -3335,6 +3501,13 @@
       renderAdmin();
       bindAdmin();
     });
+    $$("[data-admin-history-row]", panels.admin).forEach((row) => row.addEventListener("click", (event) => {
+      if (event.target.closest("button")) return;
+      openAdminHistoryModal(row.dataset.adminHistoryRow);
+    }));
+    $$("[data-admin-history-detail]", panels.admin).forEach((button) => button.addEventListener("click", () => {
+      openAdminHistoryModal(button.dataset.adminHistoryDetail);
+    }));
     $$("[data-admin-pending-row]", panels.admin).forEach((row) => row.addEventListener("click", (event) => {
       if (event.target.closest("button")) return;
       state.currentAdminPendingKey = row.dataset.adminPendingRow || "";
@@ -4069,6 +4242,8 @@
     if (panels.admin) panels.admin.classList.toggle("codex-hidden", state.currentHrView !== "admin");
   }
   function showHrView(view) {
+    const nextView = canAccessView(view) ? view : getFallbackView();
+    if (nextView !== view) view = nextView;
     state.currentHrView = view;
     setMenus(view);
     if (view === "directory") { setPageTitle("사원명부", "전체 사원 정보를 조회하고 관리합니다"); toggleBaseSections(true, false, false); }
@@ -4082,7 +4257,7 @@
     updatePrimaryAction(view);
     renderNotesByView();
   }
-  function renderAll() { syncLegacyMetaArraysFromRegistry(); syncEmployeeCodeRefs(); renderDirectorySearchBar(); renderStats(); renderTable(); renderOrg(); renderRecord(); renderCodes(); renderAssignment(); renderAdmin(); if (state.currentHrView === "admin") bindAdmin(); }
+  function renderAll() { syncLegacyMetaArraysFromRegistry(); syncEmployeeCodeRefs(); renderDirectorySearchBar(); renderStats(); renderTable(); renderOrg(); renderRecord(); renderCodes(); renderAssignment(); renderAdmin(); syncAccessControlledMenus(); if (state.currentHrView === "admin") bindAdmin(); }
   function bindCoreActions() {
     refs.topItems[0]?.addEventListener("click", () => showHrView("directory"));
     refs.topItems[1]?.addEventListener("click", () => showHrView("record"));
@@ -4106,13 +4281,25 @@
       openQuickProfileModal(quickTrigger.dataset.quickProfile);
     });
     const primaryButton = $(".btn-primary", refs.pageTitle);
+    const pageActionWrap = $(".hr-page-title > div:last-child", refs.hrSystem);
     const recordEditButton = document.createElement("button");
     recordEditButton.className = "hr-btn btn-outline codex-hidden";
     recordEditButton.textContent = "✎ 기록카드 수정";
-    $(".hr-page-title > div:last-child", refs.hrSystem)?.prepend(recordEditButton);
-    const observer = new MutationObserver(() => { recordEditButton.classList.toggle("codex-hidden", state.currentHrView !== "record"); });
+    const recordPrintButton = document.createElement("button");
+    recordPrintButton.className = "hr-btn btn-outline codex-hidden";
+    recordPrintButton.textContent = "🖨 인쇄";
+    pageActionWrap?.prepend(recordPrintButton);
+    pageActionWrap?.prepend(recordEditButton);
+    const syncRecordActionButtons = () => {
+      const visible = state.currentHrView === "record";
+      recordEditButton.classList.toggle("codex-hidden", !visible);
+      recordPrintButton.classList.toggle("codex-hidden", !visible);
+    };
+    const observer = new MutationObserver(syncRecordActionButtons);
     observer.observe(refs.pageTitle, { childList: true, subtree: true });
     recordEditButton.addEventListener("click", () => { fillEditForm(); editModal.open(); });
+    recordPrintButton.addEventListener("click", () => window.print());
+    syncRecordActionButtons();
     $$(".hr-stat-card", refs.stats).forEach((card) => {
       card.addEventListener("click", () => {
         if (card.dataset.statType === "leave") openStatModal("leave");

@@ -2348,3 +2348,64 @@
     border-bottom: 1px solid #e8ecf4;
   }
 }
+
+@media print {
+  body {
+    background: #fff !important;
+  }
+
+  .hr-topbar,
+  .hr-sidebar,
+  #annoPanel,
+  #orgChartWrap,
+  #assignmentPanel,
+  #codesPanel,
+  #adminPanel,
+  .codex-modal-backdrop,
+  .codex-sheet-detail-btn,
+  .codex-record-tabs,
+  .codex-record-summary,
+  .codex-sheet-focus-wrap,
+  .hr-page-title > div:last-child {
+    display: none !important;
+  }
+
+  .hr-content,
+  .hr-main,
+  .hr-system,
+  .hr-page,
+  #hrCardGrid,
+  .codex-record-shell,
+  .codex-record-detail,
+  .codex-record-sheet {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  #hrCardGrid,
+  .codex-record-shell {
+    display: block !important;
+  }
+
+  .codex-sheet-preview,
+  .codex-sheet-table-wrap {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .codex-record-sheet {
+    border: 1px solid #d7dde8 !important;
+    border-radius: 0 !important;
+  }
+
+  .codex-sheet-top,
+  .codex-sheet-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
