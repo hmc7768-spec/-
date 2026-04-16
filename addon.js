@@ -3803,15 +3803,15 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       : historyRows.filter((item) => item.section === state.currentCodeHistoryFilter);
     const codeActions = `<div class="codex-secondary-actions"><button type="button" class="hr-btn btn-outline" data-code-view="overview">코드 현황</button><button type="button" class="hr-btn btn-outline" data-code-view="org-edit">조직코드 수정</button><button type="button" class="hr-btn btn-outline" data-code-view="level-edit">레벨관리</button><button type="button" class="hr-btn btn-outline" data-code-view="meta-edit">기준코드 수정</button><button type="button" class="hr-btn btn-outline" data-code-view="history">코드변경 이력</button></div>`;
     if (state.currentCodeView === "overview") {
-      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>코드관리</h3><div style="font-size:11px;color:#9095b0">조직, 직급, 직책, 직군, 직원유형 기준코드를 통합 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">조직코드 현황</h4><div class="codex-code-table-wrap"><table><thead><tr><th>레벨</th><th>코드</th><th>조직</th><th>상위조직</th><th>사용</th><th>인원</th></tr></thead><tbody>${orgSummary.map((item) => `<tr><td>${item.level}</td><td>${item.code}</td><td>${item.name}</td><td>${item.parent}</td><td>${item.active ? "Y" : "N"}</td><td>${item.count}명</td></tr>`).join("")}</tbody></table></div></div><div class="codex-stack"><div class="codex-panel codex-panel-compact"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">레벨 정의</h4>${draftLevelDefs.map((level) => `<div class="codex-note-box codex-note-box-compact"><strong>${level.id} · ${level.name}</strong>상위레벨: ${level.parent} · ${level.desc}</div>`).join("")}</div><div class="codex-panel codex-panel-compact"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">기준코드 현황</h4>${["grade", "title", "family", "type"].map((kind) => `<div class="codex-note-box codex-note-box-compact"><strong>${getMetaKindConfig(kind).label}</strong>${(draftMetaRegistry[kind] || []).map((item) => `${item.code} ${item.name}`).join(" / ")}</div>`).join("")}</div><div class="codex-panel codex-panel-compact"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">최근 코드변경 이력</h4><div class="codex-code-history-mini">${historyRows.length ? historyRows.map((item) => `<div class="codex-note-box codex-note-box-compact"><strong>${item.section} · ${item.action}</strong>${item.changedAt} · ${item.itemCode} · ${item.itemName}${item.detail ? `<br>${item.detail}` : ""}</div>`).join("") : `<div class="codex-note-box codex-note-box-compact">아직 저장된 코드 변경 이력이 없습니다.</div>`}</div></div></div></div>`;
+      panels.codes.innerHTML = `<div data-region="codes-main"><div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>코드관리</h3><div style="font-size:11px;color:#9095b0">조직, 직급, 직책, 직군, 직원유형 기준코드를 통합 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">조직코드 현황</h4><div class="codex-code-table-wrap"><table><thead><tr><th>레벨</th><th>코드</th><th>조직</th><th>상위조직</th><th>사용</th><th>인원</th></tr></thead><tbody>${orgSummary.map((item) => `<tr><td>${item.level}</td><td>${item.code}</td><td>${item.name}</td><td>${item.parent}</td><td>${item.active ? "Y" : "N"}</td><td>${item.count}명</td></tr>`).join("")}</tbody></table></div></div><div class="codex-stack"><div class="codex-panel codex-panel-compact"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">레벨 정의</h4>${draftLevelDefs.map((level) => `<div class="codex-note-box codex-note-box-compact"><strong>${level.id} · ${level.name}</strong>상위레벨: ${level.parent} · ${level.desc}</div>`).join("")}</div><div class="codex-panel codex-panel-compact"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">기준코드 현황</h4>${["grade", "title", "family", "type"].map((kind) => `<div class="codex-note-box codex-note-box-compact"><strong>${getMetaKindConfig(kind).label}</strong>${(draftMetaRegistry[kind] || []).map((item) => `${item.code} ${item.name}`).join(" / ")}</div>`).join("")}</div><div class="codex-panel codex-panel-compact"><h4 style="font-size:13px;color:#1e3a5f;margin-bottom:12px">최근 코드변경 이력</h4><div class="codex-code-history-mini">${historyRows.length ? historyRows.map((item) => `<div class="codex-note-box codex-note-box-compact"><strong>${item.section} · ${item.action}</strong>${item.changedAt} · ${item.itemCode} · ${item.itemName}${item.detail ? `<br>${item.detail}` : ""}</div>`).join("") : `<div class="codex-note-box codex-note-box-compact">아직 저장된 코드 변경 이력이 없습니다.</div>`}</div></div></div></div></div>`;
     } else if (state.currentCodeView === "org-edit") {
-      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>조직코드 수정</h3><div style="font-size:11px;color:#9095b0">조직명/레벨/상위조직/코드값/사용여부를 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2" style="margin-top:16px"><div class="codex-panel"><div class="codex-code-head"><h4>조직코드 목록</h4><button type="button" class="hr-btn btn-primary" id="codeOrgNewBtn">신규 조직 추가</button></div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px"><strong>운영 방식</strong>편집 내용은 우측 <em>변경 예정 내역</em>에 먼저 적재되고, <em>변경 적용</em> 시점에만 실제 기준정보에 반영됩니다.</div><div class="codex-code-table-wrap"><table><thead><tr><th>레벨</th><th>코드</th><th>조직</th><th>상위조직</th><th>사용</th><th>인원</th><th>편집</th></tr></thead><tbody>${orgSummary.map((item) => `<tr class="${item.key === state.currentCodeSelection ? "codex-table-selected" : ""}" data-org-select-row="${item.key}"><td>${item.level}</td><td>${item.code}</td><td>${item.name}</td><td>${item.parent}</td><td>${item.active ? "Y" : "N"}</td><td>${item.count}명</td><td><button type="button" class="hr-btn btn-outline btn-xs" data-org-edit-open="${item.key}">편집</button></td></tr>`).join("")}</tbody></table></div></div><div class="codex-stack"><div class="codex-panel codex-panel-compact"><div class="codex-code-head"><h4>선택 조직 정보</h4>${selectedOrg ? `<button type="button" class="hr-btn btn-outline btn-xs" data-org-edit-open="${selectedOrg.key}">편집</button>` : ""}</div>${selectedOrg ? `<div class="codex-form-grid"><label><span>조직명</span><input value="${selectedOrg.name}" readonly></label><label><span>코드값</span><input value="${selectedOrg.code}" readonly></label><label><span>레벨</span><input value="${selectedOrg.level} · ${getLevelLabel(selectedOrg.level)}" readonly></label><label><span>상위조직</span><input value="${selectedOrg.parent}" readonly></label><label><span>사용여부</span><input value="${selectedOrg.active ? "사용" : "중지"}" readonly></label><label><span>최종수정일</span><input value="${selectedOrg.updatedAt}" readonly></label><label class="span-2"><span>설명</span><textarea readonly rows="2">${selectedOrg.description || "-"}</textarea></label></div>` : `<div class="codex-note-box">조직을 선택하면 코드 정보를 볼 수 있습니다.</div>`}</div><div class="codex-panel codex-panel-compact"><h4>연계 정보</h4>${selectedOrg ? `<div class="codex-note-grid"><div class="codex-note-box codex-note-box-compact"><strong>현재 조직 사용 인원</strong>${selectedOrgUsage.currentCount}명</div><div class="codex-note-box codex-note-box-compact"><strong>입사시 기준 사용 인원</strong>${selectedOrgUsage.hireCount}명</div><div class="codex-note-box codex-note-box-compact"><strong>직계/전체 하위조직</strong>${selectedOrgUsage.childCount}개 / ${selectedOrgUsage.descendantCount}개</div><div class="codex-note-box codex-note-box-compact"><strong>사용처</strong>사원명부 · 인사기록카드 · 조직도 · 조직관리 · 발령입력</div></div><div class="codex-note-box codex-note-box-compact"><strong>운영 권장안</strong>코드값은 타 시스템 연계 키로 사용하고, 조직명/설명은 화면 표시용으로 운영합니다.</div>` : `<div class="codex-note-box">선택 조직 정보가 없습니다.</div>`}</div>${renderPendingOrgPanel("org-edit")}</div></div>`;
+      panels.codes.innerHTML = `<div data-region="codes-main"><div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>조직코드 수정</h3><div style="font-size:11px;color:#9095b0">조직명/레벨/상위조직/코드값/사용여부를 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2" style="margin-top:16px"><div class="codex-panel"><div class="codex-code-head"><h4>조직코드 목록</h4><button type="button" class="hr-btn btn-primary" id="codeOrgNewBtn">신규 조직 추가</button></div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px"><strong>운영 방식</strong>편집 내용은 우측 <em>변경 예정 내역</em>에 먼저 적재되고, <em>변경 적용</em> 시점에만 실제 기준정보에 반영됩니다.</div><div class="codex-code-table-wrap"><table><thead><tr><th>레벨</th><th>코드</th><th>조직</th><th>상위조직</th><th>사용</th><th>인원</th><th>편집</th></tr></thead><tbody>${orgSummary.map((item) => `<tr class="${item.key === state.currentCodeSelection ? "codex-table-selected" : ""}" data-org-select-row="${item.key}"><td>${item.level}</td><td>${item.code}</td><td>${item.name}</td><td>${item.parent}</td><td>${item.active ? "Y" : "N"}</td><td>${item.count}명</td><td><button type="button" class="hr-btn btn-outline btn-xs" data-org-edit-open="${item.key}">편집</button></td></tr>`).join("")}</tbody></table></div></div><div class="codex-stack"><div class="codex-panel codex-panel-compact"><div class="codex-code-head"><h4>선택 조직 정보</h4>${selectedOrg ? `<button type="button" class="hr-btn btn-outline btn-xs" data-org-edit-open="${selectedOrg.key}">편집</button>` : ""}</div>${selectedOrg ? `<div class="codex-form-grid"><label><span>조직명</span><input value="${selectedOrg.name}" readonly></label><label><span>코드값</span><input value="${selectedOrg.code}" readonly></label><label><span>레벨</span><input value="${selectedOrg.level} · ${getLevelLabel(selectedOrg.level)}" readonly></label><label><span>상위조직</span><input value="${selectedOrg.parent}" readonly></label><label><span>사용여부</span><input value="${selectedOrg.active ? "사용" : "중지"}" readonly></label><label><span>최종수정일</span><input value="${selectedOrg.updatedAt}" readonly></label><label class="span-2"><span>설명</span><textarea readonly rows="2">${selectedOrg.description || "-"}</textarea></label></div>` : `<div class="codex-note-box">조직을 선택하면 코드 정보를 볼 수 있습니다.</div>`}</div><div class="codex-panel codex-panel-compact"><h4>연계 정보</h4>${selectedOrg ? `<div class="codex-note-grid"><div class="codex-note-box codex-note-box-compact"><strong>현재 조직 사용 인원</strong>${selectedOrgUsage.currentCount}명</div><div class="codex-note-box codex-note-box-compact"><strong>입사시 기준 사용 인원</strong>${selectedOrgUsage.hireCount}명</div><div class="codex-note-box codex-note-box-compact"><strong>직계/전체 하위조직</strong>${selectedOrgUsage.childCount}개 / ${selectedOrgUsage.descendantCount}개</div><div class="codex-note-box codex-note-box-compact"><strong>사용처</strong>사원명부 · 인사기록카드 · 조직도 · 조직관리 · 발령입력</div></div><div class="codex-note-box codex-note-box-compact"><strong>운영 권장안</strong>코드값은 타 시스템 연계 키로 사용하고, 조직명/설명은 화면 표시용으로 운영합니다.</div>` : `<div class="codex-note-box">선택 조직 정보가 없습니다.</div>`}</div>${renderPendingOrgPanel("org-edit")}</div></div></div>`;
     } else if (state.currentCodeView === "level-edit") {
-      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>레벨관리</h3><div style="font-size:11px;color:#9095b0">조직 레벨 정의와 허용 상위 레벨 규칙을 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><div class="codex-code-head"><h4>레벨 목록</h4><button type="button" class="hr-btn btn-primary" id="codeLevelNewBtn">신규 레벨 추가</button></div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px"><strong>운영 방식</strong>레벨 정의 변경도 즉시 반영되지 않고, 우측 <em>레벨 변경 예정</em>에 적재된 후 <em>변경 적용</em> 시점에만 전체 기준에 반영됩니다.</div><table><thead><tr><th>레벨 ID</th><th>레벨명</th><th>상위레벨</th><th>설명</th></tr></thead><tbody>${draftLevelDefs.map((level) => `<tr class="${level.id === state.currentLevelSelection ? "codex-table-selected" : ""}" data-level-select-row="${level.id}"><td>${level.id}</td><td>${level.name}</td><td>${level.parent}</td><td>${level.desc}</td></tr>`).join("")}</tbody></table></div><div class="codex-stack"><div class="codex-panel"><h4>레벨 편집</h4><div class="codex-form-grid"><label><span>레벨 ID</span><input id="levelId" value="${selectedLevel.id || ""}" ${selectedLevel.id ? "readonly" : ""}></label><label><span>상위레벨</span><select id="levelParent"><option value="-">-</option>${["L1","L2","L3","L4"].map((item) => `<option value="${item}" ${item === (selectedLevel.parent || "-") ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>레벨명</span><input id="levelName" value="${selectedLevel.name || ""}"></label><label><span>설명</span><input id="levelDesc" value="${selectedLevel.desc || ""}"></label></div><div class="codex-modal-actions"><button type="button" class="hr-btn btn-primary" id="levelSaveBtn">변경 예정 추가</button></div><div class="codex-note-box"><strong>적용 영향</strong>조직코드 생성 규칙, 상위조직 후보, 조직관리 이동 규칙에 공통 반영됩니다.</div><div class="codex-note-box"><strong>현재 사용 현황</strong>${selectedLevel.id ? `${selectedLevelUsage.orgCount}개 조직 · ${selectedLevelUsage.codeCount}개 코드` : `신규 레벨 정의`}</div></div><div class="codex-panel"><h4>최근 레벨 변경 이력</h4>${historyRows.filter((item) => item.section === "레벨관리").length ? historyRows.filter((item) => item.section === "레벨관리").map((item) => `<div class="codex-note-box"><strong>${item.action}</strong>${item.changedAt} · ${item.itemCode} · ${item.itemName}</div>`).join("") : `<div class="codex-note-box">레벨 변경 이력이 없습니다.</div>`}</div>${renderPendingOrgPanel("level-edit")}</div></div></div>`;
+      panels.codes.innerHTML = `<div data-region="codes-main"><div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>레벨관리</h3><div style="font-size:11px;color:#9095b0">조직 레벨 정의와 허용 상위 레벨 규칙을 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><div class="codex-code-head"><h4>레벨 목록</h4><button type="button" class="hr-btn btn-primary" id="codeLevelNewBtn">신규 레벨 추가</button></div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px"><strong>운영 방식</strong>레벨 정의 변경도 즉시 반영되지 않고, 우측 <em>레벨 변경 예정</em>에 적재된 후 <em>변경 적용</em> 시점에만 전체 기준에 반영됩니다.</div><table><thead><tr><th>레벨 ID</th><th>레벨명</th><th>상위레벨</th><th>설명</th></tr></thead><tbody>${draftLevelDefs.map((level) => `<tr class="${level.id === state.currentLevelSelection ? "codex-table-selected" : ""}" data-level-select-row="${level.id}"><td>${level.id}</td><td>${level.name}</td><td>${level.parent}</td><td>${level.desc}</td></tr>`).join("")}</tbody></table></div><div class="codex-stack"><div class="codex-panel"><h4>레벨 편집</h4><div class="codex-form-grid"><label><span>레벨 ID</span><input id="levelId" value="${selectedLevel.id || ""}" ${selectedLevel.id ? "readonly" : ""}></label><label><span>상위레벨</span><select id="levelParent"><option value="-">-</option>${["L1","L2","L3","L4"].map((item) => `<option value="${item}" ${item === (selectedLevel.parent || "-") ? "selected" : ""}>${item}</option>`).join("")}</select></label><label><span>레벨명</span><input id="levelName" value="${selectedLevel.name || ""}"></label><label><span>설명</span><input id="levelDesc" value="${selectedLevel.desc || ""}"></label></div><div class="codex-modal-actions"><button type="button" class="hr-btn btn-primary" id="levelSaveBtn">변경 예정 추가</button></div><div class="codex-note-box"><strong>적용 영향</strong>조직코드 생성 규칙, 상위조직 후보, 조직관리 이동 규칙에 공통 반영됩니다.</div><div class="codex-note-box"><strong>현재 사용 현황</strong>${selectedLevel.id ? `${selectedLevelUsage.orgCount}개 조직 · ${selectedLevelUsage.codeCount}개 코드` : `신규 레벨 정의`}</div></div><div class="codex-panel"><h4>최근 레벨 변경 이력</h4>${historyRows.filter((item) => item.section === "레벨관리").length ? historyRows.filter((item) => item.section === "레벨관리").map((item) => `<div class="codex-note-box"><strong>${item.action}</strong>${item.changedAt} · ${item.itemCode} · ${item.itemName}</div>`).join("") : `<div class="codex-note-box">레벨 변경 이력이 없습니다.</div>`}</div>${renderPendingOrgPanel("level-edit")}</div></div></div></div>`;
     } else if (state.currentCodeView === "history") {
-      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>코드변경 이력</h3><div style="font-size:11px;color:#9095b0">조직코드, 레벨관리, 기준코드의 변경 이력을 확인합니다.</div></div>${codeActions}</div><div class="codex-panel" style="margin-top:16px"><div class="codex-secondary-actions" style="margin-bottom:12px">${historyFilterOptions.map((item) => `<button type="button" class="hr-btn ${state.currentCodeHistoryFilter === item.id ? "btn-primary" : "btn-outline"}" data-code-history-filter="${item.id}">${item.label}</button>`).join("")}</div><table><thead><tr><th>변경시각</th><th>구분</th><th>처리</th><th>코드값</th><th>코드명</th><th>상세</th></tr></thead><tbody>${filteredHistoryRows.length ? filteredHistoryRows.map((item) => `<tr><td>${item.changedAt}</td><td>${item.section}</td><td>${item.action}</td><td>${item.itemCode}</td><td>${item.itemName}</td><td>${item.detail || "-"}</td></tr>`).join("") : `<tr><td colspan="6">선택한 조건의 코드 변경 이력이 없습니다.</td></tr>`}</tbody></table></div>`;
+      panels.codes.innerHTML = `<div data-region="codes-main"><div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>코드변경 이력</h3><div style="font-size:11px;color:#9095b0">조직코드, 레벨관리, 기준코드의 변경 이력을 확인합니다.</div></div>${codeActions}</div><div class="codex-panel" style="margin-top:16px"><div class="codex-secondary-actions" style="margin-bottom:12px">${historyFilterOptions.map((item) => `<button type="button" class="hr-btn ${state.currentCodeHistoryFilter === item.id ? "btn-primary" : "btn-outline"}" data-code-history-filter="${item.id}">${item.label}</button>`).join("")}</div><table><thead><tr><th>변경시각</th><th>구분</th><th>처리</th><th>코드값</th><th>코드명</th><th>상세</th></tr></thead><tbody>${filteredHistoryRows.length ? filteredHistoryRows.map((item) => `<tr><td>${item.changedAt}</td><td>${item.section}</td><td>${item.action}</td><td>${item.itemCode}</td><td>${item.itemName}</td><td>${item.detail || "-"}</td></tr>`).join("") : `<tr><td colspan="6">선택한 조건의 코드 변경 이력이 없습니다.</td></tr>`}</tbody></table></div></div>`;
     } else {
-      panels.codes.innerHTML = `<div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>기준코드 수정</h3><div style="font-size:11px;color:#9095b0">직급 / 직책 / 직군 / 직원유형 기준코드를 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><div class="codex-code-head"><h4>기준코드 목록</h4><button type="button" class="hr-btn btn-primary" id="metaNewBtn">신규 코드 추가</button></div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px"><strong>운영 방식</strong>기준코드도 수정 즉시 반영되지 않고, 우측 <em>${currentMetaLabel()} 변경 예정</em>에 적재된 뒤 <em>변경 적용</em> 시점에만 반영됩니다.</div><div class="codex-secondary-actions" style="margin-bottom:12px">${["grade", "title", "family", "type"].map((kind) => `<button type="button" class="hr-btn ${state.currentMetaSelection === kind ? "btn-primary" : "btn-outline"}" data-meta-select="${kind}">${getMetaKindConfig(kind).label}</button>`).join("")}</div><table><thead><tr><th>코드값</th><th>코드명</th><th>사용</th><th>설명</th></tr></thead><tbody>${currentMeta.map((item) => `<tr class="${item.code === state.currentMetaCodeSelection ? "codex-table-selected" : ""}" data-meta-code-row="${item.code}"><td>${item.code}</td><td>${item.name}</td><td>${item.active ? "Y" : "N"}</td><td>${item.description || "-"}</td></tr>`).join("")}</tbody></table></div><div class="codex-stack"><div class="codex-panel"><h4>${currentMetaLabel()} 편집</h4><div class="codex-form-grid"><label><span>코드값</span><input id="metaCode" value="${selectedMeta?.code || getNextMetaCode(state.currentMetaSelection, currentMeta)}" ${selectedMeta ? "readonly" : ""}></label><label><span>사용여부</span><select id="metaActive"><option value="Y" ${selectedMeta?.active !== false ? "selected" : ""}>사용</option><option value="N" ${selectedMeta?.active === false ? "selected" : ""}>중지</option></select></label><label class="span-2"><span>코드명</span><input id="metaName" value="${selectedMeta?.name || ""}"></label><label class="span-2"><span>설명</span><textarea id="metaDesc" rows="4">${selectedMeta?.description || ""}</textarea></label></div><div class="codex-modal-actions"><button type="button" class="hr-btn btn-primary" id="metaSaveBtn">변경 예정 추가</button></div><div class="codex-note-box"><strong>적용 영향</strong>신규등록, 인사기록카드, 조직관리, 인사발령 입력값은 이 기준코드를 참조합니다.</div><div class="codex-note-box"><strong>현재 사용 현황</strong>현재 기준 ${selectedMetaUsage.currentCount}명 · 입사시 기준 ${selectedMetaUsage.hireCount}명</div></div><div class="codex-panel"><h4>${currentMetaLabel()} 변경 예정</h4>${renderPendingOrgPanel("meta-edit")}</div></div></div>`;
+      panels.codes.innerHTML = `<div data-region="codes-main"><div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>기준코드 수정</h3><div style="font-size:11px;color:#9095b0">직급 / 직책 / 직군 / 직원유형 기준코드를 관리합니다.</div></div>${codeActions}</div><div class="codex-grid-2-tight" style="margin-top:16px"><div class="codex-panel"><div class="codex-code-head"><h4>기준코드 목록</h4><button type="button" class="hr-btn btn-primary" id="metaNewBtn">신규 코드 추가</button></div><div class="codex-note-box codex-note-box-compact" style="margin-bottom:12px"><strong>운영 방식</strong>기준코드도 수정 즉시 반영되지 않고, 우측 <em>${currentMetaLabel()} 변경 예정</em>에 적재된 뒤 <em>변경 적용</em> 시점에만 반영됩니다.</div><div class="codex-secondary-actions" style="margin-bottom:12px">${["grade", "title", "family", "type"].map((kind) => `<button type="button" class="hr-btn ${state.currentMetaSelection === kind ? "btn-primary" : "btn-outline"}" data-meta-select="${kind}">${getMetaKindConfig(kind).label}</button>`).join("")}</div><table><thead><tr><th>코드값</th><th>코드명</th><th>사용</th><th>설명</th></tr></thead><tbody>${currentMeta.map((item) => `<tr class="${item.code === state.currentMetaCodeSelection ? "codex-table-selected" : ""}" data-meta-code-row="${item.code}"><td>${item.code}</td><td>${item.name}</td><td>${item.active ? "Y" : "N"}</td><td>${item.description || "-"}</td></tr>`).join("")}</tbody></table></div><div class="codex-stack"><div class="codex-panel"><h4>${currentMetaLabel()} 편집</h4><div class="codex-form-grid"><label><span>코드값</span><input id="metaCode" value="${selectedMeta?.code || getNextMetaCode(state.currentMetaSelection, currentMeta)}" ${selectedMeta ? "readonly" : ""}></label><label><span>사용여부</span><select id="metaActive"><option value="Y" ${selectedMeta?.active !== false ? "selected" : ""}>사용</option><option value="N" ${selectedMeta?.active === false ? "selected" : ""}>중지</option></select></label><label class="span-2"><span>코드명</span><input id="metaName" value="${selectedMeta?.name || ""}"></label><label class="span-2"><span>설명</span><textarea id="metaDesc" rows="4">${selectedMeta?.description || ""}</textarea></label></div><div class="codex-modal-actions"><button type="button" class="hr-btn btn-primary" id="metaSaveBtn">변경 예정 추가</button></div><div class="codex-note-box"><strong>적용 영향</strong>신규등록, 인사기록카드, 조직관리, 인사발령 입력값은 이 기준코드를 참조합니다.</div><div class="codex-note-box"><strong>현재 사용 현황</strong>현재 기준 ${selectedMetaUsage.currentCount}명 · 입사시 기준 ${selectedMetaUsage.hireCount}명</div></div><div class="codex-panel"><h4>${currentMetaLabel()} 변경 예정</h4>${renderPendingOrgPanel("meta-edit")}</div></div></div></div>`;
     }
     $$("[data-code-view]", panels.codes).forEach((button) => {
       button.classList.toggle("btn-primary", button.dataset.codeView === state.currentCodeView);
@@ -4481,7 +4481,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       : state.assignmentLandingTab === "deleted"
         ? `<div class="codex-panel"><table><thead><tr><th>일자</th><th>삭제 조직</th></tr></thead><tbody>${deletedRows || `<tr><td colspan="2">삭제 이력이 없습니다.</td></tr>`}</tbody></table></div>`
         : `<div class="codex-assignment-landing-grid"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>조직도</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(state.orgBlueprint, state.currentOrgNode, false, "landing")}</div></div><div class="codex-stack"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>부서 정보</h4><button type="button" class="hr-btn btn-primary" id="startAssignmentWizardBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>조직개편/인사발령</button></div><table><tbody>${infoRows.map((row) => `<tr><th>${row[0]}</th><td>${row[1]}</td></tr>`).join("")}</tbody></table></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>구성원 정보</h4><div class="codex-admin-selection-meta"><strong>${selected.label}</strong><span>검색 결과 ${selectedMembers.length}명</span></div></div><input class="hr-search-input" id="assignmentLandingSearch" value="${state.assignmentLandingSearch || ""}" placeholder="이름, ID 검색"><table><thead><tr><th>이름</th><th>ID</th><th>직위</th><th>재직 상태</th></tr></thead><tbody>${memberRows || `<tr><td colspan="4">구성원이 없습니다.</td></tr>`}</tbody></table></div></div></div>`;
-    panels.assignment.innerHTML = `<div class="codex-assignment-shell"><div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>조직 관리</h3><div style="font-size:11px;color:#9095b0">조직도, 조직개편/인사발령 이력, 삭제 조직 이력 조회</div></div></div>${tabs}<div class="codex-note-box" style="margin-top:16px"><strong>TIP</strong>조직개편/인사발령을 예약하면 해당 일자 기준으로 조직도와 인사정보가 함께 반영됩니다.</div><div style="margin-top:16px">${body}</div></div>`;
+    panels.assignment.innerHTML = `<div class="codex-assignment-shell" data-region="assignment-main"><div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7"><div><h3>조직 관리</h3><div style="font-size:11px;color:#9095b0">조직도, 조직개편/인사발령 이력, 삭제 조직 이력 조회</div></div></div>${tabs}<div class="codex-note-box" style="margin-top:16px"><strong>TIP</strong>조직개편/인사발령을 예약하면 해당 일자 기준으로 조직도와 인사정보가 함께 반영됩니다.</div><div style="margin-top:16px" data-region="assignment-landing">${body}</div></div>`;
   }
   function getCurrentAdminCategory() {
     const categories = getAdminCategoriesSource();
@@ -4879,6 +4879,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       </div>
     `).join("");
     panels.admin.innerHTML = `
+      <div data-region="admin-main">
       <div class="hr-table-header" style="padding:0 0 14px;border-bottom:1px solid #eef2f7">
         <div>
           <h3>관리자 권한 설정</h3>
@@ -5017,6 +5018,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
           ${expiringPanel}
           ${historyPanel}
         </div>
+      </div>
       </div>
     `;
   }
@@ -5631,7 +5633,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
     }));
   }
   function renderAssignmentStepOne(flow) {
-    panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">조직개편 및 인사발령일과 처리 방식을 입력합니다.</div></div><div class="codex-stepper"><span class="active">1단계</span><span>2단계</span><span>3단계</span></div></div><div class="codex-panel" style="margin-top:16px"><div class="codex-form-grid"><label><span>조직개편 및 인사발령일</span><input id="wizardChangeDate" value="${flow.changeDate}" placeholder="YYYY.MM.DD"></label><label><span>처리 방식</span><div class="codex-inline-radio"><label><input type="radio" name="wizardMode" value="auto" ${flow.mode === "auto" ? "checked" : ""}>자동</label><label><input type="radio" name="wizardMode" value="manual" ${flow.mode === "manual" ? "checked" : ""}>수동</label></div></label><div class="codex-note-box span-2"><strong>자동</strong>입력한 날짜에 조직도와 임직원 정보가 자동 업데이트됩니다.</div><div class="codex-note-box span-2"><strong>수동</strong>관리자가 완료 시점에 직접 확정합니다.</div></div></div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="cancelAssignmentWizardBtn">취소</button><button type="button" class="hr-btn btn-primary" id="assignmentNextStepBtn">다음 단계</button></div></div>`;
+    panels.assignment.innerHTML = `<div class="codex-assignment-wizard" data-region="assignment-main"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">조직개편 및 인사발령일과 처리 방식을 입력합니다.</div></div><div class="codex-stepper"><span class="active">1단계</span><span>2단계</span><span>3단계</span></div></div><div class="codex-panel" style="margin-top:16px" data-region="assignment-step1"><div class="codex-form-grid"><label><span>조직개편 및 인사발령일</span><input id="wizardChangeDate" value="${flow.changeDate}" placeholder="YYYY.MM.DD"></label><label><span>처리 방식</span><div class="codex-inline-radio"><label><input type="radio" name="wizardMode" value="auto" ${flow.mode === "auto" ? "checked" : ""}>자동</label><label><input type="radio" name="wizardMode" value="manual" ${flow.mode === "manual" ? "checked" : ""}>수동</label></div></label><div class="codex-note-box span-2"><strong>자동</strong>입력한 날짜에 조직도와 임직원 정보가 자동 업데이트됩니다.</div><div class="codex-note-box span-2"><strong>수동</strong>관리자가 완료 시점에 직접 확정합니다.</div></div></div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="cancelAssignmentWizardBtn">취소</button><button type="button" class="hr-btn btn-primary" id="assignmentNextStepBtn">다음 단계</button></div></div>`;
   }
   function renderOrgSummaryTable(flow) {
     const cancelCell = (type, sourceKey) => `<td class="codex-summary-action"><button type="button" class="codex-icon-btn codex-summary-trash" data-cancel-org-change="${type}" data-cancel-source="${sourceKey}" title="이 변경 취소">🗑</button></td>`;
@@ -5643,7 +5645,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
   function renderAssignmentStepTwo(flow) {
     const selectedAfter = getBlueprintRow(flow.orgDraft, flow.selectedAfterOrg) || null;
     const orgSummary = flow.orgSummary || { created: [], updated: [], deleted: [] };
-    panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">Before / After 조직을 비교하며 명칭 변경, 이동, 신설, 폐지를 편집합니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="active">2단계</span><span>3단계</span></div></div><div class="codex-note-box" style="margin-top:16px"><strong>현재 편집 요약</strong><br>신설 ${orgSummary.created.length}건 · 변경 ${orgSummary.updated.length}건 · 폐지 ${orgSummary.deleted.length}건${selectedAfter ? `<br>현재 선택 조직: ${getOrgRowPath(selectedAfter)}` : ""}</div><div class="codex-assignment-before-after"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>Before</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(state.orgBlueprint, flow.selectedBeforeOrg, false, "before")}</div></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>After</h4><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" data-org-add-under="${flow.selectedAfterOrg || "ROOT"}" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>추가</button><button type="button" class="hr-btn btn-outline" ${selectedAfter ? `data-org-edit="${flow.selectedAfterOrg}"` : "disabled"} ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>수정</button><button type="button" class="hr-btn btn-outline" ${selectedAfter ? `data-org-delete="${flow.selectedAfterOrg}"` : "disabled"} ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>삭제</button></div></div><div class="codex-assignment-tree-wrap is-after-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedAfterOrg, false, "after")}</div></div></div><div style="margin-top:16px">${renderOrgSummaryTable(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentOrgEditDoneBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentOrgNextStepBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>다음 단계</button></div></div></div>`;
+    panels.assignment.innerHTML = `<div class="codex-assignment-wizard" data-region="assignment-main"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">Before / After 조직을 비교하며 명칭 변경, 이동, 신설, 폐지를 편집합니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="active">2단계</span><span>3단계</span></div></div><div class="codex-note-box" style="margin-top:16px"><strong>현재 편집 요약</strong><br>신설 ${orgSummary.created.length}건 · 변경 ${orgSummary.updated.length}건 · 폐지 ${orgSummary.deleted.length}건${selectedAfter ? `<br>현재 선택 조직: ${getOrgRowPath(selectedAfter)}` : ""}</div><div class="codex-assignment-before-after" data-region="assignment-step2"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>Before</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(state.orgBlueprint, flow.selectedBeforeOrg, false, "before")}</div></div><div class="codex-panel"><div class="codex-assignment-section-head"><h4>After</h4><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" data-org-add-under="${flow.selectedAfterOrg || "ROOT"}" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>추가</button><button type="button" class="hr-btn btn-outline" ${selectedAfter ? `data-org-edit="${flow.selectedAfterOrg}"` : "disabled"} ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>수정</button><button type="button" class="hr-btn btn-outline" ${selectedAfter ? `data-org-delete="${flow.selectedAfterOrg}"` : "disabled"} ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>삭제</button></div></div><div class="codex-assignment-tree-wrap is-after-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedAfterOrg, false, "after")}</div></div></div><div style="margin-top:16px">${renderOrgSummaryTable(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentOrgEditDoneBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentOrgNextStepBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>다음 단계</button></div></div></div>`;
   }
   function renderPersonnelSummary(flow) {
     const actions = getActivePersonnelActions(flow).map((action) => {
@@ -5687,7 +5689,7 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
       const suggestionRows = suggestions.map((item) => `<button type="button" class="codex-org-suggest-item" data-personnel-org-pick="${employee.id}" data-personnel-org-key="${item.key}"><span>${item.path}</span></button>`).join("");
       return `<tr><td><button type="button" class="codex-icon-btn" data-personnel-remove="${employee.id}" title="목록에서 제외">🗑</button></td><td>${beforeEmployee.name}</td><td>${beforeEmployee.id}</td><td>${employeePath(beforeEmployee)}</td><td>${beforeEmployee.title}</td><td>${beforeEmployee.grade}</td><td><div class="codex-assignment-type-cell">${buildPersonnelTypeOptions(employee.id, action)}</div></td><td><div class="codex-assignment-target-cell"><div class="codex-org-suggest-field"><input data-personnel-org-text="${employee.id}" data-personnel-org-default="${getPersonnelTargetPath(flow, action)}" value="${getPersonnelInputValue(flow, action)}" placeholder="발령 후 조직 검색"><div class="codex-org-suggest-list ${suggestionRows ? "is-open" : ""}">${suggestionRows || ""}</div></div></div></td><td><div class="codex-assignment-select-cell"><select data-personnel-title="${employee.id}">${titleCodes.map((item) => `<option value="${item}" ${item === action.targetTitle ? "selected" : ""}>${item}</option>`).join("")}</select></div></td><td><div class="codex-assignment-select-cell"><select data-personnel-grade="${employee.id}">${gradeCodes.map((item) => `<option value="${item}" ${item === (action.targetGrade || beforeEmployee.grade) ? "selected" : ""}>${item}</option>`).join("")}</select></div></td><td><div class="codex-assignment-note-cell"><input data-personnel-note="${employee.id}" value="${action.note || ""}" placeholder="비고"></div></td></tr>`;
     }).join("");
-    panels.assignment.innerHTML = `<div class="codex-assignment-wizard"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">변동 조직 인원은 자동 반영되고, 필요한 인원은 좌측 조직도에서 추가할 수 있습니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="done">2단계</span><span class="active">3단계</span></div></div><div class="codex-note-box" style="margin-top:16px"><strong>현재 편집 요약</strong><br>발령 대상 ${activeActions.length}명 · 검색 후보 ${pickerMembers.length}명${Object.keys(actionTypeSummary).length ? `<br>${Object.entries(actionTypeSummary).map(([type, count]) => `${type} ${count}건`).join(" · ")}` : ""}</div><div class="codex-assignment-before-after codex-assignment-stage3-layout"><div class="codex-assignment-stage3-sidebar"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>조직도</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT", false, "personnel")}</div></div><div class="codex-panel codex-assignment-stage3-picker-panel"><div class="codex-assignment-section-head"><h4>구성원 선택</h4><button type="button" class="hr-btn btn-outline" id="personnelAddSelectedBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>선택 추가</button></div><div class="codex-assignment-stage3-meta"><div class="codex-admin-selection-meta"><strong>${flow.selectedPersonnelOrg === "ROOT" ? "오토플러스" : (getBlueprintRow(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT") ? getOrgRowPath(getBlueprintRow(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT")) : "오토플러스")}</strong><span>검색 결과 ${pickerMembers.length}명</span></div></div><input class="hr-search-input" id="personnelSearchInput" value="${flow.personnelSearch || ""}" placeholder="이름, ID 검색"><div class="codex-personnel-picker">${pickerRows || `<div class="codex-note-box">해당 조직에 구성원이 없습니다.</div>`}</div></div></div><div class="codex-panel codex-assignment-stage3-main"><div class="codex-assignment-section-head"><h4>구성원 정보</h4><div class="codex-assignment-stage3-main-hint">처리 유형을 선택한 뒤 발령 후 조직, 직책, 직급, 비고를 입력합니다.</div></div><div class="codex-assignment-table-wrap"><table class="codex-assignment-member-table"><thead><tr><th></th><th>이름</th><th>ID</th><th>발령 전 조직</th><th>발령 전 직책</th><th>발령 전 직급</th><th>처리 유형</th><th>발령 후 조직</th><th>발령 후 직책</th><th>발령 후 직급</th><th>비고</th></tr></thead><tbody>${memberRows || `<tr><td colspan="11">발령 대상자가 없습니다.</td></tr>`}</tbody></table></div></div></div><div style="margin-top:16px">${renderPersonnelSummary(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentPersonnelDoneBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentFinishBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>완료</button></div></div></div>`;
+    panels.assignment.innerHTML = `<div class="codex-assignment-wizard" data-region="assignment-main"><div class="codex-assignment-wizard-head"><div><h3>조직개편 및 인사발령</h3><div class="codex-assignment-sub">변동 조직 인원은 자동 반영되고, 필요한 인원은 좌측 조직도에서 추가할 수 있습니다.</div></div><div class="codex-stepper"><span class="done">1단계</span><span class="done">2단계</span><span class="active">3단계</span></div></div><div class="codex-note-box" style="margin-top:16px"><strong>현재 편집 요약</strong><br>발령 대상 ${activeActions.length}명 · 검색 후보 ${pickerMembers.length}명${Object.keys(actionTypeSummary).length ? `<br>${Object.entries(actionTypeSummary).map(([type, count]) => `${type} ${count}건`).join(" · ")}` : ""}</div><div class="codex-assignment-before-after codex-assignment-stage3-layout" data-region="assignment-step3"><div class="codex-assignment-stage3-sidebar"><div class="codex-panel"><div class="codex-assignment-section-head"><h4>조직도</h4><div></div></div><div class="codex-assignment-tree-wrap">${buildTreeFromBlueprint(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT", false, "personnel")}</div></div><div class="codex-panel codex-assignment-stage3-picker-panel"><div class="codex-assignment-section-head"><h4>구성원 선택</h4><button type="button" class="hr-btn btn-outline" id="personnelAddSelectedBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>선택 추가</button></div><div class="codex-assignment-stage3-meta"><div class="codex-admin-selection-meta"><strong>${flow.selectedPersonnelOrg === "ROOT" ? "오토플러스" : (getBlueprintRow(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT") ? getOrgRowPath(getBlueprintRow(flow.orgDraft, flow.selectedPersonnelOrg || "ROOT")) : "오토플러스")}</strong><span>검색 결과 ${pickerMembers.length}명</span></div></div><input class="hr-search-input" id="personnelSearchInput" value="${flow.personnelSearch || ""}" placeholder="이름, ID 검색"><div class="codex-personnel-picker">${pickerRows || `<div class="codex-note-box">해당 조직에 구성원이 없습니다.</div>`}</div></div></div><div class="codex-panel codex-assignment-stage3-main"><div class="codex-assignment-section-head"><h4>구성원 정보</h4><div class="codex-assignment-stage3-main-hint">처리 유형을 선택한 뒤 발령 후 조직, 직책, 직급, 비고를 입력합니다.</div></div><div class="codex-assignment-table-wrap"><table class="codex-assignment-member-table"><thead><tr><th></th><th>이름</th><th>ID</th><th>발령 전 조직</th><th>발령 전 직책</th><th>발령 전 직급</th><th>처리 유형</th><th>발령 후 조직</th><th>발령 후 직책</th><th>발령 후 직급</th><th>비고</th></tr></thead><tbody>${memberRows || `<tr><td colspan="11">발령 대상자가 없습니다.</td></tr>`}</tbody></table></div></div></div><div style="margin-top:16px">${renderPersonnelSummary(flow)}</div><div class="codex-assignment-footer"><button type="button" class="hr-btn btn-outline" id="assignmentPrevStepBtn">이전 단계</button><div class="codex-inline-actions"><button type="button" class="hr-btn btn-outline" id="assignmentPersonnelDoneBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>편집 완료</button><button type="button" class="hr-btn btn-primary" id="assignmentFinishBtn" ${hasCurrentPermission("assignment_execute") ? "" : "disabled"}>완료</button></div></div></div>`;
   }
   function openOrgEditModal(mode, orgKey = "ROOT") {
     const flow = ensureAssignmentFlow();
@@ -6548,284 +6550,53 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
     }, true);
   }
   function renderNotesByView() {
-    if (typeof annotations === "undefined" || !refs.annoList || state.currentSystem !== 1) return;
-    const map = { directory: ["topbar", "sidebar", "searchbar", "stats", "emptable", "pagetitle"], record: ["topbar", "sidebar", "pagetitle", "hrcard"], org: ["topbar", "sidebar", "pagetitle", "orgchart"], codes: ["topbar", "sidebar", "pagetitle"], assignment: ["topbar", "sidebar", "pagetitle"], admin: ["topbar", "sidebar", "pagetitle"] };
-    const currentRegions = map[state.currentHrView] || ["topbar", "sidebar", "pagetitle"];
-    const base = (annotations[1] || []).filter((item) => currentRegions.includes(item.region));
-    const overrides = {
-      directory: {
-        topbar: {
-          title: "상단 공통 프레임",
-          desc: "인사시스템 전체 공통 프레임으로 시스템명, 최상위 메뉴, 사용자 진입점을 제공한다.",
-          detail: [["주요 기능", "시스템 레벨 메뉴 전환, 현재 위치 인지, 우측 사용자 액션 노출"], ["연계", "사원정보관리 / 인사기록카드 / 조직도 / 발령·이동 / 보고서"], ["개발 포인트", "화면 전환 시 활성 메뉴 유지, 공통 버튼 충돌 방지"]]
-        },
-        sidebar: {
-          title: "2차 업무 메뉴",
-          desc: "현재 도메인 내 세부 기능 진입 영역이다. 화면에 따라 보이는 메뉴 구성이 달라질 수 있다.",
-          detail: [["주요 기능", "사원명부, 인사기록카드, 조직도, 발령입력, 코드관리 이동"], ["연계", "선택 화면의 본문 렌더 및 상단 버튼 구성"], ["개발 포인트", "현재 화면 하이라이트, 미구현 메뉴 숨김 처리 기준 정의"]]
-        },
-        searchbar: {
-          title: "사원 검색 및 조건 필터",
-          desc: "사원명부 조회 조건 입력 영역으로 검색어와 조건값에 따라 하단 목록이 즉시 갱신된다.",
-          detail: [["입력 데이터", "통합검색어, 입사일/퇴사일 기간, 부서 다중토큰, 직급 다중토큰, 재직상태"], ["처리 로직", "기본 목록은 퇴직 제외, 재직상태를 퇴직으로 선택한 경우에만 퇴직자 검색 포함, 날짜는 불완전 입력값 자동완성"], ["연계", "사원명부 테이블, 통계 카드, 기본정보 팝업"], ["검토 포인트", "토큰 입력/추천검색어/퇴직상태 선택 후 결과 건수가 정확해야 함"]]
-        },
-        stats: {
-          title: "인사 현황 요약 통계",
-          desc: "전체 인원, 재직, 휴직, 신규입사 수치를 요약하고 클릭 시 상세 대상자 팝업을 연다.",
-          detail: [["주요 기능", "카드 클릭 시 상세 팝업, 대상자 선택, 기본정보 팝업 진입"], ["처리 로직", "사원 등록/수정/발령 반영 후 수치 즉시 재계산"], ["연계", "휴직 팝업, 신규입사 기간 필터, 인사기록카드"], ["검토 포인트", "현재 기준/기간 기준 대상자와 카드 수치가 일치해야 함"]]
-        },
-        emptable: {
-          title: "사원명부 조회 결과",
-          desc: "조건에 맞는 사원 목록을 보여주며 성명/사번은 기본정보 팝업, 상세보기는 인사기록카드로 연결된다.",
-          detail: [["주요 기능", "행 선택, 기본정보 팝업, 인사기록카드 상세 이동"], ["표시 데이터", "사번, 성명, 조직, 직급, 재직상태, 입사일"], ["연계", "신규등록, 기록카드 수정, 발령입력 반영 결과 즉시 반영"], ["검토 포인트", "저장 후 목록 재렌더와 클릭 동작이 유지되는지 확인"]]
-        },
-        pagetitle: {
-          title: "사원명부 화면 액션",
-          desc: "사원명부 전용 주요 작업 버튼 영역이다. 현재는 신규 등록과 엑셀 내보내기 흐름을 포함한다.",
-          detail: [["주요 기능", "신규등록 팝업, 내보내기 액션"], ["연계", "신규등록 저장 후 명부/통계/조직도/기록카드 동기화"], ["개발 포인트", "이 화면에서만 신규등록 노출, 타 화면에서는 버튼 구성이 달라야 함"]]
-        }
-      },
-      record: {
-        topbar: {
-          title: "상단 공통 프레임",
-          desc: "기록카드 화면도 동일한 공통 프레임을 사용하므로 도메인 전환 후 선택 사원 정보가 유지되어야 한다.",
-          detail: [["연계", "사원명부에서 넘어온 선택 사원 유지"], ["검토 포인트", "기록카드에서 다른 화면 이동 후 복귀 시 선택 대상 유지 여부"]]
-        },
-        sidebar: {
-          title: "기록카드 관련 세부 메뉴",
-          desc: "사원명부에서 상세보기로 진입한 뒤에도 좌측 메뉴를 통해 다른 HR 화면으로 이동할 수 있다.",
-          detail: [["주요 기능", "사원명부, 인사기록카드, 조직도, 발령입력, 코드관리 이동"], ["연계", "현재 선택 사원 유지"], ["검토 포인트", "기록카드 수정 후 다른 메뉴 이동 시 저장 반영 여부"]]
-        },
-        pagetitle: {
-          title: "기록카드 전용 액션",
-          desc: "인사기록카드 전용 상단 작업 영역이다. 선택한 사원을 기준으로만 동작해야 한다.",
-          detail: [["주요 기능", "기록카드 수정, 화면별 보조 액션"], ["연계", "수정 팝업 저장 후 명부/조직도/통계 동기화"], ["개발 포인트", "사원 미선택 상태 방어, 버튼 노출 조건 분리"]]
-        },
-        hrcard: {
-          title: "인사기록카드 본문",
-          desc: "기본 인사정보와 이력성 데이터를 통합 조회하는 상세 화면이다. 상단은 기본 정보, 하단은 학력/경력/가족/자격/상벌/승급/발령/교육 이력으로 구성된다.",
-          detail: [["표시 데이터", "기본정보, 신상정보, 입사정보, 조직정보, 이력성 항목 전체"], ["처리 로직", "이력 항목은 상세보기 팝업과 수정 팝업에서 동일 데이터셋 사용"], ["연계", "사원명부 상세보기, 기본정보 팝업의 인사기록카드 버튼, 발령입력 자동 이력"], ["검토 포인트", "신규등록 시 비어야 하는 이력과 발령 기반 자동 생성 이력이 구분되는지 확인"]]
-        }
-      },
-      org: {
-        topbar: {
-          title: "상단 공통 프레임",
-          desc: "조직도 화면도 공통 프레임을 사용하며 조직 선택 상태와 검색 상태가 우측 콘텐츠에 영향을 준다.",
-          detail: [["연계", "전역 메뉴 전환 후 조직도 복귀 시 선택 조직 유지"], ["검토 포인트", "조직 선택 상태와 검색어 유지 정책 확인"]]
-        },
-        sidebar: {
-          title: "조직 관련 세부 메뉴",
-          desc: "조직도는 좌측 업무 메뉴와 조직 트리 두 개의 내비게이션을 동시에 사용한다.",
-          detail: [["주요 기능", "업무 메뉴 이동 + 조직 트리 탐색"], ["연계", "발령입력, 코드관리"], ["검토 포인트", "업무 메뉴와 조직 트리 선택 상태가 서로 충돌하지 않아야 함"]]
-        },
-        pagetitle: {
-          title: "조직도 전용 액션",
-          desc: "조직도 화면 상단 작업 영역으로 조직도 조회 전용 동작만 노출되어야 한다.",
-          detail: [["주요 기능", "조직도 조회 보조 액션"], ["개발 포인트", "사원명부용 신규등록 버튼이 이 화면에 노출되지 않아야 함"], ["검토 포인트", "화면별 버튼 분기 정확성 확인"]]
-        },
-        orgchart: {
-          title: "조직 트리 및 배치 현황",
-          desc: "좌측 조직 트리와 우측 선택 조직 구성원 패널로 이루어진 탐색형 조직도 화면이다.",
-          detail: [["주요 기능", "조직 선택, +/− 펼침, 하위조직 ON/OFF, 검색, 기본정보 팝업"], ["처리 로직", "좌측 선택 시 우측 조직 범위 재계산, 선택 조직은 좌측 스크롤 상단 근처로 정렬"], ["연계", "사원 기본정보 팝업, 인사기록카드, 발령입력 반영 결과"], ["검토 포인트", "ROOT 선택 시 전체 조직이 표시되는지, 하위조직 OFF 시 선택 조직만 보이는지 확인"]]
-        }
-      },
-      codes: {
-        topbar: {
-          title: "상단 공통 프레임",
-          desc: "코드관리도 공통 프레임 안에서 동작하며, 운영 기준코드의 진입 화면 역할을 한다.",
-          detail: [["연계", "조직도, 신규등록, 기록카드 수정, 발령입력"], ["검토 포인트", "기준코드 변경이 입력 화면에 재반영되는지 확인"]]
-        },
-        sidebar: {
-          title: "코드관리 관련 세부 메뉴",
-          desc: "코드관리 진입용 사이드 메뉴이다. 조직/직급/직책/직군/직원유형 기준 흐름과 연결된다.",
-          detail: [["주요 기능", "코드관리 화면 진입"], ["연계", "조직도, 신규등록, 기록카드 수정 드롭다운"], ["검토 포인트", "코드 저장 후 참조 화면 재렌더 여부"]]
-        },
-        pagetitle: {
-          title: "코드관리 진입 및 수정 액션",
-          desc: "코드 현황 중심 화면에서 조직코드 수정, 레벨관리, 기준코드 수정을 진입시키는 상단 작업 영역이다.",
-          detail: [["주요 기능", "현황 조회, 수정화면 진입"], ["처리 로직", "코드 수정 후 관련 드롭다운과 조직도 프리뷰 갱신"], ["검토 포인트", "조직코드와 메타코드의 영향 범위가 문서화되어야 함"]]
-        }
-      },
-      assignment: {
-        topbar: {
-          title: "조직관리 공통 프레임",
-          desc: "조직개편 및 인사발령은 단계형 편집 흐름이므로 현재 단계, 편집 상태, 완료 시점이 명확하게 보여야 한다.",
-          detail: [["주요 기능", "조직관리 메인, 3단계 위저드, 이력 조회 화면 공통 프레임"], ["연계", "조직도, 코드관리, 사원명부, 인사기록카드"], ["검토 포인트", "단계 전환 후 편집 상태와 임시데이터가 유실되지 않아야 함"]]
-        },
-        sidebar: {
-          title: "조직/인사처리 진입 메뉴",
-          desc: "조직 관리, 인사발령, 코드관리 등 상호 의존 기능으로 이동하는 영역이다.",
-          detail: [["주요 기능", "조직관리 진입, 다른 HR 기능과의 왕복"], ["연계", "조직도, 코드관리, 인사기록카드"], ["검토 포인트", "조직개편 중 다른 화면으로 이동했다 복귀해도 상태 정책이 명확해야 함"]]
-        },
-        pagetitle: {
-          title: "조직개편/인사발령 메인 액션",
-          desc: "메인 화면에서 조직개편/인사발령 위저드를 시작하고, 단계별 완료 버튼으로 흐름을 진행한다.",
-          detail: [["주요 기능", "위저드 시작, 단계별 다음/이전, 편집완료, 최종 완료"], ["처리 로직", "최종 완료 시 조직도/사원정보/코드관리/이력 전부 갱신"], ["검토 포인트", "중간 단계 저장 전에는 본 데이터와 임시데이터가 분리되어야 함"]]
-        }
-      },
-      admin: {
-        topbar: {
-          title: "상단 공통 프레임",
-          desc: "관리자 권한 설정 화면도 공통 프레임 안에서 동작하며, 관리자 범주를 바꿔도 현재 시스템 컨텍스트는 유지되어야 한다.",
-          detail: [["연계", "사원정보관리, 조직관리, 코드관리와 같은 운영 화면과 동일한 공통 헤더 사용"], ["검토 포인트", "관리자 화면 진입/복귀 시 현재 시스템 상태와 사용자 영역 표시가 흔들리지 않아야 함"]]
-        },
-        sidebar: {
-          title: "관리자 기능 진입 메뉴",
-          desc: "좌측 사이드 메뉴에서 관리자 권한 설정 화면으로 진입하며, 현재 단계에서 불필요한 통계 메뉴는 숨김 처리되어야 한다.",
-          detail: [["주요 기능", "사원명부, 조직도, 조직관리, 코드관리, 관리자 권한 설정 이동"], ["연계", "권한 설정 결과는 메뉴/기능 접근 제어 기준으로 사용"], ["검토 포인트", "불필요 메뉴 비노출, 관리자 메뉴 활성 하이라이트 정확성 확인"]]
-        },
-        pagetitle: {
-          title: "관리자 권한 설정 본문",
-          desc: "전체관리자와 기능별 관리자 목록을 관리하고, 메뉴/기능별 접근 권한을 설정하는 운영 화면이다.",
-          detail: [["주요 기능", "관리자 추가/삭제, 분류별 관리자 전환, 권한 체크박스 설정"], ["표시 데이터", "이름, 아이디, 소속, 등록일, 권한 그룹"], ["연계", "향후 메뉴별 접근 제어, 시스템 운영 권한 관리"], ["검토 포인트", "카테고리 전환, 관리자 선택, 권한 수정이 한 화면에서 자연스럽게 이어져야 함"]]
-        }
-      }
-    };
-    const filtered = base.map((item) => ({ ...item, ...(overrides[state.currentHrView]?.[item.region] || {}) }));
-    const extras = {
+    if (!refs.annoList || state.currentSystem !== 1) return;
+    const notesByView = {
       directory: [
-        {
-          num: "08",
-          region: "emptable",
-          title: "성명/사번 클릭 기본정보 팝업",
-          desc: "사원명부에서 성명 또는 사번 클릭 시 전체 화면 이동 없이 기본정보 팝업이 열려야 한다.",
-          detail: [
-            ["주요 기능", "작은 상세 팝업에서 연락처, 이메일, 입사일, 사번, 주소, 휴직정보 조회"],
-            ["연계", "우측 상단 인사기록카드 버튼으로 전체 기록카드 이동"],
-            ["검토 포인트", "상세보기 버튼과 동작이 달라야 하며, 명부 화면 작업 흐름이 끊기지 않아야 함"]
-          ],
-          tag: "action",
-          tagLabel: "팝업/연계"
-        },
-        {
-          num: "09",
-          region: "stats",
-          title: "통계 상세 대상자 팝업",
-          desc: "휴직 중, 신규 입사 카드를 누르면 대상자 목록 팝업이 열리고 대상자 클릭 시 기본정보 팝업으로 이어져야 한다.",
-          detail: [
-            ["주요 기능", "현재기준/기간기준 대상자 목록 조회, 대상자 선택"],
-            ["연계", "기본정보 팝업, 인사기록카드, 휴직/입사 기간 필터"],
-            ["검토 포인트", "카드 숫자와 팝업 대상자 수가 일치해야 함"]
-          ],
-          tag: "action",
-          tagLabel: "팝업/연계"
-        }
+        { num: "01", region: "topbar", title: "상단 공통 프레임", desc: "시스템 전환, 현재 위치 표시, 우측 운영 사용자 진입점을 담당하는 전역 공통 영역이다.", detail: [["주요 기능", "상위 시스템 탭 전환, 현재 시스템 유지, 우측 사용자 액션"], ["연계 화면", "사원명부 / 인사기록카드 / 조직도 / 조직관리 / 코드관리 / 관리자권한"], ["기준정보", "state.currentSystem, state.currentHrView"], ["검토 포인트", "화면 전환 후 활성 상태와 우측 사용자 진입이 흔들리지 않아야 한다."]], tag: "nav", tagLabel: "공통" },
+        { num: "02", region: "sidebar", title: "좌측 업무 메뉴", desc: "현재 HR 도메인에서 이동 가능한 2차 메뉴이며 권한에 따라 노출/비노출이 달라진다.", detail: [["주요 기능", "사원명부, 인사기록카드, 조직도, 조직관리, 코드관리, 관리자권한 이동"], ["처리 로직", "showHrView(view) 호출로 화면 전환, 권한 불가 시 fallback view로 이동"], ["연계 화면", "모든 HR 본문 렌더러"], ["기준정보", "canAccessView(), state.currentHrView"], ["검토 포인트", "권한별 메뉴 노출과 현재 메뉴 하이라이트가 일치해야 한다."]], tag: "nav", tagLabel: "메뉴" },
+        { num: "03", region: "pagetitle", title: "사원명부 상단 액션", desc: "사원명부 전용 상단 작업영역으로 신규 등록과 엑셀 일괄 등록을 제공한다.", detail: [["주요 기능", "신규 등록 팝업, 엑셀 양식 다운로드/일괄 업로드"], ["처리 로직", "updatePrimaryAction('directory')에서 버튼 라벨/노출을 결정"], ["연계 화면", "신규등록 팝업, 일괄등록 모달, 명부/통계/조직도/기록카드 동기화"], ["기준정보", "employee_create 권한, batchImportColumns, buildEmployeeFromInput()"], ["검토 포인트", "설명문과 실제 버튼 문구가 항상 같아야 한다."]], tag: "action", tagLabel: "상단 액션" },
+        { num: "04", region: "searchbar", title: "사원 검색 및 상세 필터", desc: "통합검색과 다중 조건 필터를 조합해 사원명부 대상을 계산하는 입력 영역이다.", detail: [["입력 데이터", "통합검색어, 입사/퇴사일 범위, 부서 토큰, 직급 토큰, 재직상태"], ["처리 로직", "renderDirectorySearchBar()와 검색 state를 기반으로 테이블/통계 동시 재계산"], ["연계 화면", "사원명부, 통계 카드, 기본정보 팝업"], ["기준정보", "state.directorySearchText, directoryDept, directoryGrade, directoryStatus"], ["검토 포인트", "토큰 추천/날짜 자동완성/퇴직자 포함 규칙이 주석과 동일해야 한다."]], tag: "search", tagLabel: "검색/필터" },
+        { num: "05", region: "stats", title: "인사 현황 요약 통계", desc: "현재 조회 가능 범위의 재직/휴직/입퇴사 현황을 요약하고 상세 팝업으로 연결한다.", detail: [["주요 기능", "전체/재직/휴직/입퇴사 수치 표시, 상세 대상자 팝업"], ["처리 로직", "renderStats()에서 권한 필터를 거친 visibleEmployees 기준 집계"], ["연계 화면", "휴직 통계 팝업, 입퇴사 팝업, 기본정보 팝업, 인사기록카드"], ["기준정보", "getCurrentDirectoryAccessibleEmployees(), getLeaveStatEmployees(), getHireStatEmployees()"], ["검토 포인트", "카드 숫자와 팝업 대상자 수가 동일해야 한다."]], tag: "view", tagLabel: "집계" },
+        { num: "06", region: "emptable", title: "사원명부 결과 테이블", desc: "검색 결과를 보여주며, 행의 진입점에 따라 기본정보 팝업 또는 인사기록카드로 연결된다.", detail: [["주요 기능", "목록 조회, 정렬/재렌더, 성명/사번 클릭 기본정보 팝업, 상세보기 클릭 기록카드 이동"], ["표시 데이터", "사번, 성명, 조직, 직급, 재직상태, 입사일"], ["연계 화면", "기본정보 팝업, 인사기록카드, 수정 저장 후 목록 즉시 반영"], ["기준정보", "selected employee id, current accessible employees"], ["검토 포인트", "같은 영역 안에 두 개의 진입 경로가 있다는 점이 설명에 분명해야 한다."]], tag: "view", tagLabel: "목록" }
       ],
       record: [
-        {
-          num: "06",
-          region: "hrcard",
-          title: "이력 항목 상세보기 팝업",
-          desc: "학력, 경력, 가족, 자격, 상벌, 승급, 발령, 교육 구역의 상세보기는 별도 팝업으로 전체 이력을 보여줘야 한다.",
-          detail: [
-            ["주요 기능", "본문은 요약/스크롤, 팝업은 전체 행 확인"],
-            ["연계", "기록카드 수정 팝업의 동일 데이터셋 사용"],
-            ["검토 포인트", "본문 요약과 상세 팝업 내용이 불일치하면 안 됨"]
-          ],
-          tag: "view",
-          tagLabel: "상세 팝업"
-        },
-        {
-          num: "07",
-          region: "pagetitle",
-          title: "기록카드 수정 팝업",
-          desc: "기록카드 수정 버튼 클릭 시 기본정보와 이력성 데이터를 수정하는 팝업이 열려야 한다.",
-          detail: [
-            ["주요 기능", "기본정보 수정, 다건 이력 행 추가/삭제, 저장"],
-            ["연계", "사원명부, 조직도, 통계, 발령 이력"],
-            ["검토 포인트", "신규등록에서 비워야 하는 항목과 수정에서만 관리하는 항목 구분"]
-          ],
-          tag: "input",
-          tagLabel: "수정 팝업"
-        }
+        { num: "01", region: "topbar", title: "상단 공통 프레임", desc: "기록카드 화면에서도 전역 프레임은 동일하며, 선택 사원 컨텍스트를 유지한 채 다른 화면으로 이동해야 한다.", detail: [["연계 화면", "사원명부에서 넘어온 선택 사원 유지"], ["기준정보", "state.selectedId, canCurrentAccessEmployeeRecord()"], ["검토 포인트", "권한이 없는 사원 선택 시 접근 가능한 첫 대상자로 안전하게 대체되어야 한다."]], tag: "nav", tagLabel: "공통" },
+        { num: "02", region: "sidebar", title: "기록카드 관련 메뉴", desc: "기록카드 진입 이후에도 다른 HR 화면으로 이동할 수 있으며, 현재 선택 사원 컨텍스트가 후속 화면과 맞물린다.", detail: [["주요 기능", "사원명부/조직도/조직관리/코드관리로 이동"], ["연계 화면", "선택 사원 유지, 기본정보 팝업의 기록카드 버튼"], ["검토 포인트", "복귀 시 선택 사원과 현재 탭 상태가 불필요하게 초기화되지 않아야 한다."]], tag: "nav", tagLabel: "메뉴" },
+        { num: "03", region: "pagetitle", title: "기록카드 상단 액션", desc: "기록카드 상단에서는 수정과 인쇄를 제공하며, 둘 다 현재 선택 사원과 권한 상태를 기준으로 노출된다.", detail: [["주요 기능", "기록카드 수정, 인쇄"], ["처리 로직", "MutationObserver로 상단 액션 버튼을 주입하고 record 화면에서만 노출"], ["연계 화면", "수정 팝업, 인쇄 뷰"], ["기준정보", "employee_edit 권한, canCurrentAccessEmployeeRecord(), selectedEmployee()"], ["검토 포인트", "주석 설명에 인쇄 기능이 빠지지 않아야 한다."]], tag: "action", tagLabel: "상단 액션" },
+        { num: "04", region: "hrcard", title: "인사기록카드 본문", desc: "기본정보, 신상정보, 입사정보와 이력성 데이터를 통합 조회하는 핵심 본문이다.", detail: [["표시 데이터", "기본정보, 입사정보, 신상정보, 학력/경력/가족/자격/상벌/승급/발령/교육/휴직"], ["처리 로직", "요약 본문과 상세 팝업이 동일 데이터셋을 참조"], ["연계 화면", "기록카드 상세 팝업, 수정 팝업, 발령 반영 이력"], ["기준정보", "focusSections, previewGrid(), getAssignmentEntries(), hireEmployeePath()"], ["검토 포인트", "입사시 소속은 텍스트 스냅샷 기준으로 유지된다는 점을 문서화해야 한다."]], tag: "view", tagLabel: "본문" },
+        { num: "05", region: "hrcard", title: "이력 상세보기/수정 연계", desc: "본문 요약에서 부족한 내용은 상세 팝업으로, 변경은 수정 팝업으로 이어지는 다층 구조다.", detail: [["주요 기능", "상세보기 팝업, 수정 팝업, 저장 후 즉시 재렌더"], ["연계 화면", "사원명부, 조직도, 통계, 발령이력"], ["기준정보", "openRecordDetailModal(), fillEditForm(), saveEdit()"], ["검토 포인트", "요약/상세/수정이 서로 다른 데이터를 보면 안 된다."]], tag: "input", tagLabel: "팝업 연계" }
       ],
       org: [
-        {
-          num: "06",
-          region: "orgchart",
-          title: "조직도 인원 카드 기본정보 팝업",
-          desc: "조직도 우측 인원 카드 클릭 시 현재 화면을 유지한 채 기본정보 팝업이 열려야 한다.",
-          detail: [
-            ["주요 기능", "조직 배치 인원의 기본 프로필 조회"],
-            ["연계", "기본정보 팝업, 인사기록카드 버튼"],
-            ["검토 포인트", "조직 탐색 상태를 유지한 채 팝업만 열려야 함"]
-          ],
-          tag: "action",
-          tagLabel: "팝업/연계"
-        }
-      ]
-      ,
+        { num: "01", region: "topbar", title: "상단 공통 프레임", desc: "조직도 화면도 공통 프레임을 사용하며 조직 탐색 상태는 본문과만 연동된다.", detail: [["연계 화면", "조직도 복귀 시 선택 조직 유지"], ["기준정보", "state.currentOrgNode, state.orgSearch, state.orgIncludeChildren"], ["검토 포인트", "전역 메뉴와 조직 트리 선택 상태가 충돌하지 않아야 한다."]], tag: "nav", tagLabel: "공통" },
+        { num: "02", region: "sidebar", title: "조직 관련 메뉴", desc: "조직도 화면으로의 진입/이탈 메뉴이며 발령 및 코드관리와 연관성이 높다.", detail: [["주요 기능", "조직도, 조직관리, 코드관리 이동"], ["연계 화면", "조직도에서 조직관리로 넘어갈 때 조직 컨텍스트 해석"], ["검토 포인트", "업무 메뉴와 좌측 조직 트리의 역할이 설명상 명확히 구분돼야 한다."]], tag: "nav", tagLabel: "메뉴" },
+        { num: "03", region: "pagetitle", title: "조직도 화면 타이틀", desc: "조직도 화면의 설명/액션 영역으로, 사원명부 전용 버튼이 섞여 나오지 않아야 한다.", detail: [["처리 로직", "showHrView('org')와 updatePrimaryAction()의 분기 결과"], ["검토 포인트", "사원명부 버튼이 조직도에 노출되지 않는다는 점을 주석에 유지"]], tag: "action", tagLabel: "상단 상태" },
+        { num: "04", region: "orgchart", title: "조직 트리 및 우측 조직 상세", desc: "좌측 트리 탐색과 우측 조직별 인원/검색/기본정보 팝업이 한 영역 안에서 동작한다.", detail: [["주요 기능", "조직 선택, 펼침/접힘, 하위조직 포함 ON/OFF, 조직별 검색, 인원 카드 클릭"], ["처리 로직", "renderOrgBoard()가 선택 조직과 검색어를 기준으로 우측 결과를 재계산"], ["연계 화면", "사원 기본정보 팝업, 인사기록카드 이동"], ["기준정보", "buildOrgExplorerData(), currentOrgNode, orgIncludeChildren, orgSearch"], ["검토 포인트", "ROOT/하위조직 OFF/검색 조합별 표시 범위가 설명과 같아야 한다."]], tag: "view", tagLabel: "탐색" }
+      ],
+      codes: [
+        { num: "01", region: "topbar", title: "상단 공통 프레임", desc: "코드관리는 운영 기준정보 관리 화면이므로 공통 프레임 안에서 다른 HR 화면과 연결된다.", detail: [["연계 화면", "신규등록, 기록카드 수정, 조직관리, 발령입력"], ["검토 포인트", "기준코드 변경 영향 범위가 주석에 빠지지 않아야 한다."]], tag: "nav", tagLabel: "공통" },
+        { num: "02", region: "sidebar", title: "코드관리 진입 메뉴", desc: "코드관리로 진입하는 메뉴이자 운영 기준정보 화면으로 이동하는 관문이다.", detail: [["주요 기능", "코드관리 화면 진입"], ["연계 화면", "조직도, 조직관리, 신규등록/수정 폼 드롭다운"], ["검토 포인트", "권한 및 메뉴 노출 기준이 문서화되어야 한다."]], tag: "nav", tagLabel: "메뉴" },
+        { num: "03", region: "pagetitle", title: "코드관리 상단 액션", desc: "코드 현황/조직코드 수정/레벨관리/기준코드 수정/변경이력으로 뷰를 전환하는 스위처다.", detail: [["주요 기능", "하위 관리 화면 전환"], ["처리 로직", "state.currentCodeView 변경 후 renderCodes()와 renderNotesByView() 재호출"], ["기준정보", "currentCodeView"], ["검토 포인트", "주석도 현재 서브뷰에 맞춰 내용이 바뀌어야 한다."]], tag: "action", tagLabel: "뷰 전환" },
+        { num: "04", region: "codes-main", title: "코드관리 본문", desc: "조직코드, 레벨, 메타코드, 변경예정, 변경이력까지 모두 포함하는 운영 기준정보 본문이다.", detail: [["주요 기능", "조직코드 목록/편집, 레벨 정의, 직급·직책·직군·직원유형 관리, 변경예정 검토, 이력 확인"], ["처리 로직", "임시 draft에 적재 후 변경 적용 시 실제 기준정보(state.orgBlueprint/state.metaRegistry) 반영"], ["연계 화면", "신규등록 팝업, 기록카드 수정 팝업, 조직관리, 발령입력"], ["기준정보", "state.codeDraft, syncEmployeeCodeRefs(), metaRegistry, orgBlueprint"], ["검토 포인트", "어떤 값이 기준정보이고 어떤 값이 표시용 설명인지 주석에 분명히 써야 한다."]], tag: "view", tagLabel: "기준정보" }
+      ],
       assignment: [
-        {
-          num: "06",
-          region: "pagetitle",
-          title: "조직관리 메인 화면",
-          desc: "조직도 탭, 조직개편/인사발령 이력 탭, 삭제된 조직 목록 탭을 전환하며 현재 조직과 구성원을 조회한다.",
-          detail: [
-            ["주요 기능", "좌측 조직트리, 우측 부서정보/구성원정보, 이력 조회"],
-            ["연계", "조직개편/인사발령 위저드 시작, 날짜별 이력 상세 팝업"],
-            ["검토 포인트", "현재 조직 선택 상태와 이력 탭 전환이 충돌하지 않아야 함"]
-          ],
-          tag: "view",
-          tagLabel: "메인 화면"
-        },
-        {
-          num: "07",
-          region: "pagetitle",
-          title: "1단계: 발령일자 및 처리방식",
-          desc: "조직개편 및 인사발령 적용일과 자동/수동 처리방식을 입력하고 다음 단계로 넘어간다.",
-          detail: [
-            ["입력 데이터", "조직개편/인사발령일, 처리방식"],
-            ["처리 로직", "입력값은 이후 조직개편 및 인사발령 이력의 기준일자로 사용"],
-            ["검토 포인트", "동일 날짜 중복 처리와 미입력 방어가 필요"]
-          ],
-          tag: "input",
-          tagLabel: "1단계"
-        },
-        {
-          num: "08",
-          region: "orgchart",
-          title: "2단계: Before / After 조직개편 편집",
-          desc: "기존 조직을 Before로 보여주고, After 조직에서 신설/수정/이동/폐지를 편집한 뒤 조직개편 요약을 확인한다.",
-          detail: [
-            ["주요 기능", "조직 신설, 조직명 변경, 상위조직 이동, 조직 삭제"],
-            ["처리 로직", "상위조직 이동 시 하위조직 경로도 함께 이동, 편집완료 시 부서코드 자동 재부여"],
-            ["연계", "코드관리 조직코드, 3단계 인사발령 대상 조직"],
-            ["검토 포인트", "신설/변경/폐지 내역이 요약 테이블과 일치해야 함"]
-          ],
-          tag: "action",
-          tagLabel: "2단계"
-        },
-        {
-          num: "09",
-          region: "orgchart",
-          title: "3단계: 인사발령 편집",
-          desc: "조직개편 이후 조직 기준으로 구성원을 조회하고 부서이동, 소속제외, 책임자 임면, 승급을 함께 입력한다.",
-          detail: [
-            ["주요 기능", "구성원 선택, 처리유형 지정, 발령 후 조직/직책 설정, 비고 입력"],
-            ["처리 로직", "완료 시 조직개편 적용 결과와 합쳐 사원정보/발령이력 자동 갱신"],
-            ["연계", "사원명부, 인사기록카드 발령사항, 휴직/재직 통계, 조직도"],
-            ["검토 포인트", "조직개편으로 바뀐 AFTER 조직 기준으로 대상자가 보여야 함"]
-          ],
-          tag: "action",
-          tagLabel: "3단계"
-        },
-        {
-          num: "10",
-          region: "pagetitle",
-          title: "인사발령/조직개편 이력",
-          desc: "완료된 발령은 날짜 기준으로 누적되고, 날짜 클릭 시 해당 조직개편/인사발령 상세내역을 확인해야 한다.",
-          detail: [
-            ["주요 기능", "날짜별 행 누적, 상세 팝업"],
-            ["연계", "삭제 조직 목록, 발령 후 반영 결과 검증"],
-            ["검토 포인트", "당일 여러 건 처리 시 구분 방식과 상세내역 보존 여부 확인"]
-          ],
-          tag: "view",
-          tagLabel: "이력"
-        }
+        { num: "01", region: "topbar", title: "조직관리 공통 프레임", desc: "조직개편/인사발령은 단계형 임시편집 흐름이므로 현재 단계와 편집 상태를 전역 프레임에서도 안정적으로 유지해야 한다.", detail: [["연계 화면", "조직도, 코드관리, 사원명부, 인사기록카드"], ["기준정보", "state.assignmentFlow, state.currentHrView"], ["검토 포인트", "중간 단계에서 다른 화면으로 이동 시 정책이 명확해야 한다."]], tag: "nav", tagLabel: "공통" },
+        { num: "02", region: "sidebar", title: "조직관리 관련 메뉴", desc: "조직관리, 코드관리 등 상호 의존 화면으로 이동하는 메뉴다.", detail: [["주요 기능", "조직관리 진입, 다른 HR 화면 이동"], ["연계 화면", "코드관리 기준정보, 기록카드 발령이력"], ["검토 포인트", "위저드 진행 중 화면 이탈 정책을 문서화해야 한다."]], tag: "nav", tagLabel: "메뉴" },
+        { num: "03", region: "pagetitle", title: "조직관리 상단 액션", desc: "메인 랜딩/위저드 공통 타이틀 영역으로 현재 단계와 진입 목적을 설명한다.", detail: [["주요 기능", "메인 설명, 위저드 시작 또는 현재 단계 컨텍스트"], ["처리 로직", "showHrView('assignment')와 renderAssignment() 단계 분기"], ["검토 포인트", "메인 화면과 위저드 화면의 설명이 혼동되지 않아야 한다."]], tag: "action", tagLabel: "상단 상태" },
+        { num: "04", region: "assignment-main", title: "조직관리 메인/위저드 본문", desc: "랜딩, 조직개편 위저드, 인사발령 위저드를 포함하는 전체 작업 본문이다.", detail: [["주요 기능", "조직도 탭, 이력 탭, 삭제조직 목록, 1~3단계 위저드"], ["처리 로직", "renderAssignmentLanding()/StepOne/StepTwo/StepThree()로 DOM 전체가 교체"], ["연계 화면", "조직도, 코드관리, 사원명부, 인사기록카드, 발령이력"], ["기준정보", "state.assignmentFlow, assignmentRecords, deletedOrgArchive"], ["검토 포인트", "주석 하이라이트가 실제 현재 본문을 가리켜야 한다."]], tag: "view", tagLabel: "메인" },
+        { num: "05", region: "assignment-step1", title: "1단계: 발령일자 및 처리방식", desc: "적용일과 자동/수동 모드를 입력하는 시작 단계다.", detail: [["입력 데이터", "조직개편 및 인사발령일, 처리 방식"], ["처리 로직", "입력된 changeDate는 조직개편/발령 이력의 기준일과 assignmentDate 반영 기준으로 사용"], ["기준정보", "flow.changeDate, flow.mode"], ["검토 포인트", "날짜 포맷 정규화와 필수값 방어가 문서에 있어야 한다."]], tag: "input", tagLabel: "1단계" },
+        { num: "06", region: "assignment-step2", title: "2단계: Before / After 조직개편 편집", desc: "현재 조직을 기준으로 After 조직 구조를 편집하고 변경요약을 만드는 단계다.", detail: [["주요 기능", "조직 신설, 조직명 변경, 상위조직 이동, 삭제"], ["처리 로직", "After 초안은 flow.orgDraft에 누적되고, 편집 완료 시 summarizeOrgChangesForFlow()로 요약 생성"], ["연계 화면", "코드관리 조직코드, 3단계 발령 대상 조직"], ["기준정보", "flow.orgDraft, flow.orgSummary, getBlueprintRow(), normalizeBlueprint()"], ["검토 포인트", "조직명 변경과 sourceKey 기반 동일 조직 추적 규칙을 반드시 적어야 한다."]], tag: "action", tagLabel: "2단계" },
+        { num: "07", region: "assignment-step3", title: "3단계: 인사발령 편집", desc: "조직개편 이후 조직을 기준으로 구성원을 선택하고 부서이동/소속제외/책임자 임면/승급을 함께 편집하는 단계다.", detail: [["주요 기능", "구성원 선택, 처리유형 토글, 발령 후 조직/직책/직급/비고 입력"], ["처리 로직", "완료 시 조직개편 결과와 결합하여 state.employees와 assignmentItems/history를 갱신"], ["연계 화면", "사원명부, 인사기록카드 발령사항, 조직도, 통계"], ["기준정보", "flow.personnelActions, action.types, targetOrgKey/targetOrgText, applyAssignmentFlow()"], ["검토 포인트", "발령 전/후 스냅샷 보존, 과거 이력 오염 방지 규칙이 설명에 포함돼야 한다."]], tag: "action", tagLabel: "3단계" },
+        { num: "08", region: "assignment-landing", title: "조직관리 랜딩/이력 탭", desc: "위저드 시작 전 현재 조직도, 완료 이력, 삭제 조직 목록을 조회하는 화면이다.", detail: [["주요 기능", "랜딩 조직도, 조직개편/인사발령 이력, 삭제 조직 목록"], ["연계 화면", "이력 상세 팝업, 위저드 시작"], ["기준정보", "state.assignmentLandingTab, assignmentRecords, deletedOrgArchive"], ["검토 포인트", "랜딩 설명과 위저드 설명이 같은 region에 섞이지 않도록 유지"]], tag: "view", tagLabel: "랜딩/이력" }
+      ],
+      admin: [
+        { num: "01", region: "topbar", title: "상단 공통 프레임", desc: "관리자 권한 설정도 동일한 전역 프레임 안에서 동작하며 현재 시스템/운영자 컨텍스트를 유지한다.", detail: [["연계 화면", "사원명부, 조직관리, 코드관리와 동일한 헤더"], ["검토 포인트", "관리자 화면 진입 후 복귀 시 현재 시스템 상태가 흔들리지 않아야 한다."]], tag: "nav", tagLabel: "공통" },
+        { num: "02", region: "sidebar", title: "관리자 기능 진입 메뉴", desc: "관리자 권한 화면으로 이동하는 좌측 메뉴이며 다른 운영 화면과 왕복 진입이 가능하다.", detail: [["주요 기능", "관리자 권한 설정 이동"], ["연계 화면", "권한 변경 결과는 이후 메뉴/기능 접근 제어 기준"], ["검토 포인트", "권한 없는 사용자에게는 관리자 기능 진입이 제한되어야 한다."]], tag: "nav", tagLabel: "메뉴" },
+        { num: "03", region: "pagetitle", title: "관리자 권한 상단 액션", desc: "변경 예정 내역 적용/취소를 담당하는 상단 액션 영역이다.", detail: [["주요 기능", "전체 취소, 변경 적용"], ["처리 로직", "pending admin change가 있을 때만 활성화"], ["기준정보", "hasPendingAdminChanges(), adminDraftApply/reset"], ["검토 포인트", "상단 버튼이 본문의 pending 건수와 불일치하면 안 된다."]], tag: "action", tagLabel: "상단 액션" },
+        { num: "04", region: "admin-main", title: "관리자 권한 설정 본문", desc: "전체관리자/기능별 관리자/열람자/권한그룹/조회범위/만료예정/변경이력을 한 화면에서 관리하는 운영 본문이다.", detail: [["주요 기능", "관리자 추가/삭제, 카테고리 전환, 권한 체크박스, 조회범위 선택, 변경예정/이력 관리"], ["처리 로직", "실제 반영 전 draft와 pending change를 유지하고 적용 시 adminCategories/adminHistory에 반영"], ["연계 화면", "사원명부/기록카드/조직도/조직관리/코드관리 접근 제어"], ["기준정보", "adminCategories, adminDraft, pendingChanges, permissionGroups, viewTargets"], ["검토 포인트", "누가 기준정보이고 어떤 권한이 어떤 화면을 제어하는지 설명이 충분히 상세해야 한다."]], tag: "view", tagLabel: "권한 모델" }
       ]
     };
-    const combined = [...filtered, ...((extras[state.currentHrView] || []))];
+    const combined = notesByView[state.currentHrView] || [];
     refs.annoList.innerHTML = "";
     combined.forEach((item) => {
       const div = document.createElement("div");
@@ -6841,7 +6612,14 @@ const detail = `<div class="codex-record-detail"><div class="codex-record-sheet"
           hrcard: refs.cardWrap,
           pagetitle: refs.pageTitle,
           sidebar: refs.hrSidebar,
-          topbar: $(".hr-topbar", refs.hrSystem)
+          topbar: $(".hr-topbar", refs.hrSystem),
+          "codes-main": $('[data-region="codes-main"]', panels.codes),
+          "assignment-main": $('[data-region="assignment-main"]', panels.assignment),
+          "assignment-step1": $('[data-region="assignment-step1"]', panels.assignment),
+          "assignment-step2": $('[data-region="assignment-step2"]', panels.assignment),
+          "assignment-step3": $('[data-region="assignment-step3"]', panels.assignment),
+          "assignment-landing": $('[data-region="assignment-landing"]', panels.assignment),
+          "admin-main": $('[data-region="admin-main"]', panels.admin)
         };
         const el = regionMap[item.region] || getRegionEl(item.region);
         if (!el) return;
